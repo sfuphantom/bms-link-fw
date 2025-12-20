@@ -5,3 +5,23 @@ RemoteSystemsTempFiles/.project
 **/bms-link-FW/.jxbrowser-data/
 .cproject
 .ccsproject
+# CCS / Eclipse / TI generated
+bms-link-FW/Debug/
+bms-link-FW/Release/
+bms-link-FW/.settings/
+bms-link-FW/targetConfigs/
+bms-link-FW/.launches/
+bms-link-FW/.ccsproject
+bms-link-FW/.clangd
+bms-link-FW/**/.clangd/
+bms-link-FW/**/compile_commands.json
+
+# build artifacts anywhere
+**/*.o
+**/*.obj
+**/*.out
+**/*.map
+**/*.d
+**/*.a
+**/*.lib
+
