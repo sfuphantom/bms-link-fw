@@ -87,4 +87,10 @@ void sciDisplayText(sciBASE_t *sci, uint8 *dataIn, uint8 *dataOut, uint32 length
         *dataOut++ = rx;
     };
 }
-
+void sciSend_Tx_String(sciBASE_t *sci, char *text)
+{
+    while (*text)
+    {
+        sciSendByte(UART, *text++);
+    }
+}
