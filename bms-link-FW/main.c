@@ -117,13 +117,13 @@ void main(void)
 	 * SPI3 - Slave  ( SIMO, SOMI, CLK, CS0 )
 	 * */
 	spiInit();
+	while(1){
+		/* Initiate SPI3 Transmit and Receive through Interrupt Mode */
+		spiSendAndGetData(spiREG3, &dataconfig1_t, 16, TX_Data_Slave, RX_Data_Slave);
 
-	/* Initiate SPI3 Transmit and Receive through Interrupt Mode */
-	spiSendAndGetData(spiREG2, &dataconfig1_t, 16, TX_Data_Slave, RX_Data_Slave);
-
-	/* Initiate SPI1 Transmit and Receive through Polling Mode*/
-	spiTransmitAndReceiveData(spiREG1, &dataconfig1_t, 16, TX_Data_Master, RX_Data_Master);
-
+		/* Initiate SPI1 Transmit and Receive through Polling Mode*/
+		spiTransmitAndReceiveData(spiREG1, &dataconfig1_t, 16, TX_Data_Master, RX_Data_Master);
+	}
 	while(1);
 /* USER CODE END */
 }
