@@ -7,10 +7,10 @@ Author: Mohnish Devarapalli
 
 #include "ltc6811_commands.h"
 #include "stdint.h"
-// void clock_spi();
+
+// Function declarations
+void wakeup_spi(void);  // Wake up LTC6820 ISO SPI converter
 bool write_reg(uint16_t cmd, uint8_t* data, uint8_t data_len);
-
-// bool read_reg();
-
+bool read_reg(uint16_t cmd, uint8_t* data, uint8_t data_len);
 uint16_t calculate_pec(uint8_t *data, uint8_t len);
 #endif // ISO_SPI_DRIVER_H

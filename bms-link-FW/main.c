@@ -80,6 +80,7 @@
 
 /* USER CODE BEGIN (1) */
 #include "spi.h"
+#include "iso_spi_driver.h"
 /* USER CODE END */
 
 /** @fn void main(void)
@@ -95,6 +96,44 @@ uint16 TX_Data_Master[16] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x
 uint16 TX_Data_Slave[16]  = { 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20 };
 uint16 RX_Data_Master[16] = { 0 };
 uint16 RX_Data_Slave[16]  = { 0 };
+
+/**
+ * This function tests writing configuration data to the LTC6811 BMS chip.
+ * Config Register Group A is 6 bytes and contains various configuration settings.
+ */
+bool test_write_reg(void)
+{
+    // Config Register Group A data (6 bytes)
+    // This is example data - adjust based on your configuration needs
+    // Byte 0-1: Cell discharge enable, voltage reference, etc.
+    // Byte 2-3: GPIO configuration, ADC mode, etc.
+    // Byte 4-5: Various configuration bits
+    uint8_t config_data[6] = {
+        0x00, 0x00,  // Cell discharge enable flags, voltage reference
+        0x00, 0x00,  // GPIO configuration, ADC mode
+        0x00, 0x00   // Additional configuration bits
+    };
+    
+    // Write to Config Register Group A
+    bool result = write_reg(LTC6811_WRCFGA, config_data, 6);
+    
+    return result;
+}
+
+/**
+ * This function tests reading configuration data from the LTC6811 BMS chip.
+ * Config Register Group A is 6 bytes.
+ */
+bool test_read_reg(void)
+{
+    // Buffer to store read data (6 bytes for Config Register A)
+    uint8_t read_data[6] = {0};
+    
+    // Read from Config Register Group A
+    bool result = read_reg(LTC6811_RDCFGA, read_data, 6);
+    
+    return result;
+}
 /* USER CODE END */
 
 void main(void)
@@ -117,6 +156,16 @@ void main(void)
 	 * SPI3 - Slave  ( SIMO, SOMI, CLK, CS0 )
 	 * */
 	spiInit();
+	
+	// test isoSPI driver functions
+	// first test write operation
+	bool write_success = test_write_reg();
+	
+	// add a small delay if needed (adjust based on timing requirements)
+	
+	// then test read operation
+	bool read_success = test_read_reg();
+	
 	while(1){
 		/* Initiate SPI3 Transmit and Receive through Interrupt Mode */
 		spiSendAndGetData(spiREG3, &dataconfig1_t, 16, TX_Data_Slave, RX_Data_Slave);
