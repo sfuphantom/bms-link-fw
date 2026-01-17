@@ -104,36 +104,53 @@ uint16 RX_Data_Slave[16]  = { 0 };
 bool test_write_reg(void)
 {
     // Config Register Group A data (6 bytes)
-    // This is example data - adjust based on your configuration needs
-    // Byte 0-1: Cell discharge enable, voltage reference, etc.
-    // Byte 2-3: GPIO configuration, ADC mode, etc.
-    // Byte 4-5: Various configuration bits
-    uint8_t config_data[6] = {
-        0x00, 0x00,  // Cell discharge enable flags, voltage reference
-        0x00, 0x00,  // GPIO configuration, ADC mode
-        0x00, 0x00   // Additional configuration bits
-    };
+    // // This is example data - adjust based on your configuration needs
+    // // Byte 0-1: Cell discharge enable, voltage reference, etc.
+    // // Byte 2-3: GPIO configuration, ADC mode, etc.
+    // // Byte 4-5: Various configuration bits
+    // uint8_t config_data[6] = {
+    //     0x00, 0x00,  // Cell discharge enable flags, voltage reference
+    //     0x00, 0x00,  // GPIO configuration, ADC mode
+    //     0x00, 0x00   // Additional configuration bits
+    // };
     
-    // Write to Config Register Group A
-    bool result = write_reg(LTC6811_WRCFGA, config_data, 6);
+    // // Write to Config Register Group A
+    // bool result = write_reg(LTC6811_WRCFGA, config_data, 6);
     
-    return result;
+// 6 bytes of configuration data
+    uint8_t config_bytes[6];
+
+    config_bytes[0] = 0x00; // Keep GPIOs off/high
+    config_bytes[1] = 0x00; // VUV
+    config_bytes[2] = 0x00; // VUV/VOV
+    config_bytes[3] = 0x00; // VOV
+    config_bytes[4] = 0x01; // DCC1 = 1 (Cell 1 Discharge)
+    config_bytes[5] = 0x10; // DCTO and DCC 9-12
+
+    // 1. Send WRCFG Command (0x00 0x01)
+    // 2. Send Command PEC
+    // 3. Send the 6 config_bytes
+    // 4. Send the Data PEC
+	while (1){
+	 bool result = write_reg(LTC6811_WRCFGA,  config_bytes, 6);
+	}
+	return true;
 }
 
 /**
  * This function tests reading configuration data from the LTC6811 BMS chip.
  * Config Register Group A is 6 bytes.
  */
-bool test_read_reg(void)
-{
-    // Buffer to store read data (6 bytes for Config Register A)
-    uint8_t read_data[6] = {0};
+// bool test_read_reg(void)
+// {
+//     // Buffer to store read data (6 bytes for Config Register A)
+//     uint8_t read_data[6] = {0};
     
-    // Read from Config Register Group A
-    bool result = read_reg(LTC6811_RDCFGA, read_data, 6);
+//     // Read from Config Register Group A
+//     bool result = read_reg(LTC6811_RDCFGA, read_data, 6);
     
-    return result;
-}
+//     return result;
+// }
 /* USER CODE END */
 
 void main(void)
@@ -164,15 +181,15 @@ void main(void)
 	// add a small delay if needed (adjust based on timing requirements)
 	
 	// then test read operation
-	bool read_success = test_read_reg();
+	// bool read_success = test_read_reg();
 	
-	while(1){
-		/* Initiate SPI3 Transmit and Receive through Interrupt Mode */
-		spiSendAndGetData(spiREG3, &dataconfig1_t, 16, TX_Data_Slave, RX_Data_Slave);
+	// while(1){
+	// 	/* Initiate SPI3 Transmit and Receive through Interrupt Mode */
+	// 	spiSendAndGetData(spiREG3, &dataconfig1_t, 16, TX_Data_Slave, RX_Data_Slave);
 
-		/* Initiate SPI1 Transmit and Receive through Polling Mode*/
-		spiTransmitAndReceiveData(spiREG1, &dataconfig1_t, 16, TX_Data_Master, RX_Data_Master);
-	}
+	// 	/* Initiate SPI1 Transmit and Receive through Polling Mode*/
+	// 	spiTransmitAndReceiveData(spiREG1, &dataconfig1_t, 16, TX_Data_Master, RX_Data_Master);
+	// }
 	while(1);
 /* USER CODE END */
 }
