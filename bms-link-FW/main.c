@@ -174,20 +174,25 @@ void main(void)
 	 * */
 	spiInit();
 	
-	// Test GPIO PWM SPI function in a loop to verify SPI operation on oscilloscope
+	// Test GPIO1 pulse function in a loop to verify SPI operation on oscilloscope
+	// This toggles GPIO1 by writing to CFGR0 register
 	while(1){
-		// Generate PWM pulses on S1 pin to verify SPI communication
-		// Connect oscilloscope to S1 pin to observe pulses
-		// Pulses occur at 6.44kHz with 77.6µs pulse width
-		test_gpio_pwm_spi();
+		// Set GPIO1 high (pull-down OFF) - GPIO1 bit = 1 in CFGR0
+		test_gpio1_pulse_spi(true);
 		
-		// Small delay between pulse sequences (adjust as needed)
-		// This allows time for the pulse sequence to complete before starting a new one
-		// Pulse sequence duration: ~465µs (3 pulses × 155µs period)
-		// Adding extra delay for visibility on oscilloscope
-		// Note: In a real application, you might want to use a timer or check status
+		// Delay for 0.5 seconds (half period)
+		// Machine cycle time: 5.56 nanoseconds
+		// Delay needed: 0.5 seconds = 500,000,000 nanoseconds
+		// Iterations needed: 500,000,000 / 5.56 ≈ 89,928,057
+		// Using 90,000,000 iterations for approximately 0.5 seconds
 		volatile uint32_t delay;
-		for (delay = 0; delay < 100000; delay++);  // Adjust delay as needed
+		for (delay = 0; delay < 90000000; delay++);
+		
+		// Set GPIO1 low (pull-down ON) - GPIO1 bit = 0 in CFGR0
+		test_gpio1_pulse_spi(false);
+		
+		// Delay for 0.5 seconds (half period)
+		for (delay = 0; delay < 90000000; delay++);
 	}
 /* USER CODE END */
 }
