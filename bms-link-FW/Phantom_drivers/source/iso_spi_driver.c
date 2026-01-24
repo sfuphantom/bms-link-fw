@@ -12,6 +12,7 @@
 
 #define CMD_BYTE_LENGTH 2
 #define PEC_BYTE_LENGTH 2
+#define SPI_FRAME
 
 // SPI configuration for ISO SPI communication
 // might need to change this based on hardware schematic idk 
@@ -304,7 +305,7 @@ if (calculated_data_pec != received_pec) {
     return false;
 }
 
-return true;
+  return true;
 //   // Prepare command bytes (LSB first, same as write_reg)
 //   const uint8_t cmd0 = cmd & 0xFF;
 //   const uint8_t cmd1 = (cmd >> 8) & 0xFF; 
@@ -372,4 +373,71 @@ return true;
 //   }
 
 //   return true;
+}
+
+/**
+ * Test function to generate PWM-like pulses on S pins for SPI verification
+ * 
+ * This function configures the S-Control register to generate pulses on S1 pin
+ * and starts the pulse sequence. The pulses can be observed on an oscilloscope
+ * to verify SPI communication is working correctly.
+ * 
+ * S-Control Register Format (6 bytes):
+ * - SCTRL0: SCTL2[3:0] | SCTL1[3:0]  (controls S2 and S1)
+ * - SCTRL1: SCTL4[3:0] | SCTL3[3:0]  (controls S4 and S3)
+ * - SCTRL2: SCTL6[3:0] | SCTL5[3:0]  (controls S6 and S5)
+ * - SCTRL3: SCTL8[3:0] | SCTL7[3:0]  (controls S8 and S7)
+ * - SCTRL4: SCTL10[3:0] | SCTL9[3:0] (controls S10 and S9)
+ * - SCTRL5: SCTL12[3:0] | SCTL11[3:0] (controls S12 and S11)
+ * 
+ * S pin control values:
+ * - 0x0: Drive low
+ * - 0x1-0x7: Generate 1-7 pulses (pulse rate: 6.44kHz, 155µs period, 77.6µs pulse width)
+ * - 0x8: Drive high
+ * - 0x9-0xF: Reserved
+ * 
+ * @return true if commands were sent successfully, false otherwise
+ */
+bool test_gpio_pwm_spi(void)
+{
+    // Configure S-Control register to generate pulses on S1 pin
+    // SCTRL0 byte: SCTL2[3:0] = 0x0 (S2 off) | SCTL1[3:0] = 0x3 (S1 generates 3 pulses)
+    // All other S pins set to 0x0 (off)
+    uint8_t sctrl_data[6] = {
+        0x03,  // SCTRL0: S2=0x0, S1=0x3 (3 pulses)
+        0x00,  // SCTRL1: S4=0x0, S3=0x0
+        0x00,  // SCTRL2: S6=0x0, S5=0x0
+        0x00,  // SCTRL3: S8=0x0, S7=0x0
+        0x00,  // SCTRL4: S10=0x0, S9=0x0
+        0x00   // SCTRL5: S12=0x0, S11=0x0
+    };
+    
+    // Write S-Control register
+    bool write_success = write_reg(LTC6811_WRSCTRL, sctrl_data, 6);
+    if (!write_success) {
+        return false;
+    }
+    
+    // Start S-Control pulse sequence
+    // STSCTRL command starts the pulsing after command PEC is received
+    // The command itself doesn't require data, but we need to send command + PEC
+    uint16_t stsctrl_cmd = LTC6811_STSCTRL;
+    const uint8_t cmd0 = stsctrl_cmd & 0xFF;
+    const uint8_t cmd1 = (stsctrl_cmd >> 8) & 0xFF;
+    const uint8_t cmd_array[CMD_BYTE_LENGTH] = {cmd0, cmd1};
+    const uint16_t cmd_pec = calculate_pec(cmd_array, CMD_BYTE_LENGTH);
+    
+    const uint8_t cmd_pec_lsb = (cmd_pec & 0xFF);
+    const uint8_t cmd_pec_msb = ((cmd_pec >> 8) & 0xFF);
+    
+    // Pack command + PEC into 16-bit words
+    uint16_t cmd_words[2];
+    cmd_words[0] = (cmd0 << 8) | cmd1;
+    cmd_words[1] = (cmd_pec_lsb << 8) | cmd_pec_msb;
+    
+    // Send STSCTRL command
+    iso_spi_config.CS_HOLD = FALSE;
+    spiTransmitData(ISO_SPI_MODULE, &iso_spi_config, 2, cmd_words);
+    
+    return true;
 }

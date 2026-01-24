@@ -174,23 +174,21 @@ void main(void)
 	 * */
 	spiInit();
 	
-	// test isoSPI driver functions
-	// first test write operation
-	bool write_success = test_write_reg();
-	
-	// add a small delay if needed (adjust based on timing requirements)
-	
-	// then test read operation
-	// bool read_success = test_read_reg();
-	
-	// while(1){
-	// 	/* Initiate SPI3 Transmit and Receive through Interrupt Mode */
-	// 	spiSendAndGetData(spiREG3, &dataconfig1_t, 16, TX_Data_Slave, RX_Data_Slave);
-
-	// 	/* Initiate SPI1 Transmit and Receive through Polling Mode*/
-	// 	spiTransmitAndReceiveData(spiREG1, &dataconfig1_t, 16, TX_Data_Master, RX_Data_Master);
-	// }
-	while(1);
+	// Test GPIO PWM SPI function in a loop to verify SPI operation on oscilloscope
+	while(1){
+		// Generate PWM pulses on S1 pin to verify SPI communication
+		// Connect oscilloscope to S1 pin to observe pulses
+		// Pulses occur at 6.44kHz with 77.6µs pulse width
+		test_gpio_pwm_spi();
+		
+		// Small delay between pulse sequences (adjust as needed)
+		// This allows time for the pulse sequence to complete before starting a new one
+		// Pulse sequence duration: ~465µs (3 pulses × 155µs period)
+		// Adding extra delay for visibility on oscilloscope
+		// Note: In a real application, you might want to use a timer or check status
+		volatile uint32_t delay;
+		for (delay = 0; delay < 100000; delay++);  // Adjust delay as needed
+	}
 /* USER CODE END */
 }
 
