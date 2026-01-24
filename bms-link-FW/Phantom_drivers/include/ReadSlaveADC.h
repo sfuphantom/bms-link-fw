@@ -24,7 +24,7 @@ uint16_t ByteArray2uint16_t(uint8_t* in);
 bool setupACD_init(uint8_t total_ic);
 void wakeup_sleep(uint8_t total_ic);
 bool SetRefOn(bool NewState);
-void readAllADC(uint16_t cmd, uint16_t* data, uint8_t total_ic);
+void readAllADC(uint16_t* data, uint8_t total_ic);
 
 
 void WipTheSlavesAwake(uint8_t NumOfSlaves);
