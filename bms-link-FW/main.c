@@ -1,41 +1,3 @@
-/** @file example_SPI_Master_Slave.c
-*   @brief Application main file
-*   @date 25.July.2013
-*   @version 03.06.00
-*
-*   This file contains an example of SPI1 and SPI3 Master / Slave configurations.
-*
-*   PIN Connections must be as Below
-*     ---------------         ---------------
-*     SPI1 ( Master )          SPI3 ( SLave)
-*     ---------------         ---------------
-*     SIM0             --->    SIMO
-*     S0MI             <---    SOMI
-*     CLK              --->    CLK
-*     CS0              --->    CS0
-*
-*  ------------------
-*  GUI configurations
-*  ------------------
-*  1) Driver TAB
-*       - Select SPI3
-*       - Select SPI1
-*  2) VIm Channel 0-31
-*       - Enable SPI3 Level 0 and Level 1 channels.
-*  3) SPI3 TAB
-*       - SPI3 Global SubTAB
-*       	- Uncheck Master Mode
-*       	- Uncheck Internal Clock
-*       - SPI3 Port SubTAB
-*       	- Uncheck DIR for CS 0
-*  3) SPI1 TAB
-*       - Have it default
-*  4) Generate Code.
-*
-*/
-
-/* (c) Texas Instruments 2009-2013, All rights reserved. */
-
 /* 
 * Copyright (C) 2009-2015 Texas Instruments Incorporated - www.ti.com
 * 
@@ -79,54 +41,64 @@
 #include "system.h"
 
 /* USER CODE BEGIN (1) */
-#include "spi.h"
+#include "can.h"
+
+/* Include ESM header file - types, definitions and function declarations for system driver */
+#include "esm.h"
+
+#define  D_SIZE 9
+
+uint8  tx_data[D_SIZE]  = {'H','E','R','C','U','L','E','S','\0'};
+uint8  rx_data[D_SIZE] = {0};
+uint32 error = 0;
+
+uint32 checkPackets(uint8 *src_packet,uint8 *dst_packet,uint32 psize);
 /* USER CODE END */
 
-/** @fn void main(void)
-*   @brief Application main function
-*   @note This function is empty by default.
-*
-*   This function is called after startup.
-*   The user can use this function to implement the application.
-*/
 
 /* USER CODE BEGIN (2) */
-uint16 TX_Data_Master[16] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10 };
-uint16 TX_Data_Slave[16]  = { 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20 };
-uint16 RX_Data_Master[16] = { 0 };
-uint16 RX_Data_Slave[16]  = { 0 };
 /* USER CODE END */
+
 
 void main(void)
 {
 /* USER CODE BEGIN (3) */
 
-	spiDAT1_t dataconfig1_t;
+    /* initialize can 1 and 2   */
+    canInit(); /* can1 -> can2 */
 
-	dataconfig1_t.CS_HOLD = FALSE;
-	dataconfig1_t.WDEL    = TRUE;
-	dataconfig1_t.DFSEL   = SPI_FMT_0;
-	dataconfig1_t.CSNR    = 0xFE;
+    /* transmit on can1 */
+    while(1){
+        canTransmit(canREG1, canMESSAGE_BOX1, tx_data);
+//
+//    /*... wait until message receive on can2 */
+//        while(!canIsRxMessageArrived(canREG1, canMESSAGE_BOX2));
+//
+//        canGetData(canREG1, canMESSAGE_BOX2, rx_data);  /* receive on can2  */
+////
+////    /* check received data patterns */
+//        error = checkPackets(&tx_data[0],&rx_data[0],D_SIZE);
+    }
 
+    /* ... run forever */
+    while(1);
 
-	/* Enable CPU Interrupt through CPSR */
-	_enable_IRQ();
-
-	/* Initialize SPI Module Based on GUI configuration
-	 * SPI1 - Master ( SIMO, SOMI, CLK, CS0 )
-	 * SPI3 - Slave  ( SIMO, SOMI, CLK, CS0 )
-	 * */
-	spiInit();
-	while(1){
-		/* Initiate SPI3 Transmit and Receive through Interrupt Mode */
-		spiSendAndGetData(spiREG3, &dataconfig1_t, 16, TX_Data_Slave, RX_Data_Slave);
-
-		/* Initiate SPI1 Transmit and Receive through Polling Mode*/
-		spiTransmitAndReceiveData(spiREG1, &dataconfig1_t, 16, TX_Data_Master, RX_Data_Master);
-	}
-	while(1);
 /* USER CODE END */
 }
 
 /* USER CODE BEGIN (4) */
+uint32 checkPackets(uint8 *src_packet,uint8 *dst_packet,uint32 psize)
+{
+   uint32 err=0;
+   uint32 cnt=psize;
+
+   while(cnt--)
+   {
+     if((*src_packet++) != (*dst_packet++))
+     {
+        err++;           /*  data error  */
+     }
+   }
+   return (err);
+}
 /* USER CODE END */
