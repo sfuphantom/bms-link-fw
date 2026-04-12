@@ -80,8 +80,9 @@
 
 /* USER CODE BEGIN (1) */
 #include "spi.h"
-/* USER CODE END */
 
+/* USER CODE END */
+//#define SPI_Test
 /** @fn void main(void)
 *   @brief Application main function
 *   @note This function is empty by default.
@@ -90,6 +91,7 @@
 *   The user can use this function to implement the application.
 */
 
+#ifdef SPI_Test
 /* USER CODE BEGIN (2) */
 uint16 TX_Data_Master[16] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10 };
 uint16 TX_Data_Slave[16]  = { 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20 };
@@ -103,10 +105,10 @@ void main(void)
 
 	spiDAT1_t dataconfig1_t;
 
-	dataconfig1_t.CS_HOLD = FALSE;
+	dataconfig1_t.CS_HOLD = TRUE;
 	dataconfig1_t.WDEL    = TRUE;
 	dataconfig1_t.DFSEL   = SPI_FMT_0;
-	dataconfig1_t.CSNR    = 0xFE;
+	dataconfig1_t.CSNR    = 0xFF;
 
 
 	/* Enable CPU Interrupt through CPSR */
@@ -128,5 +130,22 @@ void main(void)
 /* USER CODE END */
 }
 
+#else
+#include "SlaveCommunication.h"
+
+uint16_t VoltData[NUMBER_OF_CELLS];
+
+void main(void)
+{
+/* USER CODE BEGIN (3) */
+    _enable_IRQ();
+    spiInit();
+    initLink();
+    while(1)
+        ReadAllSlaves_Volt(VoltData);
+/* USER CODE END */
+}
 /* USER CODE BEGIN (4) */
 /* USER CODE END */
+
+#endif

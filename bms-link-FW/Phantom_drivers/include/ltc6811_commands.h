@@ -10,6 +10,9 @@
 #define LTC6811_WRCFGB        0x0204  // Write Config Register Group B
 #define LTC6811_RDCFGB        0x0206  // Read  Config Register Group B
 
+
+#define LTC6811_PLADC        0b11100010100
+
 //-------------------------------------------------------------
 // CELL VOLTAGE REGISTER READ COMMANDS (A–D)
 //-------------------------------------------------------------
