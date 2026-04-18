@@ -8,7 +8,7 @@ Author: Tanjosh Sidhu
 #include "spi.h"
 
 /////////////////////////////////////////////////////////////////
-
+//
 #define NUMBER_OF_SLAVE_BOARDS      1
 #define CELLS_PER_SLAVE_BOARD       12
 #define NUMBER_OF_CELLS             (CELLS_PER_SLAVE_BOARD * NUMBER_OF_SLAVE_BOARDS)
@@ -16,14 +16,28 @@ Author: Tanjosh Sidhu
 #define NUMBER_OF_CELL_CMD_GROUPS       4
 #define NUMBER_OF_CELLS_PER_CMD_PER_SLAVE_BOARD     (CELLS_PER_SLAVE_BOARD / NUMBER_OF_CELL_CMD_GROUPS)
 
-#define REG_FOR_SPI spiREG1
-#define CS_HIGH 0U
-#define CS_LOW  0x04000000U
-#define CS_HOLD_MASK 0x10000000U
 
+/////////////////////////////////////////////////
+//SPI
+
+#define REG_FOR_SPI     spiREG1
+#define CS_HOLD_MASK    0x10000000U
+#define CS_PIN_MASK     0xFEU//0b11111110 << Active low
+#define SPI_WDEL        TRUE
+
+#define SPI_CONFIG0_WORD (((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_0 << 24U) | (uint32)CS_PIN_MASK<<16)
+#define SPI_CONFIG1_WORD (((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_1 << 24U) | (uint32)CS_PIN_MASK<<16)
+
+
+///////////////////////////////////////////////////
+//
 #define REFON_BIT 2
-#define CFGA_BYTES 6
-#define CFGA_HALF_WORDS (CFGA_BYTES / 2)
+#define REFON_MASK 0x04
+
+#define BYTES_REG_GROUP 6
+#define WORD_REG_GROUP (BYTES_REG_GROUP / 2)
+
+#define NUMBER_OF_SHIFT_BYTES ((NUMBER_OF_SLAVE_BOARDS+1)/2)
 
 //////////////////////////////////////////////////////////////////
 #define tWAKE_us  400
@@ -31,23 +45,17 @@ Author: Tanjosh Sidhu
 #define tREFUP_us 400
 #define tSLEEP_ms 2200
 #define tREFUP_us 4400
+#define tIDEL_us  4300
 #define fADC_kHz  3300
 //////////////////////////////////////////////////////////////////
-#define SPI_DUMMY_DATA 0x0000
-#define SPI_DUMMY_CMD  0x0000
+#define SPI_DUMMY_DATA_BYTE 0xFF
+#define SPI_DUMMY_DATA_WORD 0xFFFF
+#define SPI_DUMMY_DATA_INT 0xFFFF FFFF
+#define SPI_DUMMY_DATA_LONG 0xFFFF FFFF FFFF FFFF
+//#define SPI_DUMMY_DATA 0xFFFF
+#define SPI_DUMMY_CMD  0xFFFF
 
-
-#define CS_LL    0b1010
-#define CS_HH    0b1111
-#define CS_LH    0b1011
-#define CS_HL    0b1110
-#define CS_XH    0b0011
-#define CS_XL    0b0010
-#define CS_LX    0b1000
-#define CS_HX    0b1100
-#define CS_XX    0b0000
-
-#define MINUS1 0xFFFF FFFF FFFF FFFF
+#define MINUS1_32 0xFFFF FFFF FFFF FFFF
 //////////////////////////////////////////////////////////////////
 struct SlaveBatteryCellData_struct {
   uint16_t Temp[NUMBER_OF_CELLS];
@@ -59,7 +67,10 @@ void delay_ms_us(uint32_t ms, uint32_t us);
 
 uint16_t pec15_calc(uint8_t len, uint16_t *data);
 uint32 GetChipSelect();
-uint16_t SPI_SR2Link_HalfWord(uint16_t Tx, uint32 regConfig);
+
+uint16_t SPI_SR2Link_HalfWord(uint16_t Tx, bool CS_LOW_END);
+uint8_t SPI_SR2Link_Byte(uint8_t Tx, bool CS_LOW_END);
+
 
 uint32 SPI_SendAndRecevie_Links(uint16_t* Tx, uint16_t* Rx, uint32 MsgSize, bool CS_Config);
 uint32 SPI_Recevie_Links(uint16_t* Rx, uint32 MsgSize,  bool CS_Config);
@@ -76,7 +87,3 @@ void initLink();
 void CommandAllFullSlave2Read(uint16_t* cmds, uint16_t* dataOut);
 void ReadAllSlaves_Volt(uint16_t* dataOut);
 ///////////////////////////////////////////////////////////////
-
-
-
-

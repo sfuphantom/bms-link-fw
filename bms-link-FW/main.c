@@ -24,10 +24,10 @@
 *       - Enable SPI3 Level 0 and Level 1 channels.
 *  3) SPI3 TAB
 *       - SPI3 Global SubTAB
-*       	- Uncheck Master Mode
-*       	- Uncheck Internal Clock
+*           - Uncheck Master Mode
+*           - Uncheck Internal Clock
 *       - SPI3 Port SubTAB
-*       	- Uncheck DIR for CS 0
+*           - Uncheck DIR for CS 0
 *  3) SPI1 TAB
 *       - Have it default
 *  4) Generate Code.
@@ -103,37 +103,44 @@ void main(void)
 {
 /* USER CODE BEGIN (3) */
 
-	spiDAT1_t dataconfig1_t;
+    spiDAT1_t dataconfig1_t;
 
-	dataconfig1_t.CS_HOLD = TRUE;
-	dataconfig1_t.WDEL    = TRUE;
-	dataconfig1_t.DFSEL   = SPI_FMT_0;
-	dataconfig1_t.CSNR    = 0xFF;
+    dataconfig1_t.CS_HOLD = TRUE;
+    dataconfig1_t.WDEL    = TRUE;
+    dataconfig1_t.DFSEL   = SPI_FMT_0;
+    dataconfig1_t.CSNR    = 0xFE;
 
 
-	/* Enable CPU Interrupt through CPSR */
-	_enable_IRQ();
+    /* Enable CPU Interrupt through CPSR */
+    _enable_IRQ();
 
-	/* Initialize SPI Module Based on GUI configuration
-	 * SPI1 - Master ( SIMO, SOMI, CLK, CS0 )
-	 * SPI3 - Slave  ( SIMO, SOMI, CLK, CS0 )
-	 * */
-	spiInit();
-	while(1){
-		/* Initiate SPI3 Transmit and Receive through Interrupt Mode */
-		spiSendAndGetData(spiREG3, &dataconfig1_t, 16, TX_Data_Slave, RX_Data_Slave);
+    /* Initialize SPI Module Based on GUI configuration
+     * SPI1 - Master ( SIMO, SOMI, CLK, CS0 )
+     * SPI3 - Slave  ( SIMO, SOMI, CLK, CS0 )
+     * */
+    spiInit();
+    while(1){
+        /* Initiate SPI3 Transmit and Receive through Interrupt Mode */
+        spiSendAndGetData(spiREG3, &dataconfig1_t, 16, TX_Data_Slave, RX_Data_Slave);
 
-		/* Initiate SPI1 Transmit and Receive through Polling Mode*/
-		spiTransmitAndReceiveData(spiREG1, &dataconfig1_t, 16, TX_Data_Master, RX_Data_Master);
-	}
-	while(1);
+        /* Initiate SPI1 Transmit and Receive through Polling Mode*/
+        spiTransmitAndReceiveData(spiREG1, &dataconfig1_t, 16, TX_Data_Master, RX_Data_Master);
+    }
+    while(1);
 /* USER CODE END */
 }
 
 #else
 #include "SlaveCommunication.h"
+#include "ltc6811_commands.h"
 
 uint16_t VoltData[NUMBER_OF_CELLS];
+
+uint16_t REGA[WORD_REG_GROUP];
+uint16_t REGB[WORD_REG_GROUP];
+uint16_t Read_Reg_A[WORD_REG_GROUP];
+uint16_t Read_Reg_B[WORD_REG_GROUP];
+uint16_t pec_test[7]={0,1,2,2,2,2,2};
 
 void main(void)
 {
@@ -141,8 +148,38 @@ void main(void)
     _enable_IRQ();
     spiInit();
     initLink();
-    while(1)
-        ReadAllSlaves_Volt(VoltData);
+
+    uint16_t pec1 = pec15_calc(1, &pec_test[0]);
+    uint16_t pec2 = pec15_calc(1, &pec_test[1]);
+    uint16_t pec3 = pec15_calc(1, &pec_test[3]);
+    uint16_t pec4 = pec15_calc(5, &pec_test[2]);
+
+    int i, in;
+
+
+
+
+    while(1){
+//        uint16_t SPI_SR2Link_Word(uint16_t Tx, bool CS_LOW_END)
+//        SPI_SR2Link_Word(0xFFFF, FALSE);
+//        SPI_SR2Link_Byte(0xFF, FALSE);
+//        wakeup_sleep()
+
+        REGA[0] = i+0;
+        REGA[1] = i+1;
+        REGA[2] = i+2;
+        REGB[0] = i+0;
+        REGB[1] = i+1;
+        REGB[2] = i+2;
+
+//        bytes_to_words(CFGA_Bytes, CFGA_Words, WORD_REG_GROUP);
+//        bytes_to_words(CFGB_Bytes, CFGB_Words, WORD_REG_GROUP);
+        ReadReg(LTC6811_RDCFGA, Read_Reg_A);
+        ReadReg(LTC6811_RDCFGB, Read_Reg_B);
+        WriteReg(LTC6811_WRCFGA, REGA);
+        WriteReg(LTC6811_WRCFGB, REGB);
+//        ReadAllSlaves_Volt(VoltData);
+    }
 /* USER CODE END */
 }
 /* USER CODE BEGIN (4) */
