@@ -18,6 +18,7 @@ C_SRCS += \
 ../BMS_Master/source/Fapi_UserDefinedFunctions.c \
 ../BMS_Master/source/adc.c \
 ../BMS_Master/source/can.c \
+../BMS_Master/source/charger_can.c \
 ../BMS_Master/source/crc.c \
 ../BMS_Master/source/dcc.c \
 ../BMS_Master/source/ecap.c \
@@ -66,6 +67,7 @@ C_DEPS += \
 ./BMS_Master/source/Fapi_UserDefinedFunctions.d \
 ./BMS_Master/source/adc.d \
 ./BMS_Master/source/can.d \
+./BMS_Master/source/charger_can.d \
 ./BMS_Master/source/crc.d \
 ./BMS_Master/source/dcc.d \
 ./BMS_Master/source/ecap.d \
@@ -115,6 +117,7 @@ OBJS += \
 ./BMS_Master/source/adc.obj \
 ./BMS_Master/source/ajsm.obj \
 ./BMS_Master/source/can.obj \
+./BMS_Master/source/charger_can.obj \
 ./BMS_Master/source/crc.obj \
 ./BMS_Master/source/dabort.obj \
 ./BMS_Master/source/dcc.obj \
@@ -177,6 +180,7 @@ OBJS__QUOTED += \
 "BMS_Master\source\adc.obj" \
 "BMS_Master\source\ajsm.obj" \
 "BMS_Master\source\can.obj" \
+"BMS_Master\source\charger_can.obj" \
 "BMS_Master\source\crc.obj" \
 "BMS_Master\source\dabort.obj" \
 "BMS_Master\source\dcc.obj" \
@@ -230,6 +234,7 @@ C_DEPS__QUOTED += \
 "BMS_Master\source\Fapi_UserDefinedFunctions.d" \
 "BMS_Master\source\adc.d" \
 "BMS_Master\source\can.d" \
+"BMS_Master\source\charger_can.d" \
 "BMS_Master\source\crc.d" \
 "BMS_Master\source\dcc.d" \
 "BMS_Master\source\ecap.d" \
@@ -286,6 +291,7 @@ C_SRCS__QUOTED += \
 "../BMS_Master/source/Fapi_UserDefinedFunctions.c" \
 "../BMS_Master/source/adc.c" \
 "../BMS_Master/source/can.c" \
+"../BMS_Master/source/charger_can.c" \
 "../BMS_Master/source/crc.c" \
 "../BMS_Master/source/dcc.c" \
 "../BMS_Master/source/ecap.c" \

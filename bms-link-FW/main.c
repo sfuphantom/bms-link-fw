@@ -42,21 +42,78 @@
 
 /* USER CODE BEGIN (1) */
 #include "can.h"
+#include "charger_can.h"
 
 /* Include ESM header file - types, definitions and function declarations for system driver */
 #include "esm.h"
 
-#define  D_SIZE 9
+#define D_SIZE 9
+#define LOOPBACK_TEST 0
 
-uint8  tx_data[D_SIZE]  = {'H','E','R','C','U','L','E','S','\0'};
-uint8  rx_data[D_SIZE] = {0};
+uint8 tx_data[D_SIZE] = {'H','E','R','C','U','L','E','S','\0'};
+uint8 rx_data[D_SIZE] = {0};
 uint32 error = 0;
 
-uint32 checkPackets(uint8 *src_packet,uint8 *dst_packet,uint32 psize);
+uint32 checkPackets(uint8 *src_packet, uint8 *dst_packet, uint32 psize);
+void CAN_Loopback_test();
+void send_CAN_packets(ChargerCmd_t cmd);
 /* USER CODE END */
 
 
 /* USER CODE BEGIN (2) */
+void CAN_Loopback_test(){
+    canEnableloopback(canREG1, Internal_Lbk);
+    canUpdateID(canREG1, canMESSAGE_BOX2, (uint32)0x40000000U | (uint32)0x00000000U | (uint32)(0x1806E5F4U & 0x1FFFFFFFU));
+
+    ChargerCmd_t test_cmd = {
+       .max_voltage_dV = 4000U,
+       .max_current_dA = 200U,
+       .charge_enable  = 1U
+    };
+
+    ChargerStatus_t received = {0};
+    uint32 result = 0U;
+    uint32 voltage_ok = 0U;
+    uint32 current_ok = 0U;
+    uint32 test_pass = 0U;
+
+    Charger_SendCmd(&test_cmd);
+
+    while (!canIsRxMessageArrived(canREG1, canMESSAGE_BOX2));
+
+    uint8_t test_buf[8] = {0};
+    canGetData(canREG1, canMESSAGE_BOX2, test_buf);
+
+    result = Charger_GetStatus(&received);
+
+    voltage_ok = (received.output_voltage_dV == 4000U) ? 1U : 0U;
+    current_ok = (received.output_current_dA == 200U)  ? 1U : 0U;
+    test_pass = (voltage_ok && current_ok) ? 1U : 0U;
+}
+
+void send_CAN_packets(ChargerCmd_t cmd){
+//    can_error = canGetLastError(canREG1);
+//    can_level = canGetErrorLevel(canREG1);
+    uint32 tx_result;
+    ChargerStatus_t status = {0};
+
+    if (Charger_GetStatus(&status) != 0U) { }
+    tx_result = Charger_SendCmd(&cmd);
+
+    // Receive CAN messages
+    if (Charger_GetStatus(&status) != 0U)
+    {
+       if (status.status_flags == 0U){
+           cmd.charge_enable = 1U;
+       }
+       else{
+           cmd.charge_enable = 0U;
+           if (status.status_flags == CHARGER_FLAG_HW_FAULT)
+       }
+    }
+
+    Charger_SendCmd(&cmd);
+}
 /* USER CODE END */
 
 
@@ -64,30 +121,35 @@ void main(void)
 {
 /* USER CODE BEGIN (3) */
 
-    /* initialize can 1 and 2   */
-    canInit(); /* can1 -> can2 */
+    canInit();
 
-    /* transmit on can1 */
-    while(1){
-        canTransmit(canREG1, canMESSAGE_BOX1, tx_data);
-//
-//    /*... wait until message receive on can2 */
-//        while(!canIsRxMessageArrived(canREG1, canMESSAGE_BOX2));
-//
-//        canGetData(canREG1, canMESSAGE_BOX2, rx_data);  /* receive on can2  */
-////
-////    /* check received data patterns */
-//        error = checkPackets(&tx_data[0],&rx_data[0],D_SIZE);
-    }
-
-    /* ... run forever */
+#if LOOPBACK_TEST
+    void CAN_Loopback_test();
     while(1);
 
+#else
+       // CMD is a packet stuffed with arbitrary values
+       ChargerCmd_t cmd = {0};
+       cmd.max_voltage_dV = 4000U;
+       cmd.max_current_dA = 200U;
+       cmd.charge_enable = 0U;
+
+
+       //testing
+//       uint32 can_error = canGetLastError(canREG1);
+//       uint32 can_level = canGetErrorLevel(canREG1);
+
+       while(1)
+       {
+           send_CAN_packets(cmd);
+       }
+
+#endif
 /* USER CODE END */
 }
 
 /* USER CODE BEGIN (4) */
-uint32 checkPackets(uint8 *src_packet,uint8 *dst_packet,uint32 psize)
+uint32 checkPackets(uint8 *src_packet, uint8 *dst_packet, uint32 psize)
 {
    uint32 err=0;
    uint32 cnt=psize;
@@ -102,3 +164,5 @@ uint32 checkPackets(uint8 *src_packet,uint8 *dst_packet,uint32 psize)
    return (err);
 }
 /* USER CODE END */
+
+
