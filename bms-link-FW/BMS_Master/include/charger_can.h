@@ -9,6 +9,7 @@
 #define BMS_MASTER_INCLUDE_CHARGER_CAN_H_
 
 #include "can.h"
+#include "stdint.h"
 
 #define CHARGER_TX_BOX canMESSAGE_BOX1
 #define CHARGER_RX_BOX canMESSAGE_BOX2

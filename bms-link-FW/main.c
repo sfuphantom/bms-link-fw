@@ -43,6 +43,7 @@
 /* USER CODE BEGIN (1) */
 #include "can.h"
 #include "charger_can.h"
+#include "vcu_can.h"
 
 /* Include ESM header file - types, definitions and function declarations for system driver */
 #include "esm.h"
@@ -71,21 +72,27 @@ void main(void)
     while(1);
 
 #else
-       // CMD is a packet stuffed with arbitrary values
-       ChargerCmd_t cmd = {0};
-       ChargerStatus_t s = {0};
+    // Packets are all arbitrary values atm.
+    // Charger Packets
+    ChargerCmd_t cmd = {0};
+    ChargerStatus_t s = {0};
 
-       cmd.max_voltage_dV = 4000;
-       cmd.max_current_dA = 200;
-       cmd.charge_enable = 0;
+    cmd.max_voltage_dV = 4000;
+    cmd.max_current_dA = 200;
+    cmd.charge_enable = 0;
 
-       //testing
-//       uint32 can_error = canGetLastError(canREG1);
-//       uint32 can_level = canGetErrorLevel(canREG1);
+    //VCU
+    BMSStatusFlags_t bms_flags = {0};
 
-       while(1){
-           Charger_Update(&cmd, &s);
-       }
+    bms_flags.bms_fault = 0;
+    bms_flags.imd_fault = 0;
+    bms_flags.hv_active = 1;
+
+    while(1){
+        Charger_Update(&cmd, &s);
+
+        VCU_TransmitStatus(&bms_flags);
+    }
 
 #endif
 /* USER CODE END */
