@@ -20,6 +20,7 @@ main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_tcram.h
 main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/can.h
 main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_can.h
 main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/charger_can.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/vcu_can.h
 main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/esm.h
 main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_esm.h
 
@@ -43,5 +44,6 @@ C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_tcram.h:
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/can.h: 
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_can.h: 
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/charger_can.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/vcu_can.h: 
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/esm.h: 
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_esm.h: 
