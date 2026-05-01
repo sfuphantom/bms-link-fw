@@ -79,7 +79,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="Phantom_drivers/source/SlaveCommunication - Copy.c|Phantom_drivers/source/iso_spi_driver.c|BMS_Master/source/sys_main.c|BMS_Master/source/sys_link.cmd" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Phantom_drivers/source/iso_spi_driver.c|BMS_Master/source/sys_main.c|BMS_Master/source/sys_link.cmd" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

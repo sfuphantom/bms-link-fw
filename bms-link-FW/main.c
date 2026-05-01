@@ -80,9 +80,14 @@
 
 /* USER CODE BEGIN (1) */
 #include "spi.h"
+#include "SlaveCommunication.h"
+#include "ltc6811_commands.h"
+
+//#define SPI_Test
+
 
 /* USER CODE END */
-//#define SPI_Test
+
 /** @fn void main(void)
 *   @brief Application main function
 *   @note This function is empty by default.
@@ -93,7 +98,7 @@
 
 #ifdef SPI_Test
 /* USER CODE BEGIN (2) */
-uint16 TX_Data_Master[16] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10 };
+uint16 TX_Data_Master[16] = { 0x02, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10 };
 uint16 TX_Data_Slave[16]  = { 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20 };
 uint16 RX_Data_Master[16] = { 0 };
 uint16 RX_Data_Slave[16]  = { 0 };
@@ -121,20 +126,24 @@ void main(void)
     spiInit();
     while(1){
         /* Initiate SPI3 Transmit and Receive through Interrupt Mode */
+
         spiSendAndGetData(spiREG3, &dataconfig1_t, 16, TX_Data_Slave, RX_Data_Slave);
 
         /* Initiate SPI1 Transmit and Receive through Polling Mode*/
+        setCS(LOW);
         spiTransmitAndReceiveData(spiREG1, &dataconfig1_t, 16, TX_Data_Master, RX_Data_Master);
+        setCS(HIGH);
     }
     while(1);
 /* USER CODE END */
 }
 
 #else
-#include "SlaveCommunication.h"
-#include "ltc6811_commands.h"
+
 
 uint16_t VoltData[NUMBER_OF_CELLS];
+uint16_t GPIO_Data[GPIOS_PER_SLAVE_BOARD];
+uint16_t S_Control[12];
 
 uint16_t REGA[WORD_REG_GROUP];
 uint16_t REGB[WORD_REG_GROUP];
@@ -154,30 +163,75 @@ void main(void)
     uint16_t pec3 = pec15_calc(1, &pec_test[3]);
     uint16_t pec4 = pec15_calc(5, &pec_test[2]);
 
-    int i, in;
+    int i;
 
+    REGA[0] = 0x8000;
+    REGA[1] = 0xFFFF;
+    REGA[2] = 0x0001;
+    REGB[0] = 0x5555;
+    REGB[1] = 0xAAAA;
+    REGB[2] = 0xAAAA;
+    WriteReg(LTC6811_WRCFGA, REGB);
 
+    // After spiInit(), read back:
+    uint32_t gcr1 = spiREG1->GCR1;
+    uint32_t iolpbk = spiREG1->IOLPKTSTCR;
 
+    bool ReadV, ReadG;
+
+//    Write_CFGR_General( 1, 0, 0x1F, 0x0AAA, 0x1, 0x000,0x000);
 
     while(1){
-//        uint16_t SPI_SR2Link_Word(uint16_t Tx, bool CS_LOW_END)
-//        SPI_SR2Link_Word(0xFFFF, FALSE);
-//        SPI_SR2Link_Byte(0xFF, FALSE);
-//        wakeup_sleep()
+//        SPI_SR2Link_WORD(0x1371);
+//        SPI_SR2Link_WORD(0xF0F0);
+//        SPI_SR2Link_WORD(0xAAAA);
+//        SPI_SR2Link_QWORD(0x0000FFFF0000FFFF, FALSE);
+//        SPI_SR2Link_QWORD(0xAAAAAAAAAAAAAAAA, TRUE);
 
-        REGA[0] = i+0;
-        REGA[1] = i+1;
-        REGA[2] = i+2;
-        REGB[0] = i+0;
-        REGB[1] = i+1;
-        REGB[2] = i+2;
+//        delay_ms_us(0, 2);
+//        delay_ms_us(0, 2);
+
+//        SPI_SR2Link_BYTE(0xFF);
+//
+//        setCS(HIGH);
+//        delay_ms_us(0, 1);
+//        wakeup_sleep();
+
+
 
 //        bytes_to_words(CFGA_Bytes, CFGA_Words, WORD_REG_GROUP);
 //        bytes_to_words(CFGB_Bytes, CFGB_Words, WORD_REG_GROUP);
+//        uint32 Pec = ReadReg(LTC6811_RDCFGA, Read_Reg_A);
+//        ReadReg(LTC6811_RDCFGB, Read_Reg_B);
+
+        ReadV = GetVoltageReadings(VoltData);
+        ReadG = GetGPIOReadings(GPIO_Data);
+        if(ReadV && ReadG){
+            MeasureALL(3,0);
+        }
+
+
         ReadReg(LTC6811_RDCFGA, Read_Reg_A);
-        ReadReg(LTC6811_RDCFGB, Read_Reg_B);
-        WriteReg(LTC6811_WRCFGA, REGA);
-        WriteReg(LTC6811_WRCFGB, REGB);
+//        Write_CFGR_General( 1, 0, 0x1F, 0x0AAA, 0x5, 0x000,0x000);
+        if (i & 0x0F){
+            i=1;
+        }
+        else
+            i++;
+//        ReadReg(LTC6811_RDCFGB, Read_Reg_B);
+//
+//        WriteReg(LTC6811_WRCFGA, REGA);
+//        WriteReg(LTC6811_WRCFGB, REGB);
+
+
+        REGA[0] = 0xAAAA;
+        REGA[1] = 0xAAAA;
+        REGA[2] = 0xAAAA;
+        REGB[0] = 0xAAAA;
+        REGB[1] = 0xAAAA;
+        REGB[2] = 0xAAAA;
+//        WriteReg(LTC6811_WRCFGA, REGA);
+//        WriteReg(LTC6811_WRCFGB, REGB);
 //        ReadAllSlaves_Volt(VoltData);
     }
 /* USER CODE END */
