@@ -40,15 +40,18 @@ void bytes_to_words(uint8_t *bytes, uint16_t *words, uint16_t len){
                    ((uint16_t)bytes[2*i+1] << 8);
     }
 }
+uint16_t swap_word_bytes(uint16_t input){
+    uint16_t FirstByte = (input >> 8) & 0xFF;
+    uint16_t LastByte  = (input << 8);
+    uint16_t output = FirstByte | LastByte;
+    return output;
+}
  void swap_word_bytes_arr(uint16_t *input, uint16_t *output, uint16_t len){
     uint16_t i;
     for (i = 0; i < len; i++)
-        output[i] = (uint16_t)((input[i] >> 8) | (input[i] << 8));
+        output[i] = swap_word_bytes(input[i]);
  }
- uint16_t swap_word_bytes(uint16_t input){
-     uint16_t output = (input >> 8) | (input << 8);
-     return output;
- }
+
 //----------------------------------------------------------------------------------------
 void delay_ms_us(uint32_t ms, uint32_t us){
     volatile uint32_t i, j;
@@ -63,6 +66,24 @@ void delay_ms_us(uint32_t ms, uint32_t us){
         for (j = 0; j < loops_per_us; j++);
     }
 }
+
+
+float ADC2Volt(uint16_t ADC_Word){
+    uint16_t ADC_Mask = ADC_Word & ADC_RESOLUTION_BIT_MASK;
+    float Volt = ADC_Mask * ADC_RESOLUTION_VOLTS;
+    return Volt;
+}
+
+void ADC2Volt_arr(uint16_t* ADC_Words, float* Volts, uint16_t len){
+    int i;
+    for(i=0; i<len; i++)
+        Volts[i] = ADC2Volt(ADC_Words[i]);
+}
+
+
+
+//----------------------------------------------------------------------------------------
+
 
 uint16_t pec15Table[256];
 #define PEC_INIT_VALUE 0x0010
@@ -215,10 +236,12 @@ void init_PEC15_Table(){
 
  uint16_t ReadWriteReg(uint16_t cmd, uint16_t* data_Tx, uint16_t* data_Rx){
      uint16_t Pec_Equal = 0x0000;
-
 //     wakeup_idle();
      setCS(LOW);
      uint32_t cmdRx = SendCmd2Slave(cmd);
+
+//     swap_word_bytes_arr(data_Tx, data_Tx, WORD_REG_GROUP);
+//     delay_ms_us(0,10);
 
      int i;
      uint16_t Rx_Pec_Mesg, Rx_Pec_Calc;
@@ -234,13 +257,18 @@ void init_PEC15_Table(){
      }
 
      setCS(HIGH);
+
+//
      return Pec_Equal;
  }
  uint32 WriteReg(uint16_t cmd, uint16_t *data){
+//     swap_word_bytes_arr(data, data, WORD_REG_GROUP);
      return ReadWriteReg(cmd, data, NULL);
  }
  uint32 ReadReg(uint16_t cmd, uint16_t *data){
-     return ReadWriteReg(cmd, NULL, data);
+     uint16_t data_Pec = ReadWriteReg(cmd, NULL, data);
+     swap_word_bytes_arr(data, data, WORD_REG_GROUP);
+     return data_Pec;
   }
 
  //------------------------------------------------
@@ -392,7 +420,7 @@ uint32 MeasureALL(uint8_t MD, //ADC Mode
 //void DischargeCells (uint16_t DCC)
 
 
-void Write_CFGR_General( bool refon, // The REFON bit
+uint32 Write_CFGR_General( bool refon, // The REFON bit
                          bool adcopt, // The ADCOPT bit
                          uint8_t gpio, // The GPIO bits
                          uint16_t DCC, // The DCC bits
@@ -400,13 +428,16 @@ void Write_CFGR_General( bool refon, // The REFON bit
                          uint16_t VUV, // The UV value
                          uint16_t  VOV // The OV value
                          ){
+
     uint16_t Config_Words[WORD_REG_GROUP] = {0};
 
     Config_Words[0] = ((VUV & 0x0FFF)<<8) | (((uint16_t)gpio & 0x1F) <<3) | ((uint16_t)refon <<2) | (uint16_t)adcopt;
     Config_Words[1] = (VOV & 0x0FFF) | ((VUV & 0x0FFF)>>8);
     Config_Words[2] = (((uint16_t) dcto & 0xF)<<12) | (DCC & 0x0FFF);
 
-    WriteReg(LTC6811_WRCFGA, Config_Words);
+    swap_word_bytes_arr(Config_Words, Config_Words, WORD_REG_GROUP);
+
+    return WriteReg(LTC6811_WRCFGA, Config_Words);
 }
 
  void ClearSlaveRegs(){
@@ -417,3 +448,16 @@ void Write_CFGR_General( bool refon, // The REFON bit
      for (i=0;i<NUMBER_OF_CLEAR_CMDS;i++)
          SendCMD2Slave_alone(All_Cear_CMDs[i]);
  }
+
+ uint32 Write_CFGR(uint16_t DCC){     // The DCC bits
+     const bool refon   = TRUE;     // The REFON bit
+     const bool adcopt  = TRUE;     // The ADCOPT bit
+     const uint8_t gpio = 0b11111;  // The GPIO bits
+     const uint8_t dcto = 0b1111;   // The Dcto bits
+     const uint16_t VUV = 0x000;    // The UV value
+     const uint16_t VOV = 0xFFF;    // The OV value
+
+
+     return Write_CFGR_General(refon, adcopt, gpio, DCC, dcto, VUV, VOV);
+ }
+

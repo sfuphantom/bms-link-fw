@@ -142,6 +142,7 @@ void main(void)
 
 
 uint16_t VoltData[NUMBER_OF_CELLS];
+float Volt[NUMBER_OF_CELLS];
 uint16_t GPIO_Data[GPIOS_PER_SLAVE_BOARD];
 uint16_t S_Control[12];
 
@@ -163,19 +164,17 @@ void main(void)
     uint16_t pec3 = pec15_calc(1, &pec_test[3]);
     uint16_t pec4 = pec15_calc(5, &pec_test[2]);
 
-    int i;
+    int i=0;
 
     REGA[0] = 0x8000;
     REGA[1] = 0xFFFF;
     REGA[2] = 0x0001;
-    REGB[0] = 0x5555;
-    REGB[1] = 0xAAAA;
-    REGB[2] = 0xAAAA;
+    REGB[0] = 0xFFFF;
+    REGB[1] = 0xFFFF;
+    REGB[2] = 0xFFFF;
     WriteReg(LTC6811_WRCFGA, REGB);
 
-    // After spiInit(), read back:
-    uint32_t gcr1 = spiREG1->GCR1;
-    uint32_t iolpbk = spiREG1->IOLPKTSTCR;
+//    swap_word_bytes_arr(REGA, REGA, 3);
 
     bool ReadV, ReadG;
 
@@ -204,32 +203,40 @@ void main(void)
 //        uint32 Pec = ReadReg(LTC6811_RDCFGA, Read_Reg_A);
 //        ReadReg(LTC6811_RDCFGB, Read_Reg_B);
 
+        delay_ms_us(4,0);
         ReadV = GetVoltageReadings(VoltData);
         ReadG = GetGPIOReadings(GPIO_Data);
+        ADC2Volt_arr(VoltData, Volt, NUMBER_OF_CELLS);
+
+
         if(ReadV && ReadG){
             MeasureALL(3,0);
+            i=0;
         }
+        i++;
 
 
-        ReadReg(LTC6811_RDCFGA, Read_Reg_A);
-//        Write_CFGR_General( 1, 0, 0x1F, 0x0AAA, 0x5, 0x000,0x000);
-        if (i & 0x0F){
-            i=1;
-        }
-        else
-            i++;
+//        uint16_t PecTest = ReadReg(LTC6811_RDCFGA, Read_Reg_A);
+////        WriteReg(LTC6811_WRCFGA, REGB);
+////        Write_CFGR(0xFFF);
+////        Write_CFGR_General( 1, 0, 0x1F, 0x0AAA, 0x, 0x000,0xFFF);
+//        if (i == 0x0F){
+//            i=1;
+//        }
+//        else
+//            i++;
 //        ReadReg(LTC6811_RDCFGB, Read_Reg_B);
 //
 //        WriteReg(LTC6811_WRCFGA, REGA);
 //        WriteReg(LTC6811_WRCFGB, REGB);
 
 
-        REGA[0] = 0xAAAA;
-        REGA[1] = 0xAAAA;
-        REGA[2] = 0xAAAA;
-        REGB[0] = 0xAAAA;
-        REGB[1] = 0xAAAA;
-        REGB[2] = 0xAAAA;
+//        REGA[0] = 0xAAAA;
+//        REGA[1] = 0xAAAA;
+//        REGA[2] = 0xAAAA;
+//        REGB[0] = 0xAAAA;
+//        REGB[1] = 0xAAAA;
+//        REGB[2] = 0xAAAA;
 //        WriteReg(LTC6811_WRCFGA, REGA);
 //        WriteReg(LTC6811_WRCFGB, REGB);
 //        ReadAllSlaves_Volt(VoltData);

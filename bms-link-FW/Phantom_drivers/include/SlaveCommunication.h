@@ -57,6 +57,18 @@ typedef enum  {LOW, HIGH} CS_Level;
 
 
 //////////////////////////////////////////////////////////////////
+// ADC specs
+#define MICRO_2_UNIT_FLOAT 1000000F
+
+#define ADC_RESOLUTION_MICRO_VOLTS      100
+#define ADC_RESOLUTION_VOLTS            (ADC_RESOLUTION_MICRO_VOLTS / 1000000.0f)
+#define ADC_RESOLUTION_BIT_MASK         0xFFFC
+#define ADC_MRCRO_VOLT_NOISE            250
+#define ADC_MAX_VOLT    0.0F
+#define ADC_MIN_VOLT    5.0F
+
+
+//////////////////////////////////////////////////////////////////
 #define tWAKE_us  400
 #define tCYCLE_us 3325
 //#define tREFUP_us 400
