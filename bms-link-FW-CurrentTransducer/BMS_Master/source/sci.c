@@ -103,8 +103,8 @@ void sciInit(void)
     scilinREG->FORMAT = 8U - 1U;  /* length */
 
     /** - set SCI pins functional mode */
-    scilinREG->PIO0 = (uint32)((uint32)1U << 2U)  /* tx pin */
-                    | (uint32)((uint32)1U << 1U); /* rx pin */
+    scilinREG->PIO0 = (uint32)((uint32)0U << 2U)  /* tx pin */
+                    | (uint32)((uint32)0U << 1U); /* rx pin */
 
 
     /** - set SCI pins default output value */
@@ -113,7 +113,7 @@ void sciInit(void)
 
 
     /** - set SCI pins output direction */
-    scilinREG->PIO1 = (uint32)((uint32)0U << 2U)  /* tx pin */
+    scilinREG->PIO1 = (uint32)((uint32)1U << 2U)  /* tx pin */
                     | (uint32)((uint32)0U << 1U); /* rx pin */
 
 
@@ -123,7 +123,7 @@ void sciInit(void)
 
 
     /** - set SCI pins pullup/pulldown enable */
-    scilinREG->PIO7 = (uint32)((uint32)0U << 2U)  /* tx pin */
+    scilinREG->PIO7 = (uint32)((uint32)1U << 2U)  /* tx pin */
                     | (uint32)((uint32)0U << 1U); /* rx pin */
 
 

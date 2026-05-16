@@ -1,0 +1,36 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "bms-link-FW",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "bms-link-FW",
+                "resourceId": "/bms-link-FW"
+            }
+        },
+        {
+            "name": "bms-link-FW-CurrentTransducer",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "bms-link-FW-CurrentTransducer",
+                "resourceId": "/bms-link-FW-CurrentTransducer"
+            },
+            "connections": [
+                {
+                    "name": "SEGGER J-Link Emulator",
+                    "cores": [
+                        {
+                            "name": "CortexR4",
+                            "debuggerSettings": {
+                                "data": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<PropertyValues/>\n"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

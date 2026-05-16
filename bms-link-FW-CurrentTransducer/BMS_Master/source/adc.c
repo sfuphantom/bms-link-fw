@@ -73,84 +73,81 @@ void adcInit(void)
 /* USER CODE BEGIN (3) */
 /* USER CODE END */
 
-
-
-    /** @b Initialize @b ADC2: */
+    /** @b Initialize @b ADC1: */
 
     /** - Reset ADC module */
-    adcREG2->RSTCR = 1U;
-    adcREG2->RSTCR = 0U;
-	
+    adcREG1->RSTCR = 1U;
+    adcREG1->RSTCR = 0U;
+
     /** - Enable 12-BIT ADC  */
-    adcREG2->OPMODECR |= 0x80000000U;
+    adcREG1->OPMODECR |= 0x80000000U;
 	
     /** - Setup prescaler */
-    adcREG2->CLOCKCR = 7U;
+    adcREG1->CLOCKCR = 7U;
  
     /** - Setup memory boundaries */
-    adcREG2->BNDCR  = (uint32)((uint32)8U << 16U) | (8U + 8U);
-    adcREG2->BNDEND = (adcREG2->BNDEND & 0xFFFF0000U) | (2U);
+    adcREG1->BNDCR  = (uint32)((uint32)8U << 16U) | (8U + 8U);
+    adcREG1->BNDEND = (adcREG1->BNDEND & 0xFFFF0000U) | (2U);
  
     /** - Setup event group conversion mode
-	*     - Setup data format
+    *     - Setup data format
     *     - Enable/Disable channel id in conversion result
     *     - Enable/Disable continuous conversion
-	*/
-    adcREG2->GxMODECR[0U] = (uint32)ADC_12_BIT
+    */
+    adcREG1->GxMODECR[0U] = (uint32)ADC_10_BIT
                           | (uint32)0x00000000U
                           | (uint32)0x00000000U;
 
     /** - Setup event group hardware trigger
-	*     - Setup hardware trigger edge
-    *     - Setup hardware trigger source
-	*/
-    adcREG2->EVSRC = (uint32)0x00000000U
-                   | (uint32)ADC2_EVENT;
+     *     - Setup hardware trigger edge
+     *     - Setup hardware trigger source
+     */
+    adcREG1->EVSRC = (uint32)0x00000008U
+                   | (uint32)ADC1_GIOB0;
 
     /** - Setup event group sample window */
-    adcREG2->EVSAMP = 1U;
+    adcREG1->EVSAMP = 0U;
 
     /** - Setup event group sample discharge 
     *     - Setup discharge prescaler
     *     - Enable/Disable discharge
     */
-    adcREG2->EVSAMPDISEN = (uint32)((uint32)0U << 8U)
+    adcREG1->EVSAMPDISEN = (uint32)((uint32)0U << 8U)
                          | (uint32)0x00000000U;
 
     /** - Setup group 1 conversion mode
-	*     - Setup data format
+    *     - Setup data format
     *     - Enable/Disable channel id in conversion result
     *     - Enable/Disable continuous conversion
-	*/
-    adcREG2->GxMODECR[1U] = (uint32)ADC_12_BIT
+    */
+    adcREG1->GxMODECR[1U] = (uint32)ADC_10_BIT
                           | (uint32)0x00000000U
                           | (uint32)0x00000000U
                           | (uint32)0x00000000U;
 
     /** - Setup group 1 hardware trigger
-	*     - Setup hardware trigger edge
-    *     - Setup hardware trigger source
-	*/
-    adcREG2->G1SRC = (uint32)0x00000000U
-                   | (uint32)ADC2_EVENT;
-
+     *     - Setup hardware trigger edge
+     *     - Setup hardware trigger source
+     */
+    adcREG1->G1SRC = (uint32)0x00000000U
+                   | (uint32)ADC1_EVENT;
 
     /** - Setup group 1 sample window */
-    adcREG2->G1SAMP = 1U;
+    adcREG1->G1SAMP = 1U;
 
     /** - Setup group 1 sample discharge 
     *     - Setup discharge prescaler
     *     - Enable/Disable discharge
     */
-    adcREG2->G1SAMPDISEN = (uint32)((uint32)0U << 8U)
+    adcREG1->G1SAMPDISEN = (uint32)((uint32)0U << 8U)
                          | (uint32)0x00000000U;
 
     /** - Setup group 2 conversion mode
-	*     - Setup data format
-    *     - Enable/Disable channel id in conversion result
-    *     - Enable/Disable continuous conversion
-	*/
-    adcREG2->GxMODECR[2U] = (uint32)ADC_12_BIT
+     *     - Setup data format
+     *     - Enable/Disable channel id in conversion result
+     *     - Enable/Disable continuous conversion
+     */
+    adcREG1->GxMODECR[2U] = (uint32)ADC_10_BIT
                           | (uint32)0x00000000U
                           | (uint32)0x00000000U
                           | (uint32)0x00000000U;
@@ -159,50 +156,47 @@ void adcInit(void)
 	*     - Setup hardware trigger edge
     *     - Setup hardware trigger source
 	*/
-    adcREG2->G2SRC = (uint32)0x00000000U
-                   | (uint32)ADC2_EVENT;
+    adcREG1->G2SRC = (uint32)0x00000000U
+                   | (uint32)ADC1_EVENT;
 
     /** - Setup group 2 sample window */
-    adcREG2->G2SAMP = 1U;
+    adcREG1->G2SAMP = 1U;
 
     /** - Setup group 2 sample discharge 
     *     - Setup discharge prescaler
     *     - Enable/Disable discharge
     */
-    adcREG2->G2SAMPDISEN = (uint32)((uint32)0U << 8U)
+    adcREG1->G2SAMPDISEN = (uint32)((uint32)0U << 8U)
                          | (uint32)0x00000000U;
 
-    
-    /** - ADC2 EVT pin output value */
-    adcREG2->EVTOUT = 0U;
+    /** - ADC1 EVT pin output value */
+    adcREG1->EVTOUT = 0U;
 
-    /** - ADC2 EVT pin direction */
-    adcREG2->EVTDIR = 0U;
+    /** - ADC1 EVT pin direction */
+    adcREG1->EVTDIR = 0U;
 	
-    /** - ADC2 EVT pin open drain enable */
-	adcREG2->EVTPDR = 0U;
+    /** - ADC1 EVT pin open drain enable */
+	adcREG1->EVTPDR = 0U;
 
-    /** - ADC2 EVT pin pullup / pulldown selection */
-	adcREG2->EVTPSEL = 1U;
+    /** - ADC1 EVT pin pullup / pulldown selection */
+	adcREG1->EVTPSEL = 1U;
 
-    /** - ADC2 EVT pin pullup / pulldown enable*/
-	adcREG2->EVTDIS = 0U;
+    /** - ADC1 EVT pin pullup / pulldown enable*/
+	adcREG1->EVTDIS = 0U;
 	
 	/** - Enable ADC module */
-    adcREG2->OPMODECR |= 0x80140001U;
-
+    adcREG1->OPMODECR |= 0x80140001U;
+	
     /** - Wait for buffer initialization complete */
-	/*SAFETYMCUSW 28 D MR:NA <APPROVED> "Hardware status bit read check" */
-    while (((adcREG2->BNDEND & 0xFFFF0000U) >> 16U) != 0U)
+    /*SAFETYMCUSW 28 D MR:NA <APPROVED> "Hardware status bit read check" */
+    while (((adcREG1->BNDEND & 0xFFFF0000U) >> 16U ) != 0U) 
     { 
 	} /* Wait */
     
     /** - Setup parity */
-    adcREG2->PARCR = 0x00000005U;
+    adcREG1->PARCR = 0x00000005U;
 
-    /**   @note This function has to be called before the driver can be used.\n
-    *           This function has to be executed in privileged mode.\n
-    */
+
 /* USER CODE BEGIN (4) */
 /* USER CODE END */
 }
@@ -257,7 +251,7 @@ static const uint32 s_adcSelect[2U][3U] =
     0x00000000U |
     0x00000000U |
     0x00000000U |
-    0x00000000U |
+    0x00080000U |
     0x00000000U |
     0x00000000U |
     0x00000000U |
@@ -340,11 +334,11 @@ static const uint32 s_adcSelect[2U][3U] =
 static const uint32 s_adcFiFoSize[2U][3U] =
 {
     {16U,
-    16U,
+    1U,
     16U},
     {16U,
-    16U,
-    16U}
+    1U,
+    1U}
 };
 
 /* USER CODE BEGIN (6) */
@@ -922,8 +916,7 @@ uint32 adcGetEVTPin(adcBASE_t *adc)
     return adc->EVTIN;
 }
 
-
-/** @fn void adc2GetConfigValue(adc_config_reg_t *config_reg, config_value_type_t type)
+/** @fn void adc1GetConfigValue(adc_config_reg_t *config_reg, config_value_type_t type)
 *   @brief Get the initial or current values of the configuration registers
 *
 *	@param[in] *config_reg: pointer to the struct to which the initial or current 
@@ -938,53 +931,53 @@ uint32 adcGetEVTPin(adcBASE_t *adc)
 *   of the configuration registers to the struct pointed by config_reg
 *
 */
-/* SourceId : ADC_SourceId_013 */
+/* SourceId : ADC_SourceId_012 */
 /* DesignId : ADC_DesignId_012 */
 /* Requirements : HL_SR203 */
-void adc2GetConfigValue(adc_config_reg_t *config_reg, config_value_type_t type)
+void adc1GetConfigValue(adc_config_reg_t *config_reg, config_value_type_t type)
 {
 	if (type == InitialValue)
 	{
-        config_reg->CONFIG_OPMODECR = ADC2_OPMODECR_CONFIGVALUE;
-        config_reg->CONFIG_CLOCKCR = ADC2_CLOCKCR_CONFIGVALUE;
-        config_reg->CONFIG_GxMODECR[0U] = ADC2_G0MODECR_CONFIGVALUE;
-        config_reg->CONFIG_GxMODECR[1U] = ADC2_G1MODECR_CONFIGVALUE;
-        config_reg->CONFIG_GxMODECR[2U] = ADC2_G2MODECR_CONFIGVALUE;
-        config_reg->CONFIG_G0SRC = ADC2_G0SRC_CONFIGVALUE;
-        config_reg->CONFIG_G1SRC = ADC2_G1SRC_CONFIGVALUE;
-        config_reg->CONFIG_G2SRC = ADC2_G2SRC_CONFIGVALUE;
-        config_reg->CONFIG_BNDCR = ADC2_BNDCR_CONFIGVALUE;
-        config_reg->CONFIG_BNDEND = ADC2_BNDEND_CONFIGVALUE;
-        config_reg->CONFIG_G0SAMP = ADC2_G0SAMP_CONFIGVALUE;
-        config_reg->CONFIG_G1SAMP = ADC2_G1SAMP_CONFIGVALUE;
-        config_reg->CONFIG_G2SAMP = ADC2_G2SAMP_CONFIGVALUE;
-        config_reg->CONFIG_G0SAMPDISEN = ADC2_G0SAMPDISEN_CONFIGVALUE;
-        config_reg->CONFIG_G1SAMPDISEN = ADC2_G1SAMPDISEN_CONFIGVALUE;
-        config_reg->CONFIG_G2SAMPDISEN = ADC2_G2SAMPDISEN_CONFIGVALUE;
-        config_reg->CONFIG_PARCR = ADC2_PARCR_CONFIGVALUE;
+        config_reg->CONFIG_OPMODECR = ADC1_OPMODECR_CONFIGVALUE;
+        config_reg->CONFIG_CLOCKCR = ADC1_CLOCKCR_CONFIGVALUE;
+        config_reg->CONFIG_GxMODECR[0U] = ADC1_G0MODECR_CONFIGVALUE;
+        config_reg->CONFIG_GxMODECR[1U] = ADC1_G1MODECR_CONFIGVALUE;
+        config_reg->CONFIG_GxMODECR[2U] = ADC1_G2MODECR_CONFIGVALUE;
+        config_reg->CONFIG_G0SRC = ADC1_G0SRC_CONFIGVALUE;
+        config_reg->CONFIG_G1SRC = ADC1_G1SRC_CONFIGVALUE;
+        config_reg->CONFIG_G2SRC = ADC1_G2SRC_CONFIGVALUE;
+        config_reg->CONFIG_BNDCR = ADC1_BNDCR_CONFIGVALUE;
+        config_reg->CONFIG_BNDEND = ADC1_BNDEND_CONFIGVALUE;
+        config_reg->CONFIG_G0SAMP = ADC1_G0SAMP_CONFIGVALUE;
+        config_reg->CONFIG_G1SAMP = ADC1_G1SAMP_CONFIGVALUE;
+        config_reg->CONFIG_G2SAMP = ADC1_G2SAMP_CONFIGVALUE;
+        config_reg->CONFIG_G0SAMPDISEN = ADC1_G0SAMPDISEN_CONFIGVALUE;
+        config_reg->CONFIG_G1SAMPDISEN = ADC1_G1SAMPDISEN_CONFIGVALUE;
+        config_reg->CONFIG_G2SAMPDISEN = ADC1_G2SAMPDISEN_CONFIGVALUE;
+        config_reg->CONFIG_PARCR = ADC1_PARCR_CONFIGVALUE;
 	}
 	else
 	{
-	/*SAFETYMCUSW 134 S MR:12.2 <APPROVED> "LDRA Tool issue" */
-        config_reg->CONFIG_OPMODECR = adcREG2->OPMODECR;
-        config_reg->CONFIG_CLOCKCR = adcREG2->CLOCKCR;
-        config_reg->CONFIG_GxMODECR[0U] = adcREG2->GxMODECR[0U];
-        config_reg->CONFIG_GxMODECR[1U] = adcREG2->GxMODECR[1U];
-        config_reg->CONFIG_GxMODECR[2U] = adcREG2->GxMODECR[2U];
-        config_reg->CONFIG_G0SRC = adcREG2->EVSRC;
-        config_reg->CONFIG_G1SRC = adcREG2->G1SRC;
-        config_reg->CONFIG_G2SRC = adcREG2->G2SRC;
-        config_reg->CONFIG_BNDCR = adcREG2->BNDCR;
-        config_reg->CONFIG_BNDEND = adcREG2->BNDEND;
-        config_reg->CONFIG_G0SAMP = adcREG2->EVSAMP;
-        config_reg->CONFIG_G1SAMP = adcREG2->G1SAMP;
-        config_reg->CONFIG_G2SAMP = adcREG2->G2SAMP;
-        config_reg->CONFIG_G0SAMPDISEN = adcREG2->EVSAMPDISEN;
-        config_reg->CONFIG_G1SAMPDISEN = adcREG2->G1SAMPDISEN;
-        config_reg->CONFIG_G2SAMPDISEN = adcREG2->G2SAMPDISEN;
-        config_reg->CONFIG_PARCR = adcREG2->PARCR;
+        config_reg->CONFIG_OPMODECR = adcREG1->OPMODECR;
+        config_reg->CONFIG_CLOCKCR = adcREG1->CLOCKCR;
+        config_reg->CONFIG_GxMODECR[0U] = adcREG1->GxMODECR[0U];
+        config_reg->CONFIG_GxMODECR[1U] = adcREG1->GxMODECR[1U];
+        config_reg->CONFIG_GxMODECR[2U] = adcREG1->GxMODECR[2U];
+        config_reg->CONFIG_G0SRC = adcREG1->EVSRC;
+        config_reg->CONFIG_G1SRC = adcREG1->G1SRC;
+        config_reg->CONFIG_G2SRC = adcREG1->G2SRC;
+        config_reg->CONFIG_BNDCR = adcREG1->BNDCR;
+        config_reg->CONFIG_BNDEND = adcREG1->BNDEND;
+        config_reg->CONFIG_G0SAMP = adcREG1->EVSAMP;
+        config_reg->CONFIG_G1SAMP = adcREG1->G1SAMP;
+        config_reg->CONFIG_G2SAMP = adcREG1->G2SAMP;
+        config_reg->CONFIG_G0SAMPDISEN = adcREG1->EVSAMPDISEN;
+        config_reg->CONFIG_G1SAMPDISEN = adcREG1->G1SAMPDISEN;
+        config_reg->CONFIG_G2SAMPDISEN = adcREG1->G2SAMPDISEN;
+        config_reg->CONFIG_PARCR = adcREG1->PARCR;
 	}
 }
+
 
 /* USER CODE BEGIN (35) */
 /* USER CODE END */
