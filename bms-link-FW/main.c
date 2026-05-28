@@ -81,6 +81,7 @@
 /* USER CODE BEGIN (1) */
 #include "spi.h"
 #include "SlaveCommunication.h"
+#include "SlaveCommunication_Services.h"
 #include "ltc6811_commands.h"
 
 //#define SPI_Test
@@ -140,17 +141,17 @@ void main(void)
 
 #else
 
+#define NUMBER_OF_FAILS_ALLOWED 2
 
 uint16_t VoltData[NUMBER_OF_CELLS];
-float Volt[NUMBER_OF_CELLS];
-uint16_t GPIO_Data[GPIOS_PER_SLAVE_BOARD];
-uint16_t S_Control[12];
+uint16_t VoltData1[NUMBER_OF_CELLS];
+uint16_t VoltData2[NUMBER_OF_CELLS];
 
-uint16_t REGA[WORD_REG_GROUP];
-uint16_t REGB[WORD_REG_GROUP];
-uint16_t Read_Reg_A[WORD_REG_GROUP];
-uint16_t Read_Reg_B[WORD_REG_GROUP];
-uint16_t pec_test[7]={0,1,2,2,2,2,2};
+
+uint16_t GPIO_Data[NUMBER_OF_GPIOS];
+uint8_t GPIO_Digital[NUMBER_OF_SLAVE_BOARDS];
+
+uint16_t DCC_Val[2];
 
 void main(void)
 {
@@ -158,89 +159,54 @@ void main(void)
     _enable_IRQ();
     spiInit();
     initLink();
+    rtiInit();
 
-    uint16_t pec1 = pec15_calc(1, &pec_test[0]);
-    uint16_t pec2 = pec15_calc(1, &pec_test[1]);
-    uint16_t pec3 = pec15_calc(1, &pec_test[3]);
-    uint16_t pec4 = pec15_calc(5, &pec_test[2]);
 
     int i=0;
+    int repeat_idx=0;
 
-    REGA[0] = 0x8000;
-    REGA[1] = 0xFFFF;
-    REGA[2] = 0x0001;
-    REGB[0] = 0xFFFF;
-    REGB[1] = 0xFFFF;
-    REGB[2] = 0xFFFF;
-    WriteReg(LTC6811_WRCFGA, REGB);
+    bool TimeOutCellVolts, TimeOutGPIOVolts, TimeOutCellBal;
 
-//    swap_word_bytes_arr(REGA, REGA, 3);
-
-    bool ReadV, ReadG;
-
-//    Write_CFGR_General( 1, 0, 0x1F, 0x0AAA, 0x1, 0x000,0x000);
+    float VoltCells[NUMBER_OF_CELLS];
+    float VoltGPIO[NUMBER_OF_GPIOS];
 
     while(1){
-//        SPI_SR2Link_WORD(0x1371);
-//        SPI_SR2Link_WORD(0xF0F0);
-//        SPI_SR2Link_WORD(0xAAAA);
-//        SPI_SR2Link_QWORD(0x0000FFFF0000FFFF, FALSE);
-//        SPI_SR2Link_QWORD(0xAAAAAAAAAAAAAAAA, TRUE);
 
-//        delay_ms_us(0, 2);
-//        delay_ms_us(0, 2);
+        delay_ms_us(10,0);
 
-//        SPI_SR2Link_BYTE(0xFF);
-//
-//        setCS(HIGH);
-//        delay_ms_us(0, 1);
-//        wakeup_sleep();
+        initLink();
+        for(repeat_idx=0;repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
+        #if UseAnilog
+            TimeOutGPIOVolts = MeasureGPIOVoltageRoutine(GPIO_Data);
+            Slave_ADC2Volt_arr(GPIO_Data, VoltGPIO, NUMBER_OF_CELLS);
+        #else
+            TimeOutGPIOVolts = MeasureGPIOVoltageRoutine(GPIO_Digital);
+        #endif
 
-
-
-//        bytes_to_words(CFGA_Bytes, CFGA_Words, WORD_REG_GROUP);
-//        bytes_to_words(CFGB_Bytes, CFGB_Words, WORD_REG_GROUP);
-//        uint32 Pec = ReadReg(LTC6811_RDCFGA, Read_Reg_A);
-//        ReadReg(LTC6811_RDCFGB, Read_Reg_B);
-
-        delay_ms_us(4,0);
-        ReadV = GetVoltageReadings(VoltData);
-        ReadG = GetGPIOReadings(GPIO_Data);
-        ADC2Volt_arr(VoltData, Volt, NUMBER_OF_CELLS);
-
-
-        if(ReadV && ReadG){
-            MeasureALL(3,0);
-            i=0;
+            if(!TimeOutGPIOVolts)   break;
         }
-        i++;
+        for(repeat_idx=0;repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
+            TimeOutCellVolts = MeasureCellVoltageRoutine(VoltData);
 
+            if(!TimeOutCellVolts)   break;
+        }
 
-//        uint16_t PecTest = ReadReg(LTC6811_RDCFGA, Read_Reg_A);
-////        WriteReg(LTC6811_WRCFGA, REGB);
-////        Write_CFGR(0xFFF);
-////        Write_CFGR_General( 1, 0, 0x1F, 0x0AAA, 0x, 0x000,0xFFF);
-//        if (i == 0x0F){
-//            i=1;
-//        }
-//        else
-//            i++;
-//        ReadReg(LTC6811_RDCFGB, Read_Reg_B);
-//
-//        WriteReg(LTC6811_WRCFGA, REGA);
-//        WriteReg(LTC6811_WRCFGB, REGB);
+        GetVoltageReadings(VoltData1);
+        Slave_ADC2Volt_arr(VoltData, VoltCells, NUMBER_OF_CELLS);
 
+        BalanceCellsRoutine(VoltData);
 
-//        REGA[0] = 0xAAAA;
-//        REGA[1] = 0xAAAA;
-//        REGA[2] = 0xAAAA;
-//        REGB[0] = 0xAAAA;
-//        REGB[1] = 0xAAAA;
-//        REGB[2] = 0xAAAA;
-//        WriteReg(LTC6811_WRCFGA, REGA);
-//        WriteReg(LTC6811_WRCFGB, REGB);
-//        ReadAllSlaves_Volt(VoltData);
+        ReadStatRoutine();
+
+        if(i>1){
+            i=0;
+            initLink();
+        }
+        else
+            i++;
+
     }
+
 /* USER CODE END */
 }
 /* USER CODE BEGIN (4) */

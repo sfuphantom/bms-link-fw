@@ -45,8 +45,11 @@
 //-------------------------------------------------------------
 #define LTC6811_WRSCTRL       0x0014  // Write S-Control Register Group
 #define LTC6811_RDSCTRL       0x0016  // Read  S-Control Register Group
-#define LTC6811_STSCTRL       0x0019  // Start S-Control Pulse
-#define LTC6811_CLRSCTRL      0x0018  // Clear S-Control Registers
+#define LTC6811_WRPWM         0x020   // Write PWM Register Group
+#define LTC6811_RDPWM         0x022   // Read PWM Register Group
+
+#define LTC6811_STSCTRL       0x0014  // Start S-Control Pulse
+#define LTC6811_CLRSCTRL      0x0016  // Clear S-Control Registers
 
 //-------------------------------------------------------------
 // COMM REGISTER COMMANDS (GPIO I2C/SPI Master)
