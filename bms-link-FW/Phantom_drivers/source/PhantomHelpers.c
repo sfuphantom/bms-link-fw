@@ -36,65 +36,65 @@
 //        }
 //    }
 //}
+
+void word2byte(const uint16_t word, uint8_t *byteLow, uint8_t *byteHigh){
+    *byteLow  = (word>>0U) & 0xFF;
+    *byteHigh = (word>>8U) & 0xFF;
+}
+
+uint16_t bytes2word_BigEndian(const uint8_t byte1, const uint8_t byte2){
+    uint16_t word = 0;
+    word = byte1;
+    word <<= 8;
+    word |= byte2;
+    return word;
+}
+uint16_t bytes2word_LittleEndian(const uint8_t byte1, const uint8_t byte2){
+    uint16_t word = 0;
+    word = byte2;
+    word <<= 8;
+    word |= byte1;
+
+    return word;
+}
 //----------------------------------------------------------------------------------------
-void words2bytes(uint16_t *words, uint8_t *bytes, uint16_t NumberOfWords, Endianness Endian){
+void words2bytes(const uint16_t *words, uint8_t *bytes, uint16_t NumberOfWords, Endianness Endian){
     const uint8_t TIMES_MORE_BITS = 2;
-    const uint8_t BITS2SHIFT = 16/TIMES_MORE_BITS;
-    int i, j;
+    int i;
+    uint8_t High, Low;
 
     for (i = 0; i < NumberOfWords; i++){
-        for(j=0; j<TIMES_MORE_BITS; j++){
-            uint8_t shiftIdx = (Endian == BigEndian) ? TIMES_MORE_BITS - j - 1 : j;
-            shiftIdx *= BITS2SHIFT;
-            bytes[TIMES_MORE_BITS * i + j]     = (uint8_t)(words[i] >> shiftIdx);
+        word2byte(words[i], &Low, &High);
+
+        if(Endian == BigEndian){
+            bytes[TIMES_MORE_BITS*i  ] = Low;
+            bytes[TIMES_MORE_BITS*i+1] = High;
+        }
+        else{
+            bytes[TIMES_MORE_BITS*i  ] = High;
+            bytes[TIMES_MORE_BITS*i+1] = Low;
         }
     }
 }
-void bytes2words(uint8_t *bytes, uint16_t *words, uint16_t NumberOfWords, Endianness Endian){
+void bytes2words(const uint8_t *bytes, uint16_t *words, uint16_t NumberOfWords, Endianness Endian){
     const uint8_t TIMES_MORE_BITS = 2;
-    const uint8_t BITS2SHIFT = 16/TIMES_MORE_BITS;
-    int i, j;
+    int i;
+    uint8_t High, Low;
 
     for (i = 0; i < NumberOfWords; i++){
-        words[i] = 0;
-        for(j=0; j<TIMES_MORE_BITS; j++){
-            uint8_t shiftIdx = (Endian == BigEndian) ? TIMES_MORE_BITS - j - 1 : j;
-            shiftIdx *= BITS2SHIFT;
-            words[i] |= (uint16_t)(bytes[TIMES_MORE_BITS * i + j]<<shiftIdx);
+        High = bytes[TIMES_MORE_BITS*i+1];
+        Low  = bytes[TIMES_MORE_BITS*i  ];
+
+        if(Endian == BigEndian){
+            words[i] = bytes2word_BigEndian(Low, High);
+        }
+        else{
+            words[i] = bytes2word_LittleEndian(Low, High);
         }
     }
 }
 
-void words2nibbles(uint16_t *words, uint8_t *nibbles, uint16_t NumberOfWords, Endianness Endian){
-    const uint8_t TIMES_MORE_BITS = 4;
-    const uint8_t BITS2SHIFT = 16/TIMES_MORE_BITS;
-    int i, j;
-
-    for (i = 0; i < NumberOfWords; i++){
-        for(j=0; j<TIMES_MORE_BITS; j++){
-            uint8_t shiftIdx = (Endian == BigEndian) ? TIMES_MORE_BITS - j - 1 : j;
-            shiftIdx *= BITS2SHIFT;
-            nibbles[TIMES_MORE_BITS * i + j]     = (words[i] >> shiftIdx) & 0x000F;
-        }
-    }
-}
-void nibbles2words(uint8_t *nibbles, uint16_t *words, uint16_t NumberOfWords, Endianness Endian){
-    const uint8_t TIMES_MORE_BITS = 4;
-    const uint8_t BITS2SHIFT = 16/TIMES_MORE_BITS;
-    int i, j;
-
-    for (i = 0; i < NumberOfWords; i++){
-        words[i] = 0;
-        for(j=0; j<TIMES_MORE_BITS; j++){
-            uint8_t shiftIdx = (Endian == BigEndian) ? TIMES_MORE_BITS - j - 1 : j;
-            shiftIdx *= BITS2SHIFT;
-            words[i] |= (uint16_t)((nibbles[TIMES_MORE_BITS * i + j] & 0x0F)<<shiftIdx);
-        }
-    }
-}
-
-
-void ExtractByteFromWord(uint8_t *bytes, uint16_t *words, uint16_t NumberOfWords, bool frontNback){
+void ExtractByteFromWord(const uint16_t *words, uint8_t *bytes, uint16_t NumberOfWords, bool frontNback){
 
     const uint8_t bits2Extract = 8;
     const uint8_t mask = (1U<< bits2Extract)-1;
@@ -108,7 +108,7 @@ void ExtractByteFromWord(uint8_t *bytes, uint16_t *words, uint16_t NumberOfWords
             bytes[i]    = theByte;
     }
 }
-void ExtendByte2Word(uint16_t *words, uint8_t *bytes, uint16_t NumberOfWords, bool frontNback){
+void ExtendByte2Word(const uint8_t *bytes, uint16_t *words, uint16_t NumberOfWords, bool frontNback){
 
     const uint8_t shiftConst = frontNback ? 8:0;
 
@@ -121,102 +121,116 @@ void ExtendByte2Word(uint16_t *words, uint8_t *bytes, uint16_t NumberOfWords, bo
     }
 }
 //----------------------------------------------------------------------------------------
-uint16_t swap_word_bytes(uint16_t input){
+uint16_t swap_word_bytes(const uint16_t input){
     uint16_t FirstByte = (input >> 8) & 0xFF;
     uint16_t LastByte  = (input << 8);
     uint16_t output = FirstByte | LastByte;
     return output;
 }
- void swap_word_bytes_arr(uint16_t *input, uint16_t *output, uint16_t len){
+ void swap_word_bytes_arr(const uint16_t *input, uint16_t *output, uint16_t len){
     uint16_t i;
     for (i = 0; i < len; i++)
         output[i] = swap_word_bytes(input[i]);
  }
 
 //----------------------------------------------------------------------------------------
-void delay_ms_us(uint32_t ms, uint32_t us){
-    volatile uint32_t i, j;
-    // Approximate loops per ms, tune by measurement.
-    const uint32_t loops_per_us = 10;
-    const uint32_t loops_per_ms = loops_per_us * 1000;
+//void delay_ms_us(uint32_t ms, uint32_t us){
+//    volatile uint32_t i, j;
+//    // Approximate loops per ms, tune by measurement.
+//    const uint32_t loops_per_us = 10;
+//    const uint32_t loops_per_ms = loops_per_us * 1000;
+//
+//    for (i = 0; i < ms; i++) {
+//        for (j = 0; j < loops_per_ms; j++);
+//    }
+//    for (i = 0; i < us; i++) {
+//        for (j = 0; j < loops_per_us; j++);
+//    }
+//}
 
-    for (i = 0; i < ms; i++) {
-        for (j = 0; j < loops_per_ms; j++);
+#define RTI_CLOCK_MEG_HZ  80U  // 80 MHz
+#define RTI_CLOCK_HZ  (RTI_CLOCK_MEG_HZ*1000000U)  // 80 MHz
+
+#define RTI_MAX_TIMERS 8
+#define USE_RTI_DELAY FALSE
+ void delay_ms_us(uint32_t ms, uint32_t us){
+    #if USE_RTI_DELAY
+        uint64 total_us = (uint64)ms * 1000UL + us;
+        uint64 total_ticks = (total_us * RTI_CLOCK_HZ) / 1000000UL;
+
+        /* Start counter block 0 if it is not already running */
+        if ((rtiREG1->GCTRL & (1U << rtiCOUNTER_BLOCK0)) == 0U)
+        {
+            rtiStartCounter(rtiCOUNTER_BLOCK0);
+        }
+
+        uint32 start = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
+        /* Wait until the required number of ticks has elapsed */
+        while ((rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx - start) < (uint32)total_ticks)
+        {
+            /* Busy wait */
+        }
+        rtiStopCounter(rtiCOUNTER_BLOCK0);
+    #else
+        volatile uint32_t i, j;
+        // Approximate loops per ms, tune by measurement.
+        const uint32_t loops_per_us = 10;
+        const uint32_t loops_per_ms = loops_per_us * 1000;
+
+        for (i = 0; i < ms; i++) {
+            for (j = 0; j < loops_per_ms; j++);
+        }
+        for (i = 0; i < us; i++) {
+            for (j = 0; j < loops_per_us; j++);
+        }
+    #endif
+}
+/* Static storage for the start ticks of each software timer */
+static uint32  rti_timer_last[RTI_MAX_TIMERS];
+static boolean rti_timer_valid[RTI_MAX_TIMERS];
+
+void rtiTimerStart(uint8_t id)
+{
+    if (id >= RTI_MAX_TIMERS) return;
+
+    /* Ensure counter block 0 is running */
+    if ((rtiREG1->GCTRL & (1U << rtiCOUNTER_BLOCK0)) == 0U) {
+        rtiStartCounter(rtiCOUNTER_BLOCK0);
     }
-    for (i = 0; i < us; i++) {
-        for (j = 0; j < loops_per_us; j++);
-    }
+
+    rti_timer_last[id] = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
+    rti_timer_valid[id] = true;
 }
 
-//void rtiDelay(uint32 ms, uint32 us)
-//#define RTI_CLOCK_HZ  80000000U  // 80 MHz
-// void delay_ms_us(uint32_t ms, uint32_t us){
-//{
-////    const uint32_t tricks_per_us = 10;
-////    const uint32_t loops_per_ms = loops_per_us * 1000;
-//}
-//    uint64 total_us = (uint64)ms * 1000UL + us;
-//    uint64 total_ticks = (total_us * RTI_CLOCK_HZ) / 1000000UL;
-//
-//    /* Start counter block 0 if it is not already running */
-//    if ((rtiREG1->GCTRL & (1U << rtiCOUNTER_BLOCK0)) == 0U)
-//    {
-//        rtiStartCounter(rtiCOUNTER_BLOCK0);
-//    }
-//
-//    uint32 start = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
-//    /* Wait until the required number of ticks has elapsed */
-//    while ((rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx - start) < (uint32)total_ticks)
-//    {
-//        /* Busy wait */
-//    }
-//    rtiStopCounter(rtiCOUNTER_BLOCK0)
-//}
-///* Static storage for the start ticks of each software timer */
-//static uint32  rti_timer_last[RTI_MAX_TIMERS];
-//static boolean rti_timer_valid[RTI_MAX_TIMERS];
-//
-//{
-//    if (id >= RTI_MAX_TIMERS) return;
-//
-//    /* Ensure counter block 0 is running */
-//    if ((rtiREG1->GCTRL & (1U << rtiCOUNTER_BLOCK0)) == 0U) {
-//        rtiStartCounter(rtiCOUNTER_BLOCK0);
-//    }
-//
-//    rti_timer_last[id] = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
-//    rti_timer_valid[id] = true;
-//}
-//
-//boolean rtiTimerExpired(uint32 id, uint32 ms, uint32 us)
-//{
-//    if (id >= RTI_MAX_TIMERS) return false;
-//
-//    /* First call: initialise the timer and return false */
-//    if (!rti_timer_valid[id]) {
-//        rtiTimerStart(id);
-//        return false;
-//    }
-//
-//    /* Make sure counter block 0 is running */
-//    if ((rtiREG1->GCTRL & (1U << rtiCOUNTER_BLOCK0)) == 0U) {
-//        rtiStartCounter(rtiCOUNTER_BLOCK0);
-//    }
-//
-//    uint32 now      = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
-//    uint32 last     = rti_timer_last[id];
-//    uint32 elapsed  = now - last;   /* wraps safely with unsigned arithmetic */
-//
-//    /* Convert ms+us to RTI ticks */
-//    uint64 required_ticks = ((uint64)ms * 1000UL + us) * RTI_CLOCK_HZ / 1000000UL;
-//
-//    if (elapsed >= required_ticks) {
-//        /* Reload the start time to the current moment (periodic behaviour) */
-//        rti_timer_last[id] = now;
-//        return true;
-//    }
-//    return false;
-//}
+boolean rtiTimerExpired(uint32 id, uint32 ms, uint32 us)
+{
+    if (id >= RTI_MAX_TIMERS) return false;
+
+    /* First call: initialise the timer and return false */
+    if (!rti_timer_valid[id]) {
+        rtiTimerStart(id);
+        return true;
+    }
+
+    /* Make sure counter block 0 is running */
+    if ((rtiREG1->GCTRL & (1U << rtiCOUNTER_BLOCK0)) == 0U) {
+        rtiStartCounter(rtiCOUNTER_BLOCK0);
+    }
+
+    uint32 now      = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
+    uint32 last     = rti_timer_last[id];
+    uint32 elapsed  = now - last;   /* wraps safely with unsigned arithmetic */
+
+    /* Convert ms+us to RTI ticks */
+    uint64 required_ticks = ((uint64)ms * 1000UL + us) * RTI_CLOCK_HZ / 1000000UL;
+
+    if (elapsed >= required_ticks) {
+        /* Reload the start time to the current moment (periodic behaviour) */
+        rti_timer_last[id] = now;
+        return true;
+    }
+    return false;
+}
 //----------------------------------------------------------------------------------------
 
 uint16 round16(uint16_t input, uint8_t bit2Round){
@@ -234,7 +248,7 @@ uint16 round16(uint16_t input, uint8_t bit2Round){
 //}
 //----------------------------------------------------------------------------------------
 
-void array16_minAndIdx(uint16_t* arr, uint8_t len, uint16_t* min, uint8_t* idx){
+void array16_minAndIdx(const uint16_t* arr, uint8_t len, uint16_t* min, uint8_t* idx){
     int i;
     *min = arr[0];
     *idx = 0;
@@ -245,7 +259,7 @@ void array16_minAndIdx(uint16_t* arr, uint8_t len, uint16_t* min, uint8_t* idx){
         }
     }
 }
-void array16_maxAndIdx(uint16_t* arr, uint8_t len, uint16_t* max, uint8_t* idx){
+void array16_maxAndIdx(const uint16_t* arr, uint8_t len, uint16_t* max, uint8_t* idx){
     int i;
     *max = arr[0];
     *idx = 0;
@@ -256,16 +270,48 @@ void array16_maxAndIdx(uint16_t* arr, uint8_t len, uint16_t* max, uint8_t* idx){
         }
     }
 }
-uint16 array16_avg(uint16_t* arr, uint8_t len){
-    int i;
-    uint16_t avg = 0;
-    for(i=0; i<len; i++)
-        avg += arr[i];
 
-    avg /= len;
+uint16_t array16_min(const uint16_t* arr, uint8_t len){
+    int i;
+    uint16_t min = arr[0];
+
+    for(i=1; i<len; i++){
+        if(min > arr[i]){
+            min = arr[i];
+        }
+    }
+    return min;
+}
+uint16_t array16_max(const uint16_t* arr, uint8_t len){
+    int i;
+    uint16_t max = arr[0];
+
+    for(i=1; i<len; i++){
+        if(max < arr[i]){
+            max = arr[i];
+        }
+    }
+    return max;
+}
+
+uint32_t array16_sum(const uint16_t* arr, uint8_t len){
+    int i;
+    uint32_t sum = 0;
+
+    for(i=0; i<len; i++)
+        sum += arr[i];
+
+    return sum;
+}
+uint32_t array16_avg(const uint16_t* arr, uint8_t len){
+
+    uint32_t sum =  array16_sum(arr, len);
+    uint32_t avg = sum / len;
+
     return avg;
 }
-bool array16_eq_all(uint16_t* arr1, uint16_t* arr2, uint8_t len){
+
+bool array16_eq_all(const uint16_t* arr1, const uint16_t* arr2, uint8_t len){
     int i;
     for(i=0; i<len; i++){
         if(arr1[i] != arr2[i]){
@@ -275,8 +321,7 @@ bool array16_eq_all(uint16_t* arr1, uint16_t* arr2, uint8_t len){
 
     return TRUE;
 }
-
-bool array16_eq_element(uint16_t* arr1, uint16_t* arr2, bool *out, uint8_t len){
+bool array16_eq_element(const uint16_t* arr1, const uint16_t* arr2, bool *out, uint8_t len){
     int i;
     bool eqAll = TRUE;
     for(i=0; i<len; i++){
@@ -285,6 +330,66 @@ bool array16_eq_element(uint16_t* arr1, uint16_t* arr2, bool *out, uint8_t len){
     }
 
     return eqAll;
+}
+bool array16_less_element(const uint16_t* arr1, const uint16_t* arr2, bool *out, uint8_t len){
+    int i;
+    bool lessAll = TRUE;
+    for(i=0; i<len; i++){
+        out[i] = (arr1[i] < arr2[i]);
+        lessAll &= out[i];
+    }
+
+    return lessAll;
+}
+bool array16_greater_element(const uint16_t* arr1, const uint16_t* arr2, bool *out, uint8_t len){
+    int i;
+    bool greaterAll = TRUE;
+    for(i=0; i<len; i++){
+        out[i] = (arr1[i] > arr2[i]);
+        greaterAll &= out[i];
+    }
+
+    return greaterAll;
+}
+bool array16_eq_any(const uint16_t* arr1, uint16_t val, uint8_t len){
+    int i;
+    for(i=0; i<len; i++){
+        if(arr1[i] == val){
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+bool array16_eq_every(const uint16_t* arr1, uint16_t val, uint8_t len){
+    int i;
+    for(i=0; i<len; i++){
+        if(arr1[i] != val){
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+bool array16_less_any(const uint16_t* arr1, uint16_t val, uint8_t len){
+    int i;
+    for(i=0; i<len; i++){
+        if(arr1[i] < val){
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+bool array16_greater_any(const uint16_t* arr1, uint16_t val, uint8_t len){
+    int i;
+    for(i=0; i<len; i++){
+        if(arr1[i] > val){
+            return TRUE;
+        }
+    }
+
+    return FALSE;
 }
 //----------------------------------------------------------------------------------------
 

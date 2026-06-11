@@ -1,0 +1,15 @@
+/*
+ * SlaveCommunation_Helpers.h
+ *
+ *  Created on: Jun 8, 2026
+ *      Author: tanjo
+ */
+
+#ifndef PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_HELPERS_H_
+#define PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_HELPERS_H_
+
+
+
+
+
+#endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_HELPERS_H_ */

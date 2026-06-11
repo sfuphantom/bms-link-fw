@@ -1,0 +1,611 @@
+/*
+ * SlaveCommunation_Functions.c
+ *
+ *  Created on: Jun 7, 2026
+ *      Author: tanjo
+ */
+
+#include "spi.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include "ltc6811_commands.h"
+#include "SlaveCommunication_Drivers.h"
+#include "SlaveCommunation_Functions.h"
+#include "PhantomHelpers.h"
+
+
+struct ConfigReg ConfigRegData[NUMBER_OF_SLAVE_BOARDS];
+struct StatusReg StatusRegData[NUMBER_OF_SLAVE_BOARDS];
+bool ADC_is_Free = TRUE;
+//---------------------------------------------------------------------------------------------------------
+void Config_Struct2Words(uint16_t* data){
+    int i;
+    uint8_t data8[BYTES_PER_REG_GROUP];
+    for(i = 0; i < NUMBER_OF_SLAVE_BOARDS; i++){
+        struct ConfigReg* current_Reg = &ConfigRegData[i];
+
+        // CFGR0: GPIO[4:0] in bits[7:3], REFON in bit2, DTEN in bit1, ADCOPT in bit0
+        data8[0] = ((current_Reg->gpio   & 0x1F) << 3U)
+                 | ((current_Reg->refon  & 0x01) << 2U)
+                 | (0U                           << 1U)   // DTEN read-only, write 0
+                 | ((current_Reg->adcopt & 0x01) << 0U);
+
+        // CFGR1: VUV[7:0]
+        data8[1] =  (current_Reg->VUV & 0xFF);
+
+        // CFGR2: VOV[3:0] in bits[7:4], VUV[11:8] in bits[3:0]
+        data8[2] = ((current_Reg->VOV & 0x0F) << 4U)
+                 | ((current_Reg->VUV >> 8U)  & 0x0F);
+
+        // CFGR3: VOV[11:4]
+        data8[3] =  (current_Reg->VOV >> 4U) & 0xFF;
+
+        // CFGR4: DCC[8:1]
+        data8[4] =  (current_Reg->DCC & 0xFF);
+
+        // CFGR5: DCTO[3:0] in bits[7:4], DCC[12:9] in bits[3:0]
+        data8[5] = ((current_Reg->dcto & 0x0F) << 4U)
+                 | ((current_Reg->DCC  >> 8U)  & 0x0F);
+
+        bytes2words(data8, data, WORDS_PER_REG_GROUP, BigEndian);
+        data += WORDS_PER_REG_GROUP;
+    }
+}
+
+void Config_Words2Struct(uint16_t* data){
+    int i, idx;
+    uint8_t byteLow, byteHigh;
+    uint8_t vuv_lo;
+
+    for(i = 0, idx = 0; i < NUMBER_OF_SLAVE_BOARDS; i++){
+        struct ConfigReg* current_Reg = &ConfigRegData[i];
+
+        // word[0] = CFGR1(high byte) | CFGR0(low byte)
+        // CFGR0 = GPIO5..GPIO1 | REFON | DTEN | ADCOPT
+        // CFGR1 = VUV[7:0]
+        word2byte(data[idx++], &byteLow, &byteHigh);
+        current_Reg->adcopt = (byteLow >> 0U) & 0x01;
+        current_Reg->DTEN   = (byteLow >> 1U) & 0x01;
+        current_Reg->refon  = (byteLow >> 2U) & 0x01;
+        current_Reg->gpio   = (byteLow >> 3U) & 0x1F;
+        vuv_lo = byteHigh;   // save CFGR1 = VUV[7:0] for later
+
+        // word[1] = CFGR3(high byte) | CFGR2(low byte)
+        // CFGR2 = VOV[3:0] in bits[7:4], VUV[11:8] in bits[3:0]
+        // CFGR3 = VOV[11:4]
+        word2byte(data[idx++], &byteLow, &byteHigh);
+        current_Reg->VUV = ((uint16_t)(byteLow & 0x0F) << 8U)   // VUV[11:8]
+                         |  (uint16_t)vuv_lo;                    // VUV[7:0]
+        current_Reg->VOV = ((uint16_t)byteHigh          << 4U)   // VOV[11:4]
+                         | ((uint16_t)(byteLow >> 4U) & 0x0F);   // VOV[3:0]
+
+        // word[2] = CFGR5(high byte) | CFGR4(low byte)
+        // CFGR4 = DCC[8:1]
+        // CFGR5 = DCTO[3:0] in bits[7:4], DCC[12:9] in bits[3:0]
+        word2byte(data[idx++], &byteLow, &byteHigh);
+        current_Reg->DCC  = ((uint16_t)(byteHigh & 0x0F) << 8U)  // DCC[12:9]
+                          |  (uint16_t)byteLow;                   // DCC[8:1]
+        current_Reg->dcto = (byteHigh >> 4U) & 0x0F;             // DCTO[3:0]
+    }
+}
+
+void Stat_Words2Struct(uint16_t* data){
+    uint32_t UO_Flags;
+    uint8_t byteLow, byteHigh;
+    uint8_t flag;
+    int cell, i, idx;
+
+    for(i = 0, idx = 0; i < NUMBER_OF_SLAVE_BOARDS; i++){
+        struct StatusReg* current_Reg = &StatusRegData[i];
+
+        // STATA:
+        // word[0] = SC   (sum of all cells raw ADC value, multiply by 20*100uV)
+        // word[1] = ITMP (die temperature raw ADC value)
+        // word[2] = VA   (analog supply VREG raw ADC value)
+        current_Reg->SC   = data[idx++];
+        current_Reg->ITMP = data[idx++];
+        current_Reg->VA   = data[idx++];
+
+        // STATB:
+        // word[3] = VD   (digital supply VREGD raw ADC value)
+        // word[4] = STBR3(high byte) | STBR2(low byte)
+        // word[5] = STBR5(high byte) | STBR4(low byte)
+        //
+        // STBR2: C4OV|C4UV|C3OV|C3UV|C2OV|C2UV|C1OV|C1UV
+        // STBR3: C8OV|C8UV|C7OV|C7UV|C6OV|C6UV|C5OV|C5UV
+        // STBR4: C12OV|C12UV|C11OV|C11UV|C10OV|C10UV|C9OV|C9UV
+        // each cell pair: bit(2*cell+0)=CxUV, bit(2*cell+1)=CxOV
+        current_Reg->VD = data[idx++];
+
+        UO_Flags  = (uint32_t)data[idx++];                        // STBR3|STBR2
+        UO_Flags |= (uint32_t)(data[idx] & 0x00FF) << 16U;       // STBR4 low byte
+
+        // STBR5: REV[3:0] | RSVD | RSVD | MUXFAIL | THSD
+        word2byte(data[idx++], &byteLow, &byteHigh);
+        // byteLow  = STBR4 (already consumed above)
+        // byteHigh = STBR5
+
+        current_Reg->OV_flags = 0;
+        current_Reg->UV_flags = 0;
+
+        for(cell = 0; cell < CELLS_PER_SLAVE_BOARD; cell++){
+            flag = (UO_Flags >> (2*cell + 0)) & 0x1;   // UV flag for this cell
+            current_Reg->UV_flags |= (uint16_t)flag << cell;
+
+            flag = (UO_Flags >> (2*cell + 1)) & 0x1;   // OV flag for this cell
+            current_Reg->OV_flags |= (uint16_t)flag << cell;
+        }
+
+        // STBR5 bit layout: REV[3:0] in bits[7:4], RSVD in bits[3:2],
+        //                   MUXFAIL in bit[1], THSD in bit[0]
+        current_Reg->THSD    = (byteHigh >> 0U) & 0x01;
+        current_Reg->MUXFAIL = (byteHigh >> 1U) & 0x01;
+        current_Reg->REV     = (byteHigh >> 4U) & 0x0F;
+    }
+}
+
+//---------------------------------------------------------------------------------------------------------
+uint32 Write_CFGR(){
+          uint16_t WriteConfig[NUMBER_OF_CONFIG_WORDS];
+//          uint16_t ReadConfig [NUMBER_OF_REG_WORDS_PER_CMD];
+
+          const uint16_t cmds_W[NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD] = {LTC6811_WRCFGA};
+//          const uint16_t cmds_R[NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD] = {LTC6811_RDCFGA};
+
+          Config_Struct2Words(WriteConfig);
+
+          int i;
+
+          for(i=0;i<NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD;i++){
+              WriteRegGroup(cmds_W[i], &WriteConfig[i*NUMBER_OF_REG_WORDS_PER_CMD]);
+//              ReadRegGroup( cmds_R[i], &ReadConfig[NUMBER_OF_REG_WORDS_PER_CMD] );
+//              if(array16_eq_all(WriteConfig, ReadConfig, NUMBER_OF_REG_WORDS_PER_CMD)){
+//                  i--;
+//          }
+          }
+     return TRUE;
+ }
+ void Read_CFGR(){
+     uint16_t raw[NUMBER_OF_CONFIG_WORDS];
+     uint16_t cmds[NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD] = {LTC6811_RDCFGA};
+
+     ReadMultiRegGroups(cmds, NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD, raw);
+
+     Config_Words2Struct(raw);
+
+    return;
+ }
+ void Read_STAT(){
+     uint16_t raw[NUMBER_OF_STAT_WORDS];
+     uint16_t cmds[NUMBER_OF_STAT_REG_GROUPS_PER_BOARD] = {LTC6811_RDSTATA, LTC6811_RDSTATB};
+
+     ReadMultiRegGroups(cmds, NUMBER_OF_STAT_REG_GROUPS_PER_BOARD, raw);
+
+     Config_Words2Struct(raw);
+
+     return;
+ }
+//---------------------------------------------------------------------------------------------
+
+ void ReadConfig_DCC(uint16_t* DCC){
+    int i;
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+         struct ConfigReg* current_Reg = &ConfigRegData[i];
+
+         DCC[i] = current_Reg->DCC;
+    }
+}
+void SetConfig_DCC(const uint16_t* DCC){
+    int i;
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+         struct ConfigReg* current_Reg = &ConfigRegData[i];
+
+          current_Reg->DCC = DCC[i];
+    }
+}
+void ReadConfig_gpio(uint8_t* gpio){
+    int i;
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+         struct ConfigReg* current_Reg = &ConfigRegData[i];
+
+         gpio[i] = current_Reg->gpio;
+    }
+}
+bool ReadConfig_gpio_allZero(){
+    int i;
+    bool allZero = TRUE;
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+         struct ConfigReg* current_Reg = &ConfigRegData[i];
+
+         allZero &= !(current_Reg->gpio);
+    }
+    return allZero;
+}
+void SetConfig_gpio(const uint8_t* gpio){
+    int i;
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+         struct ConfigReg* current_Reg = &ConfigRegData[i];
+
+          current_Reg->gpio = gpio[i];
+    }
+}
+//--------------------------------------------------------------------------------------------
+
+uint16_t Slave_Volt2ADC(float ADC_Volt){
+    uint16_t ADC_Value = (ADC_Volt - ADC_OFFSET_VOLTS)/ADC2VOLTS;
+    return ADC_Value;
+}
+float Slave_ADC2Volt(uint16_t ADC_Word){
+    uint16 ADC_Round = round16(ADC_Word, 16-ADC_RESOLUTION_BIT);
+    float Volt = ADC_Round * ADC2VOLTS + ADC_OFFSET_VOLTS;
+    return Volt;
+}
+
+float Slave_ADC2Celcius(uint16_t ADC){
+    float Volts = Slave_ADC2Volt(ADC);
+    float Kelvin = Volts / ITMP_MILLI_VOLTS_2_CELCIUS * 1000;
+    float Celcius = Kelvin - ITMP_KELVIN_2_CELCIUS;
+    return Celcius;
+}
+void Slave_ADC2Volt_arr(uint16_t* ADC_Words, float* Volts, uint16_t len){
+    int i;
+    for(i=0; i<len; i++)
+        Volts[i] = Slave_ADC2Volt(ADC_Words[i]);
+}
+//---------------------------------------------------------------------------------------------------------
+uint32_t checkStatFlags(){
+    uint8_t Shift=0;
+     bool flag;
+     uint32_t Flags = 0;
+
+     int i;
+     for(i=0, Shift=0;i<NUMBER_OF_SLAVE_BOARDS;i++, Shift=0){
+         struct StatusReg* current_Reg = &StatusRegData[i];
+
+         flag = current_Reg->OV_flags == 0;
+         Flags |= (uint32_t)flag<<Shift++;
+         flag = current_Reg->UV_flags == 0;
+         Flags |= (uint32_t)flag<<Shift++;
+         flag = current_Reg->THSD == 0;
+         Flags |= (uint32_t)flag<<Shift++;
+         flag = current_Reg->MUXFAIL == 0;
+         Flags |= (uint32_t)flag<<Shift++;
+
+         flag = current_Reg->ITMP >MAX_INTERNAL_DIE_TEMPERATURE_FLAG;
+         Flags |= (uint32_t)flag<<Shift++;
+         flag = current_Reg->ITMP <MIN_INTERNAL_DIE_TEMPERATURE_FLAG;
+         Flags |= (uint32_t)flag<<Shift++;
+         flag = current_Reg->VA > MAX_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG;
+         Flags |= (uint32_t)flag<<Shift++;
+         flag = current_Reg->VA < MIN_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG;
+         Flags |= (uint32_t)flag<<Shift++;
+         flag = current_Reg->VD > MAX_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG;
+         Flags |= (uint32_t)flag<<Shift++;
+         flag = current_Reg->VD < MIN_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG;
+         Flags |= (uint32_t)flag<<Shift++;
+     }
+
+     return Flags;
+}
+//---------------------------------------------------------------------------------------------------------
+void setADCFreeVal(bool status){
+    ADC_is_Free = status;
+}
+ bool isConvComplete() {
+     uint8_t status = 0;
+     setCS(LOW);
+     SendCmdAndPec2Slave(LTC6811_PLADC);
+     status = SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE);
+     setCS(HIGH);
+     // If any bit is high, conversion is done (SDO is open-drain, driven low only when busy)
+     return (status != 0x00);
+ }
+#define Imp 1
+
+ bool waitConvComplete(const uint32_t wait_periods_us){
+     bool status;
+     uint32_t BytesWaiting = 0;
+
+     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
+    #if Imp == 1
+     for(BytesWaiting=0; BytesWaiting < SLAVE_CONVERSATION_TIMEOUT; BytesWaiting++){
+
+         status = isConvComplete();
+         if(status){
+             break;
+         }
+
+         delay_ms_us(0,wait_periods_us);
+     }
+    #elif Imp == 2
+
+     setCS(LOW);
+     SendCmdAndPec2Slave(LTC6811_PLADC);
+
+     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
+
+     status = FALSE;
+     for(BytesWaiting=0; BytesWaiting < SLAVE_CONVERSATION_TIMEOUT; BytesWaiting++){
+
+         status = SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE) & 0x0001;
+         if(status){
+             break;
+         }
+
+         delay_ms_us(0,wait_periods_us);
+     }
+     setCS(HIGH);
+
+    #endif
+
+     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
+
+     return status;
+ }
+ bool waitConvComplete_ADC_Cells(){
+     setADCFreeVal(FALSE);
+     bool status =  waitConvComplete(500);
+     setADCFreeVal(TRUE);
+     return status;
+ }
+ bool waitConvComplete_ADC_GPIO(){
+     setADCFreeVal(FALSE);
+     bool status =  waitConvComplete(500);
+     setADCFreeVal(TRUE);
+     return status;
+ }
+ bool waitConvComplete_ADC_STAT(){
+     setADCFreeVal(FALSE);
+     bool status =  waitConvComplete(500);
+     setADCFreeVal(TRUE);
+     return status;
+ }
+ bool waitConvComplete_Cell_Bal(){
+     return waitConvComplete(500);
+ }
+ bool isADCFree() {
+     return ADC_is_Free;
+ }
+ bool waitADCFree(){
+     bool status = FALSE;
+     uint32_t BytesWaiting = 0;
+
+     for(BytesWaiting=0; BytesWaiting < SLAVE_CONVERSATION_TIMEOUT; BytesWaiting++){
+
+         status = isADCFree();
+         if(status){
+             break;
+         }
+         delay_ms_us(0,500);
+     }
+
+     return status;
+ }
+ bool waitSPIFree(){
+     CS_Level status;
+      uint32_t BytesWaiting = 0;
+
+      for(BytesWaiting=0; BytesWaiting < SLAVE_CONVERSATION_TIMEOUT; BytesWaiting++){
+
+          status =  GetCS();
+          if(status == HIGH){
+              return TRUE;
+          }
+          delay_ms_us(1,0);
+      }
+
+      if(status != HIGH){
+          setCS(HIGH);
+      }
+      return FALSE;
+  }
+
+//---------------------------------------------------------------------------------------------------------
+ void ClearCellsCMD(){
+     SendCMD2Slave_alone(LTC6811_CLRCELL);
+ }
+ void ClearAUXCMD(){
+     SendCMD2Slave_alone(LTC6811_CLRAUX);
+ }
+ void ClearStatCMD(){
+     SendCMD2Slave_alone(LTC6811_CLRCELL);
+ }
+ //---------------------------------------------------------------------------------------------------------
+ uint32 CheckSTATCmd(uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                    uint8_t ST)    //  Self Test Mode Selection
+ {
+
+     uint16_t MD_bits    = (MD & 0x03) << 7;
+     uint16_t ST_bits     = (ST & 0x03) << 5;
+     uint16_t cmd = LTC6811_STATST| MD_bits | ST_bits;
+
+     return SendCMD2Slave_alone(cmd);
+ }
+ uint32 MeasureCellsCmd(uint8_t MD  , // DC mode: 0=Fast, 1=Normal, 2=Filtered
+                        bool DCP    , // Discharge Permit
+                        uint8_t CHG ) // Cell Selection for ADC Conversion
+ {
+
+     uint16 CHG_bits     = CHG & 0x07;
+     uint16 DCP_bits     = DCP ? 0x0010 : 0x0000;
+     uint16_t MD_bits    = (MD & 0x03) << 7;
+     uint16_t cmd = LTC6811_ADCV | MD_bits | DCP_bits | CHG_bits;
+
+     return SendCMD2Slave_alone(cmd);
+ }
+
+ uint32 MeasureAUXCmd(uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                       uint8_t CHG)    //  GPIO Selection for ADC Conversion
+ {
+     uint16 CHG_bits     = CHG & 0x07;
+     uint16_t MD_bits    = (MD & 0x03) << 7;
+     uint16_t cmd = LTC6811_ADAX | MD_bits | CHG_bits;
+
+     return SendCMD2Slave_alone(cmd);
+ }
+ bool Start_S_CTRL_Pulsing(){
+     return SendCMD2Slave_alone(LTC6811_STSCTRL);
+ }
+ //---------------------------------------------------------------------------------------------------------
+
+bool Write_S_CTRL(uint8* nibbles){
+    return WriteBytes2RegGroup(LTC6811_WRSCTRL, nibbles);
+}
+bool Read_S_CTRL(uint8* nibbles){
+    return WriteBytes2RegGroup(LTC6811_RDSCTRL, nibbles);
+}
+bool Write_PWM(uint8* nibbles){
+    return WriteBytes2RegGroup(LTC6811_WRPWM, nibbles);
+}
+bool Read_PWM(uint8* nibbles){
+    return WriteBytes2RegGroup(LTC6811_RDPWM, nibbles);
+}
+ //---------------------------------------------------------------------------------------------------------
+ bool GetVoltageReadings(uint16_t* data){
+     const uint16_t cmds[NUMBER_OF_CELL_VOLTAGE_REG_GROUPS_PER_BOARD] = {LTC6811_RDCVA, LTC6811_RDCVB, LTC6811_RDCVC, LTC6811_RDCVD};
+
+     ReadMultiRegGroups(cmds, NUMBER_OF_CELL_VOLTAGE_REG_GROUPS_PER_BOARD, data);
+
+     return TRUE;
+ }
+ bool GetGPIOReadings_Analog(uint16_t* data){
+      uint16_t cmds[NUMBER_OF_GPIO_VOLTAGE_REG_GROUPS_PER_BOARD] = {LTC6811_RDAUXA,LTC6811_RDAUXB};
+
+      ReadMultiRegGroups(cmds, NUMBER_OF_GPIO_VOLTAGE_REG_GROUPS_PER_BOARD, data);
+
+      return TRUE;
+  }
+// bool GetGPIOReadings_Digital(uint8_t *gpio_data)
+// {
+//     Read_CFGR();
+//
+//     int i;
+//     for(i=0;i<NUMBER_OF_SLAVE_BOARDS; i++){
+//         struct ConfigReg* current_Slaves_ConfigReg = &ConfigRegData[i];
+//
+//         gpio_data[i] = current_Slaves_ConfigReg->gpio;
+//     }
+//
+//     return TRUE;
+// }
+//---------------------------------------------------------------------------------------------------------
+
+ void initConfig(){
+     const bool     adcopt  = TRUE;
+     const bool     DTEN    = TRUE;
+     const bool     refon   = TRUE;
+     const uint8_t  gpio    = 0b00000;
+     const uint16_t DCC     = 0xFFF;//0b0000111111111110;//0xFFF;
+     const uint8_t dcto     = 0x0;
+
+     int i;
+     for(i=0;i<NUMBER_OF_SLAVE_BOARDS;i++){
+         struct ConfigReg* current_Reg = &ConfigRegData[i];
+
+         current_Reg->adcopt    = adcopt;
+         current_Reg->DTEN      = DTEN  ;
+         current_Reg->refon     = refon ;
+         current_Reg->gpio      = gpio  ;
+         current_Reg->DCC       = DCC   ;
+         current_Reg->dcto      = dcto  ;
+         current_Reg->VUV       = UNDER_VOLTAGE_CONFIG;
+         current_Reg->VOV       = OVER_VOLTAGE_CONFIG;
+     }
+
+     Write_CFGR();
+ }
+ //---------------------------------------------------------------------------------------------------------
+bool AreCellsUnBalance(const uint16* Volts, uint16_t *avg, uint16_t *min){
+    uint16_t minAvgDiff;
+    static bool Balance_Hysteresis = FALSE;
+
+    *min = array16_min(Volts, NUMBER_OF_CELLS);
+    *avg = array16_avg(Volts, NUMBER_OF_CELLS);
+
+    minAvgDiff = avg-min;
+
+    if (CELL_BALANCE_TRIGGER_HIGH_VOLTS_ADC < minAvgDiff ){
+        Balance_Hysteresis = TRUE;
+    }
+    else if(CELL_BALANCE_TRIGGER_LOW_VOLTS_ADC > minAvgDiff){
+        Balance_Hysteresis = FALSE;
+    }
+    else{
+        Balance_Hysteresis = Balance_Hysteresis;
+    }
+    return Balance_Hysteresis;
+}
+ uint8_t BalanceCellVaule(const uint16 cellVolt, const uint16_t min, const bool UnBalance){
+     uint8_t nibble;
+
+     uint16_t Vdiff = cellVolt - min;
+     if(cellVolt > MAX_CELL_CHARGING_VOLTAGE_TARGET){
+         nibble  = 0xF;
+     }
+
+     else if(CELL_BALANCE_THESHOLD_VOLTS_ADC < Vdiff && UnBalance){
+         nibble= 0xF;
+//         nibble  = (Vdiff + VOLTS_ADC_DRAINED_PER_PULSE/2);
+//         nibble /= VOLTS_ADC_DRAINED_PER_PULSE;
+     }
+     else{
+         nibble  = 0x0;
+     }
+
+
+     return nibble;
+ }
+
+  bool GetBalanceNibbles(const uint16* Volts, uint8_t* BalanceNibbles){
+    int i, j;
+    uint16_t min, avg, cellVolt;
+    uint8_t nibble, byte;
+
+
+    bool UnBalance = AreCellsUnBalance(Volts, &avg, &min);
+//    if(!UnBalance){
+//        return Balance_Hysteresis;
+//    }
+
+    for(i=0;i<CELL_IN_SERIES/NIBBLE2BYTES; i++){
+        byte = 0;
+
+        for(j=0;j<NIBBLE2BYTES;j++){
+            cellVolt = (*Volts++);
+
+            nibble = BalanceCellVaule(cellVolt, min, UnBalance);
+
+//            nibble &= 0xF;
+            byte |= nibble<<(j*4);
+        }
+        BalanceNibbles[i] = byte;
+    }
+
+
+    return !UnBalance;
+}
+bool GetBalanceDCC(const uint16* Volts, uint16_t* DCC){
+//     const uint8_t Nibbles2Bytes = 2;
+     int i, j;
+     uint16_t min, avg, cellVolt;
+     uint8_t nibble= 2;
+
+     bool UnBalance = AreCellsUnBalance(Volts, &avg, &min);
+
+     for(i=0;i<NUMBER_OF_SLAVE_BOARDS;i++){
+         *DCC = 0;
+
+         for (j=0;j<CELLS_PER_SLAVE_BOARD; j++){
+             cellVolt = (*Volts++);
+
+             nibble = BalanceCellVaule(cellVolt, min, UnBalance);
+             if(nibble){
+                 *DCC |= 1U<<j;
+             }
+         }
+
+         DCC++;
+     }
+     return !UnBalance;
+ }
+

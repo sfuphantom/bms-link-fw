@@ -80,9 +80,14 @@
 
 /* USER CODE BEGIN (1) */
 #include "spi.h"
-#include "SlaveCommunication.h"
-#include "SlaveCommunication_Services.h"
-#include "ltc6811_commands.h"
+//#include "SlaveCommunication_Drivers.h"
+#include "SlaveCommunication_TaskAndRoutines.h"
+
+#include "BatteryData.h"
+
+
+//#include "ltc6811_commands.h"
+#include "rti.h"
 
 //#define SPI_Test
 
@@ -141,17 +146,6 @@ void main(void)
 
 #else
 
-#define NUMBER_OF_FAILS_ALLOWED 2
-
-uint16_t VoltData[NUMBER_OF_CELLS];
-uint16_t VoltData1[NUMBER_OF_CELLS];
-uint16_t VoltData2[NUMBER_OF_CELLS];
-
-
-uint16_t GPIO_Data[NUMBER_OF_GPIOS];
-uint8_t GPIO_Digital[NUMBER_OF_SLAVE_BOARDS];
-
-uint16_t DCC_Val[2];
 
 void main(void)
 {
@@ -163,42 +157,32 @@ void main(void)
 
 
     int i=0;
-    int repeat_idx=0;
+//    int repeat_idx=0;
 
-    bool TimeOutCellVolts, TimeOutGPIOVolts, TimeOutCellBal;
+//    bool DoneCellVolts, DoneGPIOVolts, DoneCellBal;
 
     float VoltCells[NUMBER_OF_CELLS];
-    float VoltGPIO[NUMBER_OF_GPIOS];
+//    float VoltGPIO[NUMBER_OF_GPIOS];
 
+//    uint32_t Slave_Flags;
+    float AvgCellVolt_f;
+    uint16_t AvgCellVolt_16;
+
+    SetChargingStatus(FALSE);
     while(1){
 
-        delay_ms_us(10,0);
+//        delay_ms_us(10,0);
+//        CheckChargingSatusTask();
+        CellVoltageControlTask();
+        MonitorCellTempTask();
 
-        initLink();
-        for(repeat_idx=0;repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
-        #if UseAnilog
-            TimeOutGPIOVolts = MeasureGPIOVoltageRoutine(GPIO_Data);
-            Slave_ADC2Volt_arr(GPIO_Data, VoltGPIO, NUMBER_OF_CELLS);
-        #else
-            TimeOutGPIOVolts = MeasureGPIOVoltageRoutine(GPIO_Digital);
-        #endif
+        SlaveFlagsTask();
 
-            if(!TimeOutGPIOVolts)   break;
-        }
-        for(repeat_idx=0;repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
-            TimeOutCellVolts = MeasureCellVoltageRoutine(VoltData);
+        Slave_ADC2Volt_arr(GetCellVoltPrt(), VoltCells, NUMBER_OF_CELLS);
+        AvgCellVolt_16 = array16_avg(GetCellVoltPrt(), 1*CELLS_PER_SLAVE_BOARD);
+        AvgCellVolt_f = Slave_ADC2Volt(AvgCellVolt_16);
 
-            if(!TimeOutCellVolts)   break;
-        }
-
-        GetVoltageReadings(VoltData1);
-        Slave_ADC2Volt_arr(VoltData, VoltCells, NUMBER_OF_CELLS);
-
-        BalanceCellsRoutine(VoltData);
-
-        ReadStatRoutine();
-
-        if(i>1){
+        if(i<1){
             i=0;
             initLink();
         }
