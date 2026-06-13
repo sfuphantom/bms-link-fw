@@ -56,6 +56,10 @@ BMS_Master/source/notification.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Maste
 BMS_Master/source/notification.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_ecap.h
 BMS_Master/source/notification.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/sys_dma.h
 BMS_Master/source/notification.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_dma.h
+BMS_Master/source/notification.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/IMD.h
+BMS_Master/source/notification.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/rti.h
+BMS_Master/source/notification.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_rti.h
+BMS_Master/source/notification.obj: C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include/stdlib.h
 
 ../BMS_Master/source/notification.c: 
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/esm.h: 
@@ -113,3 +117,7 @@ C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/ecap.h:
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_ecap.h: 
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/sys_dma.h: 
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_dma.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/IMD.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/rti.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_rti.h: 
+C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include/stdlib.h: 

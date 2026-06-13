@@ -65,6 +65,9 @@
 #include "sys_dma.h"
 
 /* USER CODE BEGIN (0) */
+#include "IMD.h"
+
+#define ecap_sec2counts  VCLK4_FREQ*(1000000)
 /* USER CODE END */
 #pragma WEAK(esmGroup1Notification)
 void esmGroup1Notification(uint32 channel)
@@ -297,6 +300,33 @@ void ecapNotification(ecapBASE_t *ecap,uint16 flags)
 {
 /*  enter user code between the USER CODE BEGIN and USER CODE END. */
 /* USER CODE BEGIN (51) */
+    uint32 C1, C2, C3;
+    float64 duty, period, freq;
+
+    C1 = ecapGetCAP1(ecap);
+    C2 = ecapGetCAP2(ecap);
+    C3 = ecapGetCAP3(ecap);
+
+    period = (C3 - C1);
+    if (C2>C1 && C3>C1 && C3>C2){
+        duty = (C2-C1)/period;
+
+        period /= ecap_sec2counts;
+        freq = 1/period;
+
+        updateIMDData();
+//        printf("Duty = %fns\n", duty);
+//        printf("Period = %fns\n\n", period);
+    }
+    else {
+        duty = 0;
+        freq = 0;
+    }
+
+    //see what is wrong in helcogen, I should need these functions
+//    ecapResetCAP1(ecap);
+//    ecapResetCAP2(ecap);
+//    ecapResetCAP3(ecap);
 /* USER CODE END */
 }
 /* USER CODE BEGIN (52) */

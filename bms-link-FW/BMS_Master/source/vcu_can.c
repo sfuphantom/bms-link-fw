@@ -8,6 +8,7 @@
 #include "vcu_can.h"
 #include <string.h>
 
+// Boolean value
 static void transmit_data(uint32_t msgbox, uint8_t val){
     uint8_t buf[8];
     uint8_t fill = (val != 0) ? 0xFF : 0x00;

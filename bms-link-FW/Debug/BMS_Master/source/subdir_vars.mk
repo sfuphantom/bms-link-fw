@@ -16,6 +16,8 @@ ASM_SRCS += \
 C_SRCS += \
 ../BMS_Master/source/Device_TMS570LS12.c \
 ../BMS_Master/source/Fapi_UserDefinedFunctions.c \
+../BMS_Master/source/IMD.c \
+../BMS_Master/source/IMD_CAN.c \
 ../BMS_Master/source/adc.c \
 ../BMS_Master/source/can.c \
 ../BMS_Master/source/charger_can.c \
@@ -66,6 +68,8 @@ C_SRCS += \
 C_DEPS += \
 ./BMS_Master/source/Device_TMS570LS12.d \
 ./BMS_Master/source/Fapi_UserDefinedFunctions.d \
+./BMS_Master/source/IMD.d \
+./BMS_Master/source/IMD_CAN.d \
 ./BMS_Master/source/adc.d \
 ./BMS_Master/source/can.d \
 ./BMS_Master/source/charger_can.d \
@@ -116,6 +120,8 @@ C_DEPS += \
 OBJS += \
 ./BMS_Master/source/Device_TMS570LS12.obj \
 ./BMS_Master/source/Fapi_UserDefinedFunctions.obj \
+./BMS_Master/source/IMD.obj \
+./BMS_Master/source/IMD_CAN.obj \
 ./BMS_Master/source/adc.obj \
 ./BMS_Master/source/ajsm.obj \
 ./BMS_Master/source/can.obj \
@@ -180,6 +186,8 @@ ASM_DEPS += \
 OBJS__QUOTED += \
 "BMS_Master\source\Device_TMS570LS12.obj" \
 "BMS_Master\source\Fapi_UserDefinedFunctions.obj" \
+"BMS_Master\source\IMD.obj" \
+"BMS_Master\source\IMD_CAN.obj" \
 "BMS_Master\source\adc.obj" \
 "BMS_Master\source\ajsm.obj" \
 "BMS_Master\source\can.obj" \
@@ -236,6 +244,8 @@ OBJS__QUOTED += \
 C_DEPS__QUOTED += \
 "BMS_Master\source\Device_TMS570LS12.d" \
 "BMS_Master\source\Fapi_UserDefinedFunctions.d" \
+"BMS_Master\source\IMD.d" \
+"BMS_Master\source\IMD_CAN.d" \
 "BMS_Master\source\adc.d" \
 "BMS_Master\source\can.d" \
 "BMS_Master\source\charger_can.d" \
@@ -294,6 +304,8 @@ ASM_DEPS__QUOTED += \
 C_SRCS__QUOTED += \
 "../BMS_Master/source/Device_TMS570LS12.c" \
 "../BMS_Master/source/Fapi_UserDefinedFunctions.c" \
+"../BMS_Master/source/IMD.c" \
+"../BMS_Master/source/IMD_CAN.c" \
 "../BMS_Master/source/adc.c" \
 "../BMS_Master/source/can.c" \
 "../BMS_Master/source/charger_can.c" \
