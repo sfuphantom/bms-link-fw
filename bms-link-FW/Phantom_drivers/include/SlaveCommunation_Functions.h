@@ -33,7 +33,7 @@
 #define NUMBER_OF_GPIOS             (GPIOS_PER_SLAVE_BOARD     * NUMBER_OF_SLAVE_BOARDS)
 #define NUMBER_OF_REF_2ND           (REF_2ND_PER_SLAVE_BOARD   * NUMBER_OF_SLAVE_BOARDS)
 
-#define CELL_IN_SERIES               NUMBER_OF_CELLS
+//#define CELL_IN_SERIES               NUMBER_OF_CELLS
 #define NUMBER_OF_CONFIG_WORDS      (NUMBER_OF_REG_WORDS_PER_CMD * NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD)
 #define NUMBER_OF_STAT_WORDS        (NUMBER_OF_REG_WORDS_PER_CMD * NUMBER_OF_STAT_REG_GROUPS_PER_BOARD)
 /////////////////////////////////////////////////////////////////
@@ -132,20 +132,25 @@ void ClearStatCMD();
                         );
 
  uint32 MeasureAUXCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
-                       const uint8_t CHG    //  GPIO Selection for ADC Conversion
+                      const uint8_t CHG    //  GPIO Selection for ADC Conversion
                       );
+ uint32 MeasureSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                       const uint8_t CHST    //  Status Group Selection
+                     );
+ //---------------------------------------------------------------------------------------------------------
 
  bool isConvComplete();
  bool isADCFree();
  bool waitADCFree();
 
- bool waitConvComplete(const uint32_t wait_periods_us);
- bool waitConvComplete_ADC_Cells();
- bool waitConvComplete_ADC_GPIO();
- bool waitConvComplete_ADC_STAT();
- bool waitConvComplete_Cell_Bal();
+ uint32_t waitConvComplete(const uint32_t wait_periods_us);
+ uint32_t waitConvComplete_ADC_Cells();
+ uint32_t waitConvComplete_ADC_GPIO();
+ uint32_t waitConvComplete_ADC_STAT();
+ uint32_t waitConvComplete_Cell_Bal();
+ uint32_t waitConvComplete_ADC_STAT();
 
- bool waitSPIFree();
+ uint32_t waitSPIFree();
  //---------------------------------------------------------------------------------------------------------
  bool GetVoltageReadings(uint16_t* data);
  bool GetGPIOReadings_Analog(uint16_t* data);
@@ -169,5 +174,6 @@ void SetConfig_gpio(const uint8_t* gpio);
 uint32_t checkStatFlags();
 //---------------------------------------------------------------------------------------------------------
 void initConfig();
+void ClearSlaveRegs();
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_FUNCTIONS_H_ */

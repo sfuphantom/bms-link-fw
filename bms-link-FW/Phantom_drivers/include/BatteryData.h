@@ -33,6 +33,11 @@ struct BatteryData_struct {
 //----------------------------------------------------------------------------------------------------
 typedef enum {Temp_HIGH, OV_flags, UV_flags, THSD, MUXFAIL, ITMP_HIGH, ITMP_LOW, VA_HIGH, VA_LOW, VD_HIGH, VD_LOW}Slave_Faults;
 //----------------------------------------------------------------------------------------------------
+uint16_t Slave_Volt2ADC(const float ADC_Volt);
+float Slave_ADC2Volt(const uint16_t ADC_Word);
+float Slave_ADC2Celcius(const uint16_t ADC);
+void Slave_ADC2Volt_arr(const uint16_t* ADC_Words, float* Volts, const uint16_t len);
+//----------------------------------------------------------------------------------------------------
  void SetChargingStatus(const bool NewStat);
  bool GetChargingStatus();
  //----------------------------------------------------------------------------------------------------
@@ -57,6 +62,13 @@ typedef enum {Temp_HIGH, OV_flags, UV_flags, THSD, MUXFAIL, ITMP_HIGH, ITMP_LOW,
 
   //----------------------------------------------------------------------------------------------------
   uint16_t GetAvgCellVolt();
+  uint16_t GetAvgCellVolt_float();
   float GetAvgCellSOC();
+  uint16_t GetMaxCellVolt();
+  uint16_t GetMaxCellVolt_float();
+  float GetMaxCellSOC();
+  uint16_t GetMinCellVolt();
+  uint16_t GetMinCellVolt_float();
+  float GetMinCellSOC();
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_BATTERYDATA_H_ */

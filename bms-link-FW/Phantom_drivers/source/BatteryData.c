@@ -16,6 +16,27 @@
 
 
 struct BatteryData_struct BatteryData;
+//----------------------------------------------------------------------------------------------------
+uint16_t Slave_Volt2ADC(const float ADC_Volt){
+    uint16_t ADC_Value = (ADC_Volt - ADC_OFFSET_VOLTS)/ADC2VOLTS;
+    return ADC_Value;
+}
+float Slave_ADC2Volt(const uint16_t ADC_Word){
+    uint16 ADC_Round = round16(ADC_Word, 16-ADC_RESOLUTION_BIT);
+    float Volt = ADC_Round * ADC2VOLTS + ADC_OFFSET_VOLTS;
+    return Volt;
+}
+float Slave_ADC2Celcius(const uint16_t ADC){
+    float Volts = Slave_ADC2Volt(ADC);
+    float Kelvin = Volts / ITMP_MILLI_VOLTS_2_CELCIUS * 1000;
+    float Celcius = Kelvin - ITMP_KELVIN_2_CELCIUS;
+    return Celcius;
+}
+void Slave_ADC2Volt_arr(const uint16_t* ADC_Words, float* Volts, const uint16_t len){
+    int i;
+    for(i=0; i<len; i++)
+        Volts[i] = Slave_ADC2Volt(ADC_Words[i]);
+}
  //----------------------------------------------------------------------------------------------------
  void SetChargingStatus(const bool NewStat){
      BatteryData.Charging = NewStat;
@@ -86,6 +107,9 @@ struct BatteryData_struct BatteryData;
   uint16_t GetAvgCellVolt(){
       return array16_avg(GetCellVoltPrt(), NUMBER_OF_CELLS);
   }
+  uint16_t GetAvgCellVolt_float(){
+      return Slave_ADC2Volt(GetAvgCellVolt());
+  }
   float GetAvgCellSOC(){
       const uint16_t avgVolts_offset = GetAvgCellVolt() - UNDER_VOLTAGE_FLAG;
       const float avgSOC = avgVolts_offset /(CELL_SOC_RANGE) * 100;
@@ -94,6 +118,9 @@ struct BatteryData_struct BatteryData;
   uint16_t GetMaxCellVolt(){
       return array16_max(GetCellVoltPrt(), NUMBER_OF_CELLS);
   }
+  uint16_t GetMaxCellVolt_float(){
+      return Slave_ADC2Volt(GetMaxCellVolt());
+  }
   float GetMaxCellSOC(){
       const uint16_t maxVolts_offset = GetMaxCellVolt() - UNDER_VOLTAGE_FLAG;
       const float maxSOC = maxVolts_offset /(CELL_SOC_RANGE) * 100;
@@ -101,6 +128,9 @@ struct BatteryData_struct BatteryData;
   }
   uint16_t GetMinCellVolt(){
       return array16_min(GetCellVoltPrt(), NUMBER_OF_CELLS);
+  }
+  uint16_t GetMinCellVolt_float(){
+      return Slave_ADC2Volt(GetMinCellVolt());
   }
   float GetMinCellSOC(){
       const uint16_t minVolts_offset = GetMinCellVolt() - UNDER_VOLTAGE_FLAG;

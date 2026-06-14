@@ -229,29 +229,6 @@ void SetConfig_gpio(const uint8_t* gpio){
           current_Reg->gpio = gpio[i];
     }
 }
-//--------------------------------------------------------------------------------------------
-
-uint16_t Slave_Volt2ADC(float ADC_Volt){
-    uint16_t ADC_Value = (ADC_Volt - ADC_OFFSET_VOLTS)/ADC2VOLTS;
-    return ADC_Value;
-}
-float Slave_ADC2Volt(uint16_t ADC_Word){
-    uint16 ADC_Round = round16(ADC_Word, 16-ADC_RESOLUTION_BIT);
-    float Volt = ADC_Round * ADC2VOLTS + ADC_OFFSET_VOLTS;
-    return Volt;
-}
-
-float Slave_ADC2Celcius(uint16_t ADC){
-    float Volts = Slave_ADC2Volt(ADC);
-    float Kelvin = Volts / ITMP_MILLI_VOLTS_2_CELCIUS * 1000;
-    float Celcius = Kelvin - ITMP_KELVIN_2_CELCIUS;
-    return Celcius;
-}
-void Slave_ADC2Volt_arr(uint16_t* ADC_Words, float* Volts, uint16_t len){
-    int i;
-    for(i=0; i<len; i++)
-        Volts[i] = Slave_ADC2Volt(ADC_Words[i]);
-}
 //---------------------------------------------------------------------------------------------------------
 uint32_t checkStatFlags(){
     uint8_t Shift=0;
@@ -262,13 +239,13 @@ uint32_t checkStatFlags(){
      for(i=0, Shift=0;i<NUMBER_OF_SLAVE_BOARDS;i++, Shift=0){
          struct StatusReg* current_Reg = &StatusRegData[i];
 
-         flag = current_Reg->OV_flags == 0;
+         flag = current_Reg->OV_flags != 0;
          Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->UV_flags == 0;
+         flag = current_Reg->UV_flags != 0;
          Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->THSD == 0;
+         flag = current_Reg->THSD != 0;
          Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->MUXFAIL == 0;
+         flag = current_Reg->MUXFAIL != 0;
          Flags |= (uint32_t)flag<<Shift++;
 
          flag = current_Reg->ITMP >MAX_INTERNAL_DIE_TEMPERATURE_FLAG;
@@ -288,21 +265,41 @@ uint32_t checkStatFlags(){
      return Flags;
 }
 //---------------------------------------------------------------------------------------------------------
-void setADCFreeVal(bool status){
-    ADC_is_Free = status;
-}
+
+CS_Level checkSPIFree(){
+    return  GetCS();
+};
+uint32_t waitSPIFree(const uint32_t wait_periods_us){
+     CS_Level status;
+      uint32_t PollingWaits = 0;
+
+      for(PollingWaits=0; PollingWaits < SLAVE_CONVERSATION_TIMEOUT; PollingWaits++){
+          status =  checkSPIFree();
+          if(status == HIGH){
+              ++PollingWaits;
+              return PollingWaits;
+          }
+          delay_ms_us(0, wait_periods_us);
+      }
+
+      if(status != HIGH){
+          setCS(HIGH);
+      }
+      return 0;
+  }
+
+#define Imp 2
  bool isConvComplete() {
      uint8_t status = 0;
      setCS(LOW);
      SendCmdAndPec2Slave(LTC6811_PLADC);
-     status = SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE);
+     status =  SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE);
      setCS(HIGH);
      // If any bit is high, conversion is done (SDO is open-drain, driven low only when busy)
      return (status != 0x00);
  }
-#define Imp 1
 
- bool waitConvComplete(const uint32_t wait_periods_us){
+ uint32_t waitConvComplete(const uint32_t wait_periods_us){
      bool status;
      uint32_t BytesWaiting = 0;
 
@@ -327,7 +324,7 @@ void setADCFreeVal(bool status){
      status = FALSE;
      for(BytesWaiting=0; BytesWaiting < SLAVE_CONVERSATION_TIMEOUT; BytesWaiting++){
 
-         status = SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE) & 0x0001;
+         status = SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE) & 0x0001;
          if(status){
              break;
          }
@@ -340,65 +337,24 @@ void setADCFreeVal(bool status){
 
      SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
 
-     return status;
+     return status ? ++BytesWaiting : 0;
  }
- bool waitConvComplete_ADC_Cells(){
-     setADCFreeVal(FALSE);
-     bool status =  waitConvComplete(500);
-     setADCFreeVal(TRUE);
-     return status;
+ uint32_t waitConvComplete_ADC_Cells(){
+     uint32_t PollsWaited =  waitConvComplete(500);
+     return PollsWaited;
  }
- bool waitConvComplete_ADC_GPIO(){
-     setADCFreeVal(FALSE);
-     bool status =  waitConvComplete(500);
-     setADCFreeVal(TRUE);
-     return status;
+ uint32_t waitConvComplete_ADC_GPIO(){
+     uint32_t PollsWaited =  waitConvComplete(500);
+     return PollsWaited;
  }
- bool waitConvComplete_ADC_STAT(){
-     setADCFreeVal(FALSE);
-     bool status =  waitConvComplete(500);
-     setADCFreeVal(TRUE);
-     return status;
+ uint32_t waitConvComplete_ADC_STAT(){
+     uint32_t PollsWaited =  waitConvComplete(500);
+     return PollsWaited;
  }
- bool waitConvComplete_Cell_Bal(){
-     return waitConvComplete(500);
+ uint32_t waitConvComplete_Cell_Bal(){
+     uint32_t PollsWaited =  waitConvComplete(500);
+     return PollsWaited;
  }
- bool isADCFree() {
-     return ADC_is_Free;
- }
- bool waitADCFree(){
-     bool status = FALSE;
-     uint32_t BytesWaiting = 0;
-
-     for(BytesWaiting=0; BytesWaiting < SLAVE_CONVERSATION_TIMEOUT; BytesWaiting++){
-
-         status = isADCFree();
-         if(status){
-             break;
-         }
-         delay_ms_us(0,500);
-     }
-
-     return status;
- }
- bool waitSPIFree(){
-     CS_Level status;
-      uint32_t BytesWaiting = 0;
-
-      for(BytesWaiting=0; BytesWaiting < SLAVE_CONVERSATION_TIMEOUT; BytesWaiting++){
-
-          status =  GetCS();
-          if(status == HIGH){
-              return TRUE;
-          }
-          delay_ms_us(1,0);
-      }
-
-      if(status != HIGH){
-          setCS(HIGH);
-      }
-      return FALSE;
-  }
 
 //---------------------------------------------------------------------------------------------------------
  void ClearCellsCMD(){
@@ -411,34 +367,45 @@ void setADCFreeVal(bool status){
      SendCMD2Slave_alone(LTC6811_CLRCELL);
  }
  //---------------------------------------------------------------------------------------------------------
- uint32 CheckSTATCmd(uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
-                    uint8_t ST)    //  Self Test Mode Selection
+ uint32 CheckSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                     const uint8_t ST)    //  Self Test Mode Selection
  {
 
-     uint16_t MD_bits    = (MD & 0x03) << 7;
-     uint16_t ST_bits     = (ST & 0x03) << 5;
+     uint16_t MD_bits     = ((uint16_t)MD & 0x03) << 7;
+     uint16_t ST_bits     = ((uint16_t)ST & 0x03) << 5;
      uint16_t cmd = LTC6811_STATST| MD_bits | ST_bits;
 
      return SendCMD2Slave_alone(cmd);
  }
- uint32 MeasureCellsCmd(uint8_t MD  , // DC mode: 0=Fast, 1=Normal, 2=Filtered
-                        bool DCP    , // Discharge Permit
-                        uint8_t CHG ) // Cell Selection for ADC Conversion
+ uint32 MeasureSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                       const uint8_t CHST)    //  Status Group Selection
+ {
+
+     uint16_t MD_bits     = ((uint16_t)MD & 0x03) << 7;
+     uint16_t ST_bits     = CHST & 0x7;
+     uint16_t cmd = LTC6811_ADSTAT| MD_bits | ST_bits;
+
+     return SendCMD2Slave_alone(cmd);
+ }
+
+ uint32 MeasureCellsCmd(const uint8_t MD  , // DC mode: 0=Fast, 1=Normal, 2=Filtered
+                        const bool DCP    , // Discharge Permit
+                        const uint8_t CHG ) // Cell Selection for ADC Conversion
  {
 
      uint16 CHG_bits     = CHG & 0x07;
      uint16 DCP_bits     = DCP ? 0x0010 : 0x0000;
-     uint16_t MD_bits    = (MD & 0x03) << 7;
+     uint16_t MD_bits    = ((uint16_t)MD & 0x03) << 7;
      uint16_t cmd = LTC6811_ADCV | MD_bits | DCP_bits | CHG_bits;
 
      return SendCMD2Slave_alone(cmd);
  }
 
- uint32 MeasureAUXCmd(uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
-                       uint8_t CHG)    //  GPIO Selection for ADC Conversion
+ uint32 MeasureAUXCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                      const uint8_t CHG)    //  GPIO Selection for ADC Conversion
  {
      uint16 CHG_bits     = CHG & 0x07;
-     uint16_t MD_bits    = (MD & 0x03) << 7;
+     uint16_t MD_bits    = ((uint16_t)MD & 0x03) << 7;
      uint16_t cmd = LTC6811_ADAX | MD_bits | CHG_bits;
 
      return SendCMD2Slave_alone(cmd);
@@ -447,7 +414,6 @@ void setADCFreeVal(bool status){
      return SendCMD2Slave_alone(LTC6811_STSCTRL);
  }
  //---------------------------------------------------------------------------------------------------------
-
 bool Write_S_CTRL(uint8* nibbles){
     return WriteBytes2RegGroup(LTC6811_WRSCTRL, nibbles);
 }
@@ -567,7 +533,7 @@ bool AreCellsUnBalance(const uint16* Volts, uint16_t *avg, uint16_t *min){
 //        return Balance_Hysteresis;
 //    }
 
-    for(i=0;i<CELL_IN_SERIES/NIBBLE2BYTES; i++){
+    for(i=0;i<NUMBER_OF_CELLS/NIBBLE2BYTES; i++){
         byte = 0;
 
         for(j=0;j<NIBBLE2BYTES;j++){
@@ -608,4 +574,9 @@ bool GetBalanceDCC(const uint16* Volts, uint16_t* DCC){
      }
      return !UnBalance;
  }
-
+//---------------------------------------------------------------------------------------------------------
+void ClearSlaveRegs(){
+    ClearCellsCMD();
+    ClearAUXCMD();
+    ClearStatCMD();
+}

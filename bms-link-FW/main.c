@@ -155,7 +155,6 @@ void main(void)
     initLink();
     rtiInit();
 
-
     int i=0;
 //    int repeat_idx=0;
 
@@ -165,7 +164,7 @@ void main(void)
 //    float VoltGPIO[NUMBER_OF_GPIOS];
 
 //    uint32_t Slave_Flags;
-    float AvgCellVolt_f;
+    float AvgCellVolt_f, AvgCellSoC;
     uint16_t AvgCellVolt_16;
 
     SetChargingStatus(FALSE);
@@ -179,8 +178,9 @@ void main(void)
         SlaveFlagsTask();
 
         Slave_ADC2Volt_arr(GetCellVoltPrt(), VoltCells, NUMBER_OF_CELLS);
-        AvgCellVolt_16 = array16_avg(GetCellVoltPrt(), 1*CELLS_PER_SLAVE_BOARD);
-        AvgCellVolt_f = Slave_ADC2Volt(AvgCellVolt_16);
+        AvgCellVolt_16 = GetAvgCellVolt();
+        AvgCellVolt_f = GetAvgCellVolt_float();
+        AvgCellSoC = GetAvgCellSOC();
 
         if(i<1){
             i=0;

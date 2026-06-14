@@ -54,11 +54,6 @@ typedef enum  {Read, Write} WR_RegGroups;
 #define SPI_DUMMY_CMD  0xFFFF
 
 //#define MINUS1_32 0xFFFF FFFF FFFF FFFF
-
-//////////////////////////////////////////////////////////////////
-uint16 Slave_Volt2ADC(float ADC_Volt);
-float Slave_ADC2Volt(uint16_t ADC_Word);
-void Slave_ADC2Volt_arr(uint16_t* ADC_Words, float* Volts, uint16_t len);
 //----------------------------------------------------------------------------------------
 //uint16_t pec15Table[256];
 #define PEC_INIT_VALUE 0x0010
@@ -71,12 +66,13 @@ void init_PEC15_Table();
  void setCS(CS_Level level);
  CS_Level GetCS();
 
- uint8_t SPI_SR2Link_BYTE(uint8_t Tx);
- uint64_t SPI_SR2Link_MultiBYTE(uint64_t Tx_Full, uint8_t Bytes);
- uint16_t SPI_SR2Link_WORD(uint16_t Tx);
- uint32_t SPI_SR2Link_DWORD(uint32_t Tx);
- uint64_t SPI_SR2Link_QWORD(uint64_t Tx);
- void SPI_Clock_BYTES(uint8_t Bytes2Clock);
+ uint8_t SPI_SR2Link_2Bits(const uint8_t Tx);
+ uint8_t SPI_SR2Link_BYTE(const uint8_t Tx);
+ uint64_t SPI_SR2Link_MultiBYTE(const uint64_t Tx_Full, const uint8_t Bytes);
+ uint16_t SPI_SR2Link_WORD(const uint16_t Tx);
+ uint32_t SPI_SR2Link_DWORD(const uint32_t Tx);
+ uint64_t SPI_SR2Link_QWORD(const uint64_t Tx);
+ void SPI_Clock_BYTES(const uint8_t Bytes2Clock);
  //---------------------------------------------------------------------------------------------------------
  void wakeup_idle();
  void wakeup_sleep();
@@ -88,7 +84,7 @@ void init_PEC15_Table();
  uint32 SendCmdAndPec2Slave(const uint16_t cmd);
  bool SendCMD2Slave_alone(const uint16_t cmd);
 
- void WriteRegGroup(const uint16_t cmd, uint16_t *data);
+ void WriteRegGroup(const uint16_t cmd, const uint16_t *data);
  bool ReadRegGroup(const uint16_t cmd, uint16_t *data);
  void ReadMultiRegGroups(const uint16_t *cmds, uint8_t NumOfCmds, uint16_t *data);
 

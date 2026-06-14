@@ -11,12 +11,6 @@
 
 //struct BatteryData_struct SlaveData;
 //---------------------------------------------------------------------------------------------------------
- void ClearSlaveRegs(){
-     ClearCellsCMD();
-     ClearAUXCMD();
-     ClearStatCMD();
- }
-
  void initLink(){
      init_PEC15_Table();
      //------------------------------------------------
@@ -28,11 +22,11 @@
 
  //---------------------------------------------------------------------------------------------------------
  bool MeasureGPIOVoltageRoutine(uint16_t* GPIO_DataOut, uint16_t* Ref2nd_DataOut){
-     while(!isADCFree()){}
+//     const uint32_t CS_pollWaitings = waitSPIFree(1000);
 
      ClearAUXCMD();
      MeasureAUXCmd(ADC_MEASURE_MODE, 0);
-     bool Done = waitConvComplete_ADC_GPIO();
+     uint32_t PollsWaited = waitConvComplete_ADC_GPIO();
 
      uint16_t AUXDataOut[NUMBER_OF_AUCILIARY];
      GetGPIOReadings_Analog(AUXDataOut);
@@ -51,21 +45,20 @@
          }
      }
 
-     return Done;
+     return PollsWaited != 0;
  }
 
  bool MeasureCellVoltageRoutine(uint16_t* VoltDataOut){
-     waitADCFree();
-//     ClearCellsCMD();
+     ClearCellsCMD();
 
      MeasureCellsCmd(ADC_MEASURE_MODE, ADC_Measure_Discharge_Permit, 0);
-     bool Done = waitConvComplete_ADC_Cells();
+     uint32_t PollsWaited = waitConvComplete_ADC_Cells();
 
 //     GetVoltageReadings(VoltDataOut);
      wakeup_sleep();
      GetVoltageReadings(VoltDataOut);
 
-     return Done;
+     return PollsWaited != 0;
  }
  bool BalanceCellsRoutine(const uint16_t* VoltInData){
     #define S_CRTL FALSE
@@ -81,7 +74,7 @@
 
          Start_S_CTRL_Pulsing();
 
-         bool Done = waitConvComplete_Cell_Bal();
+         uint32_t PollsWaited = waitConvComplete_Cell_Bal();
 
          int i;
          for(i=0;i<NUMBER_OF_CELLS/2;i++){
@@ -91,7 +84,7 @@
          Write_S_CTRL(S_CLTR_nibbles);
 
 //         Start_S_CTRL_Pulsing();
-         return Done;
+         return PollsWaited != 0;
     #else
          uint16_t DCC_Val[NUMBER_OF_SLAVE_BOARDS]={0};
 
@@ -118,21 +111,21 @@
  uint32_t ReadStatAndGetFlagsRoutine(){
 
      ClearStatCMD();
-     CheckSTATCmd(ADC_MEASURE_MODE,  0b01);
-     CheckSTATCmd(ADC_MEASURE_MODE,  0b10);
-     waitConvComplete_ADC_STAT();
+     MeasureSTATCmd(ADC_MEASURE_MODE,0x0);
+     uint32_t PollsWaited = waitConvComplete_ADC_STAT();
 
      Read_STAT();
      Read_CFGR();
 
      uint32_t Flags = checkStatFlags();
      Flags<<=1;
-     Flags |= ReadConfig_gpio_allZero();
+     Flags |= !ReadConfig_gpio_allZero();
     return Flags;
  }
 
 //----------------------------------------------------------------------------------------------------
  void CellVoltageControlTask(){
+     const uint32_t CS_pollWaitings = waitSPIFree(1000);
      if(!rtiTimerExpired(0, 1, 0)){
          return;
      }
@@ -163,6 +156,7 @@
  }
 
  void SlaveFlagsTask(){
+     const uint32_t CS_pollWaitings = waitSPIFree(1000);
      if(!rtiTimerExpired(1, 1, 0)){
          return;
      }
@@ -180,6 +174,7 @@
 
  }
  void MonitorCellTempTask(){
+     const uint32_t CS_pollWaitings = waitSPIFree(1000);
      if(!rtiTimerExpired(2, 1, 0)){
          return;
      }
