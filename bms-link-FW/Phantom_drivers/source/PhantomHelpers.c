@@ -134,29 +134,20 @@ uint16_t swap_word_bytes(const uint16_t input){
  }
 
 //----------------------------------------------------------------------------------------
-//void delay_ms_us(uint32_t ms, uint32_t us){
-//    volatile uint32_t i, j;
-//    // Approximate loops per ms, tune by measurement.
-//    const uint32_t loops_per_us = 10;
-//    const uint32_t loops_per_ms = loops_per_us * 1000;
-//
-//    for (i = 0; i < ms; i++) {
-//        for (j = 0; j < loops_per_ms; j++);
-//    }
-//    for (i = 0; i < us; i++) {
-//        for (j = 0; j < loops_per_us; j++);
-//    }
-//}
+#define RTI_CLOCK_MEG_HZ    10U  // 10 MHz
+#define RTI_CLOCK_HZ        (RTI_CLOCK_MEG_HZ*1000000UL)  // 10 MHz
+#define RTI_US_2_TICKS      (RTI_CLOCK_MEG_HZ)
+#define RTI_MS_2_TICKS      (RTI_US_2_TICKS * 1000UL)
+#define RTI_SEC_2_TICKS     (RTI_MS_2_TICKS * 1000UL)
 
-#define RTI_CLOCK_MEG_HZ  80U  // 80 MHz
-#define RTI_CLOCK_HZ  (RTI_CLOCK_MEG_HZ*1000000U)  // 80 MHz
 
 #define RTI_MAX_TIMERS 8
-#define USE_RTI_DELAY FALSE
- void delay_ms_us(uint32_t ms, uint32_t us){
+
+#define USE_RTI_DELAY TRUE
+ void delay_ms_us(const uint32_t ms, const uint32_t us){
     #if USE_RTI_DELAY
-        uint64 total_us = (uint64)ms * 1000UL + us;
-        uint64 total_ticks = (total_us * RTI_CLOCK_HZ) / 1000000UL;
+        const uint64 total_us = (uint64)ms * 1000UL + us;
+        const uint64 total_ticks = total_us * RTI_US_2_TICKS;
 
         /* Start counter block 0 if it is not already running */
         if ((rtiREG1->GCTRL & (1U << rtiCOUNTER_BLOCK0)) == 0U)
@@ -164,8 +155,10 @@ uint16_t swap_word_bytes(const uint16_t input){
             rtiStartCounter(rtiCOUNTER_BLOCK0);
         }
 
-        uint32 start = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
+        const uint32 start = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
         /* Wait until the required number of ticks has elapsed */
+//        rtiBASE_t * rtiRegDelay = rtiREG1;
+        const uint32_t * timer = &rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
         while ((rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx - start) < (uint32)total_ticks)
         {
             /* Busy wait */
@@ -174,7 +167,7 @@ uint16_t swap_word_bytes(const uint16_t input){
     #else
         volatile uint32_t i, j;
         // Approximate loops per ms, tune by measurement.
-        const uint32_t loops_per_us = 10;
+        const uint32_t loops_per_us = 11;
         const uint32_t loops_per_ms = loops_per_us * 1000;
 
         for (i = 0; i < ms; i++) {
@@ -189,7 +182,7 @@ uint16_t swap_word_bytes(const uint16_t input){
 static uint32  rti_timer_last[RTI_MAX_TIMERS];
 static boolean rti_timer_valid[RTI_MAX_TIMERS];
 
-void rtiTimerStart(uint8_t id)
+void rtiTimerStart(const uint8_t id)
 {
     if (id >= RTI_MAX_TIMERS) return;
 
@@ -202,7 +195,7 @@ void rtiTimerStart(uint8_t id)
     rti_timer_valid[id] = true;
 }
 
-boolean rtiTimerExpired(uint32 id, uint32 ms, uint32 us)
+boolean rtiTimerExpired(const uint32 id, const uint32 ms, const uint32 us)
 {
     if (id >= RTI_MAX_TIMERS) return false;
 
@@ -222,7 +215,7 @@ boolean rtiTimerExpired(uint32 id, uint32 ms, uint32 us)
     uint32 elapsed  = now - last;   /* wraps safely with unsigned arithmetic */
 
     /* Convert ms+us to RTI ticks */
-    uint64 required_ticks = ((uint64)ms * 1000UL + us) * RTI_CLOCK_HZ / 1000000UL;
+    uint64 required_ticks = ((uint64)ms * 1000UL + us) * RTI_US_2_TICKS;
 
     if (elapsed >= required_ticks) {
         /* Reload the start time to the current moment (periodic behaviour) */
@@ -230,6 +223,16 @@ boolean rtiTimerExpired(uint32 id, uint32 ms, uint32 us)
         return true;
     }
     return false;
+}
+
+uint32_t timer_tic_tick(){
+    const uint32_t now = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
+    return now;
+}
+uint32_t timer_toc_us(const uint32_t tic){
+    const uint32_t now = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
+    uint32_t diff = (now-tic)/RTI_US_2_TICKS;
+    return diff;
 }
 //----------------------------------------------------------------------------------------
 
@@ -310,7 +313,16 @@ uint32_t array16_avg(const uint16_t* arr, uint8_t len){
 
     return avg;
 }
+bool array8_eq_all(const uint8_t* arr1, const uint8_t* arr2, uint8_t len){
+    int i;
+    for(i=0; i<len; i++){
+        if(arr1[i] != arr2[i]){
+            return FALSE;
+        }
+    }
 
+    return TRUE;
+}
 bool array16_eq_all(const uint16_t* arr1, const uint16_t* arr2, uint8_t len){
     int i;
     for(i=0; i<len; i++){
@@ -392,4 +404,9 @@ bool array16_greater_any(const uint16_t* arr1, uint16_t val, uint8_t len){
     return FALSE;
 }
 //----------------------------------------------------------------------------------------
-
+void initArray8(uint8_t* arr, const uint8_t val, uint8_t len){
+    int i;
+    for(i=0;i<len;i++){
+        arr[i] = val;
+    }
+}

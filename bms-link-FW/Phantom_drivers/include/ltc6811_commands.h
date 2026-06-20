@@ -10,9 +10,6 @@
 #define LTC6811_WRCFGB        0x0024  // Write Config Register Group B
 #define LTC6811_RDCFGB        0x0026  // Read  Config Register Group B
 
-
-#define LTC6811_PLADC         0x0714//0b0111 0001 0100
-
 //-------------------------------------------------------------
 // CELL VOLTAGE REGISTER READ COMMANDS (A–D)
 //-------------------------------------------------------------
@@ -78,6 +75,10 @@
 
 // Open-Wire Detection
 #define LTC6811_ADOW          0x0228  // Open-Wire Cell Voltage Measurement
+
+// Poll Conv is Done
+#define LTC6811_PLADC         0x0714 // 0b0111 0001 0100
+
 
 
 #endif //LTC6811_COMMANDS_H

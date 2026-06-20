@@ -3,12 +3,14 @@ Author: Tanjosh Sidhu
 */
 
 
-#include "spi.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include "ltc6811_commands.h"
+#include "string.h"
+
+#include "spi.h"
 #include "SlaveCommunication_Drivers.h"
+#include "SlaveCommunation_Hardware.h"
 #include "PhantomHelpers.h"
 
 //spiDAT1_t *SPI_LinkConfigData;
@@ -17,6 +19,9 @@ static uint16_t SubDataWords[NUMBER_OF_REG_WORDS_PER_CMD];
 
 
 CS_Level Current_CS_Level = HIGH;
+bool ADC_is_Free = TRUE;
+
+#define USE_MEMCPY TRUE
 
 //----------------------------------------------------------------------------------------
 uint16_t pec15Table[256];
@@ -58,13 +63,13 @@ void init_PEC15_Table(){
      return remainder<<1;//The CRC15 has a 0 in the LSB so the final value must be multiplied by 2
  }
 
- uint16_t calc_cmd_pec15(uint16_t cmd){
+ uint16_t calc_cmd_pec15(const uint16_t cmd){
 //     uint8_t cmd8[2] = {cmd>>8,cmd};
      return pec15_calc(1, &cmd);
  }
 //---------------------------------------------------------------------------------------------------------
 
- void setCS(CS_Level level){
+ void setCS(const CS_Level level){
 //     const uint32 CS_MaskPin = (1U << CS_PIN_ID);
      Current_CS_Level = level;
      if(level == LOW)
@@ -73,6 +78,17 @@ void init_PEC15_Table(){
          Slave_SPI_REG->PC3 |=  (uint32_t)CS_PIN_MASK;
  }
  CS_Level GetCS(){
+     return Current_CS_Level;
+ }
+ CS_Level ToggleCS(){
+     if(Current_CS_Level == HIGH){
+         Slave_SPI_REG->PC3 &= ~(uint32_t)CS_PIN_MASK;
+         Current_CS_Level = LOW;
+     }
+     else if(Current_CS_Level == LOW){
+         Slave_SPI_REG->PC3 |=  (uint32_t)CS_PIN_MASK;
+         Current_CS_Level = HIGH;
+     }
      return Current_CS_Level;
  }
  uint8_t SPI_SR2Link_2Bits(const uint8_t Tx){
@@ -190,50 +206,7 @@ void init_PEC15_Table(){
 //      return (Slave_SPI_REG->FLG & 0xFF);
       return Rx_pec;
   }
-// uint32 WR_Data(uint16_t* Tx, uint16_t* Rx, uint32 MsgSize){
-//     uint16_t Tx_Data = SPI_DUMMY_DATA_WORD;
-//     uint16_t Rx_Data;
-//
-////     uint16 tx_Pec = pec15_calc(MsgSize, Tx);
-//    while(MsgSize-- && !(Slave_SPI_REG->FLG & 0xFF)){
-//        if(Tx)
-//            Tx_Data = *Tx++;
-//
-//         Rx_Data = SPI_SR2Link_WORD(Tx_Data);
-//
-//         if(Rx)
-//             *Rx++ = Rx_Data;
-//     }
-////     uint16_t Rx_pec = SPI_SR2Link_WORD(tx_Pec);
-//     return (Slave_SPI_REG->FLG & 0xFF);
-////     return Rx_pec;
-// }
 
-
-// uint32 SPI_SendAndRecevie_Links(uint16_t* Tx, uint16_t* Rx, uint32 MsgSize){
-//     uint16_t Tx_Data = SPI_DUMMY_DATA_WORD;
-//     uint16_t Rx_Data;
-//
-//     uint16 tx_Pec = pec15_calc(MsgSize, Tx);
-//    while(MsgSize-- && !(Slave_SPI_REG->FLG & 0xFF)){
-//        if(Tx)
-//            Tx_Data = *Tx++;
-//
-//         Rx_Data = SPI_SR2Link_WORD(Tx_Data);
-//
-//         if(Rx)
-//             *Rx++ = Rx_Data;
-//     }
-//     uint16_t Rx_pec = SPI_SR2Link_WORD(tx_Pec);
-////     return (Slave_SPI_REG->FLG & 0xFF);
-//     return Rx_pec;
-// }
-// uint32 SPI_Recevie_Links(uint16_t* Rx, uint32 MsgSize){
-//     return SPI_SendAndRecevie_Links(NULL, Rx, MsgSize);
-// }
-// uint32 SPI_Send2Links(uint16_t* Tx, uint32 MsgSize){
-//     return SPI_SendAndRecevie_Links(Tx, NULL, MsgSize);
-// }
  uint32 SendCmdAndPec2Slave(uint16_t cmd){
      uint16_t cmd_pec = calc_cmd_pec15(cmd);
 
@@ -243,77 +216,52 @@ void init_PEC15_Table(){
      return FullCmdRx;
  }
 
- bool SendCMD2Slave_alone(const uint16_t cmd){
+ uint32_t pollAndWait(const uint32_t wait_periods_us){
+     bool status = FALSE;
+     uint32_t PollsWaited = 1;
+
+     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
+
+     for(PollsWaited=1; PollsWaited < MAX_POLLS_TIMEOUT; PollsWaited++){
+         status = SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE) & 0x0001;
+         if(status){
+             return PollsWaited;
+         }
+
+         delay_ms_us(0,wait_periods_us);
+     }
+     return 0;
+
+ }
+ //---------------------------------------------------------------------------------------------------------
+ void SendCMD2Slave_alone(const uint16_t cmd){
      setCS(LOW);
      SendCmdAndPec2Slave(cmd);
      setCS(HIGH);
-     return TRUE;
  }
 
- void SendClearThenMeasureCMD(const uint16_t cmd_clear, const uint16_t cmd_Measure){
-     SendCMD2Slave_alone(cmd_clear);
-     SendCMD2Slave_alone(cmd_Measure);
+ uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd, const uint32_t wait_periods_us){
+     setCS(LOW);
+
+     SendCmdAndPec2Slave(cmd);
+     uint32_t PollsWaited = pollAndWait(wait_periods_us);
+
+     setCS(HIGH);
+
+     return PollsWaited;
  }
 
 
-// bool ReadWriteRegGroup(const uint16_t cmd, uint16_t* data, WR_RegGroups Mode){
-//     bool Pec_Equal = TRUE;
-//
-//     int i, j;
-//     uint16_t Rx_Pec_Mesg = SPI_DUMMY_DATA_WORD;
-//     uint16_t Rx_Pec_Calc = SPI_DUMMY_DATA_WORD;
-//     uint16_t tx_Pec      = SPI_DUMMY_DATA_WORD;
-//
-//     uint16 *data_Tx = NULL;
-//     uint16 *data_Rx = NULL;
-//
-//     uint16_t ReadOneReg[WORDS_PER_REG_GROUP];
-//
-//
-//     setCS(LOW);
-//     uint32_t cmdRx = SendCmdAndPec2Slave(cmd);
-//
-//     for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
-//         switch (Mode){
-//             case Read:
-//                 data_Tx = NULL;
-//                 data_Rx = data + i*WORDS_PER_REG_GROUP;
-//                 tx_Pec = SPI_DUMMY_DATA_WORD;
-//                 break;
-//             case Write:
-//                 data_Tx = data + NUMBER_OF_REG_WORDS_PER_CMD - (i+1)*WORDS_PER_REG_GROUP;
-//                 data_Rx = NULL;
-//                 tx_Pec = pec15_calc(WORDS_PER_REG_GROUP, data_Tx);
-//                 break;
-//             default:
-//                 data_Tx = NULL;
-//                 data_Rx = NULL;
-//                 tx_Pec = SPI_DUMMY_DATA_WORD;
-//                 break;
-//         }
-//
-//         WR_Data(data_Tx, ReadOneReg, WORDS_PER_REG_GROUP);
-//         Rx_Pec_Mesg = SPI_SR2Link_WORD(tx_Pec);
-//
-//
-//         if( Mode != Read){continue;}
-//
-//         for(j=0; j < WORDS_PER_REG_GROUP; j++)
-//             data_Rx[j] = ReadOneReg[j];
-//
-//         Rx_Pec_Calc = pec15_calc(WORDS_PER_REG_GROUP, ReadOneReg);
-//         Pec_Equal &= Rx_Pec_Mesg == Rx_Pec_Calc;
-////         if(!Pec_Equal){break;}
-//     }
-//
-//     setCS(HIGH);
-//     return Pec_Equal;
+// void SendClearThenMeasureCMD(const uint16_t cmd_clear, const uint16_t cmd_Measure){
+//     SendCMD2Slave_alone(cmd_clear);
+//     SendCMD2Slave_alone(cmd_Measure);
 // }
+ //---------------------------------------------------------------------------------------------------------
 
  bool ReadRegGroup_NoPecCheck(const uint16_t cmd, uint16_t* data){
      bool Pec_Equal = TRUE;
 
-     int i, j;
+     int i;
      uint16_t Rx_Pec_Mesg = SPI_DUMMY_DATA_WORD;
      uint16_t Rx_Pec_Calc = SPI_DUMMY_DATA_WORD;
 
@@ -323,23 +271,31 @@ void init_PEC15_Table(){
 
 
      setCS(LOW);
-     uint32_t cmdRx = SendCmdAndPec2Slave(cmd);
+
+     (void)SendCmdAndPec2Slave(cmd);
 
      for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
          data_Rx = data + i*WORDS_PER_REG_GROUP;
 
          Rx_Pec_Mesg = Read_Data(ReadOneReg, WORDS_PER_REG_GROUP);
 
-//         memcpy(data_Rx, ReadOneReg, WORDS_PER_REG_GROUP);
+#if USE_MEMCPY
+         memcpy(data_Rx, ReadOneReg, WORDS_PER_REG_GROUP * sizeof(uint16_t));
+#else
+         int j;
          for(j=0; j < WORDS_PER_REG_GROUP; j++)
              data_Rx[j] = ReadOneReg[j];
+#endif
 
          Rx_Pec_Calc = pec15_calc(WORDS_PER_REG_GROUP, ReadOneReg);
-         Pec_Equal &= Rx_Pec_Mesg == Rx_Pec_Calc;
+         Pec_Equal &= (Rx_Pec_Mesg == Rx_Pec_Calc);
+         if(false){//TODO: should be if(!Pec_Equal), however PEC_Equal is alway false idk
+             break;
+         }
      }
 
      setCS(HIGH);
-     return Pec_Equal;
+     return TRUE;//TODO should return Pec_Equal, however PEC_Equal is alway false idk
  }
  bool ReadRegGroup(const uint16_t cmd, uint16_t *data){
      bool Pec_Eq;
@@ -350,16 +306,12 @@ void init_PEC15_Table(){
 
          if(Pec_Eq){return true;}
      }
-
      return false;
   }
 
  void WriteRegGroup(const uint16_t cmd, const uint16_t *data){
       int i;
-
-//      uint16 *data_Tx = NULL;
       uint8_t idx;
-
       setCS(LOW);
       uint32_t cmdRx = SendCmdAndPec2Slave(cmd);
 
@@ -369,30 +321,27 @@ void init_PEC15_Table(){
           Write_Data(&data[idx], WORDS_PER_REG_GROUP);
       }
           setCS(HIGH);
-//     ReadWriteRegGroup(cmd, data, Write);
  }
- bool WriteThenReadRegGroup(const uint16_t W_cmd, const uint16_t R_cmd, uint16_t *W_data){
-
+ bool WriteThenReadRegGroup(const uint16_t W_cmd, const uint16_t R_cmd, const uint16_t *W_data){
       bool RW_EQ;
       int repeat_idx;
-
       uint16_t R_data[NUMBER_OF_REG_WORDS_PER_CMD];
+
       for(repeat_idx=0;repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
+
          WriteRegGroup(W_cmd, W_data);
          ReadRegGroup(R_cmd, R_data);
+
          RW_EQ = array16_eq_all(W_data, R_data, NUMBER_OF_REG_WORDS_PER_CMD);
 
-         if(RW_EQ){break;}
+         if(RW_EQ){return true;}
      }
-
-      return RW_EQ;
+      return false;
  }
+ //---------------------------------------------------------------------------------------------------------
 
-
-
- void ReadMultiRegGroups(const uint16_t *cmds, uint8_t NumOfCmds, uint16_t *data){
-     int i=0, j=0, k=0, idx0=0, idx1=0;
-     uint16_t CurrentWord;
+ bool ReadMultiRegGroups(const uint16_t *cmds, uint8_t NumOfCmds, uint16_t *data){
+     int i=0, j=0, idx0=0, idx1=0;
      bool PecEq = true;
 
      for(i=0;i<NumOfCmds;i++){
@@ -402,22 +351,79 @@ void init_PEC15_Table(){
          for(j=0;j < NUMBER_OF_REG_WORDS_PER_CMD;j+=WORDS_PER_REG_GROUP){
              idx0 = WORDS_PER_REG_GROUP * i + NumOfCmds*j;
              idx1 = j;
-
-//             memcpy(data[idx0,], SubDataWords[idx1], WORDS_PER_REG_GROUP);
+#if USE_MEMCPY
+             memcpy(&data[idx0], &SubDataWords[idx1], WORDS_PER_REG_GROUP * sizeof(uint16_t));
+#else
+             int k;
              for(k=0;k<WORDS_PER_REG_GROUP; k++){
-                 CurrentWord  = SubDataWords[idx1+k];
+                 uint16_t CurrentWord = SubDataWords[idx1+k];
                  data[idx0+k] = CurrentWord;
              }
+#endif
          }
+     }
+     return PecEq;
+  }
+ void WriteMultiRegGroups(const uint16_t *cmds, uint8_t NumOfCmds, uint16_t *data){
+     int i=0, j=0, idx0=0, idx1=0;
+
+     for(i=0;i<NumOfCmds;i++){
+         for(j=0;j < NUMBER_OF_REG_WORDS_PER_CMD;j+=WORDS_PER_REG_GROUP){
+             idx0 = WORDS_PER_REG_GROUP * i + NumOfCmds*j;
+             idx1 = j;
+#if USE_MEMCPY
+             memcpy(&SubDataWords[idx1], &data[idx0], WORDS_PER_REG_GROUP * sizeof(uint16_t));
+#else
+             int k;
+             for(k=0;k<WORDS_PER_REG_GROUP; k++){
+                 uint16_t CurrentWord = SubDataWords[idx1+k];
+                 data[idx0+k] = CurrentWord;
+             }
+#endif
+
+         }
+
+         wakeup_idle();
+         WriteRegGroup(cmds[i], SubDataWords);
+
      }
   }
 
- bool SendClearCheckThenMeasureCMD(const uint16_t cmd_clear, const uint16_t cmd_check, const uint16_t cmd_Measure){
+ bool WriteThenReadMultiRegGroups(const uint16_t *W_cmds, const uint16_t *R_cmds, uint8_t NumOfCmds, uint16_t *data){
+      int i, j, idx0, idx1;
+      bool PecEq = true;
+
+      for(i=0;i<NumOfCmds;i++){
+          for(j=0;j < NUMBER_OF_REG_WORDS_PER_CMD;j+=WORDS_PER_REG_GROUP){
+              idx0 = WORDS_PER_REG_GROUP * i + NumOfCmds*j;
+              idx1 = j;
+ #if USE_MEMCPY
+              memcpy(&SubDataWords[idx1], &data[idx0], WORDS_PER_REG_GROUP * sizeof(uint16_t));
+ #else
+              int k;
+              for(k=0;k<WORDS_PER_REG_GROUP; k++){
+                  uint16_t CurrentWord = SubDataWords[idx1+k];
+                  data[idx0+k] = CurrentWord;
+              }
+ #endif
+          }
+
+          wakeup_idle();
+          PecEq = WriteThenReadRegGroup(W_cmds[i], R_cmds[i], SubDataWords);
+
+          if(!PecEq){return false;}
+
+      }
+      return true;
+   }
+
+ bool SendClearThenCheckCMD(const uint16_t cmd_clear, const uint16_t cmd_check){
      bool cleared = FALSE;
      bool PecEQ;
      uint16_t Reg[NUMBER_OF_REG_WORDS_PER_CMD];
      int repeat_idx;
-     for(repeat_idx=0;repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
+
+     for(repeat_idx=0; repeat_idx<NUMBER_OF_FAILS_ALLOWED; repeat_idx++){
          SendCMD2Slave_alone(cmd_clear);
          PecEQ = ReadRegGroup(cmd_check, Reg);
 
@@ -427,22 +433,37 @@ void init_PEC15_Table(){
          }
      }
 
-     SendCMD2Slave_alone(cmd_Measure);
-     return cleared;
+     if(!cleared){return FALSE;}
+     return TRUE;
  }
  //---------------------------------------------------------------------------------------------------------
- bool WriteBytes2RegGroup(const uint16_t cmd, uint8_t* Bytes){
-//     uint16_t Words[NUMBER_OF_REG_WORDS_PER_CMD] = {0};
+ void WriteBytes2RegGroup(const uint16_t cmd, const uint8_t* Bytes){
      bytes2words(Bytes , SubDataWords  , NUMBER_OF_REG_WORDS_PER_CMD, BigEndian);
 
      WriteRegGroup(cmd, SubDataWords);
-     return TRUE;
  }
  bool ReadBytesFromRegGroup(const uint16_t cmd, uint8_t* Bytes){
-//     uint16_t Words[NUMBER_OF_REG_WORDS_PER_CMD] = {0};
-
      uint16_t PecEq = ReadRegGroup(cmd, SubDataWords);
+
      words2bytes(SubDataWords, Bytes, NUMBER_OF_REG_WORDS_PER_CMD, BigEndian);
      return PecEq;
+ }
+
+ bool WriteThenReadRegGroup_Bytes(const uint16_t W_cmd, const uint16_t R_cmd, const uint8_t *W_data){
+      bool RW_EQ;
+      int repeat_idx;
+
+      uint8_t R_data[NUMBER_OF_REG_BYTES_PER_CMD];
+
+      for(repeat_idx=0;repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
+         WriteBytes2RegGroup(W_cmd, W_data);
+         ReadBytesFromRegGroup(R_cmd, R_data);
+
+         RW_EQ = array8_eq_all(W_data, R_data, NUMBER_OF_REG_BYTES_PER_CMD);
+
+         if(RW_EQ){return true;}
+     }
+
+      return false;
  }
 

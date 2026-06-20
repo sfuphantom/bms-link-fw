@@ -81,12 +81,12 @@
 /* USER CODE BEGIN (1) */
 #include "spi.h"
 //#include "SlaveCommunication_Drivers.h"
-#include "SlaveCommunication_TaskAndRoutines.h"
+#include "SlaveCommunication_Routines.h"
+#include "PhantomHelpers.h"
 
 #include "BatteryData.h"
+#include "BMS_Tasks.h"
 
-
-//#include "ltc6811_commands.h"
 #include "rti.h"
 
 //#define SPI_Test
@@ -150,44 +150,61 @@ void main(void)
 void main(void)
 {
 /* USER CODE BEGIN (3) */
-    _enable_IRQ();
-    spiInit();
-    initLink();
-    rtiInit();
+    init_BMS_system();
+
 
     int i=0;
-//    int repeat_idx=0;
-
-//    bool DoneCellVolts, DoneGPIOVolts, DoneCellBal;
 
     float VoltCells[NUMBER_OF_CELLS];
-//    float VoltGPIO[NUMBER_OF_GPIOS];
+    float VoltGPIO[NUMBER_OF_GPIOS];
 
-//    uint32_t Slave_Flags;
     float AvgCellVolt_f, AvgCellSoC;
     uint16_t AvgCellVolt_16;
 
-    SetChargingStatus(FALSE);
+    SetChargingStatus(TRUE);
     while(1){
 
-//        delay_ms_us(10,0);
-//        CheckChargingSatusTask();
+//        delay_ms_us(1,0);
+//        ToggleCS();
+
+//        if(rtiTimerExpired(0, 1, 0)){
+//            ToggleCS();
+//        }
+
+
+
+//        uint32_t tic = timer_tic_tick();
+//        CellVoltageControlRoutine();
+//        uint32_t toc_V = timer_toc_us(tic);
+//
+//        tic = timer_tic_tick();
+//        MonitorCellTempRoutine();
+//        uint32_t toc_T = timer_toc_us(tic);
+//
+//        tic = timer_tic_tick();
+//        SlaveFlagsRoutine();
+//        uint32_t toc_F = timer_toc_us(tic);
+
+
+
         CellVoltageControlTask();
         MonitorCellTempTask();
+        SlaveFlagsCheckTasks();
 
-        SlaveFlagsTask();
-
-        Slave_ADC2Volt_arr(GetCellVoltPrt(), VoltCells, NUMBER_OF_CELLS);
+        Slave_ADC2Volt_arr(GetCellVoltReadPrt(), VoltCells, NUMBER_OF_CELLS);
         AvgCellVolt_16 = GetAvgCellVolt();
         AvgCellVolt_f = GetAvgCellVolt_float();
         AvgCellSoC = GetAvgCellSOC();
 
         if(i<1){
             i=0;
-            initLink();
+//            initLink();
+            initBatteryData();
         }
         else
             i++;
+
+
 
     }
 

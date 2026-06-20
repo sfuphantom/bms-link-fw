@@ -21,10 +21,12 @@ typedef enum {  nibble  = 4 ,
                 qWord   = 64 } dataType;
 // -----------------------------------------
 #define MINUS1(Bits) ((1U<<(Bits))-1)
+// -----------------------------------------
 
-void delay_ms_us(uint32_t ms, uint32_t us);
-boolean rtiTimerExpired(uint32 id, uint32 ms, uint32 us);
-
+void delay_ms_us(const uint32_t ms, const uint32_t us);
+boolean rtiTimerExpired(const uint32 id, const uint32 ms, const uint32 us);
+uint32_t timer_tic_tick();
+uint32_t timer_toc_us(const uint32_t tic);
 // -----------------------------------------
 void word2byte(const uint16_t word, uint8_t *byteLow, uint8_t *byteHigh);
 uint16_t word2byte_BigEndian(const uint8_t byteLow, const uint8_t byteHigh);
@@ -46,7 +48,7 @@ uint16_t array16_max(const uint16_t* arr, uint8_t len);
 uint32_t array16_sum(const uint16_t* arr, uint8_t len);
 uint32_t array16_avg(const uint16_t* arr, uint8_t len);
 
-
+bool array8_eq_all(const uint8_t* arr1, const uint8_t* arr2, uint8_t len);
 bool array16_eq_all(const uint16_t* arr1, const uint16_t* arr2, uint8_t len);
 bool array16_eq_element(const uint16_t* arr1, const uint16_t* arr2, bool *out, uint8_t len);
 bool array16_less_element(const uint16_t* arr1, const uint16_t* arr2, bool *out, uint8_t len);

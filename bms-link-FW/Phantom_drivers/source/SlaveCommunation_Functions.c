@@ -8,18 +8,17 @@
 #include "spi.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include "string.h"
 #include "ltc6811_commands.h"
+#include "SlaveCommunation_Hardware.h"
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Functions.h"
 #include "PhantomHelpers.h"
 
-
-struct ConfigReg ConfigRegData[NUMBER_OF_SLAVE_BOARDS];
-struct StatusReg StatusRegData[NUMBER_OF_SLAVE_BOARDS];
-bool ADC_is_Free = TRUE;
 //---------------------------------------------------------------------------------------------------------
 void Config_Struct2Words(uint16_t* data){
     int i;
+    uint16_t data16[WORDS_PER_REG_GROUP];
     uint8_t data8[BYTES_PER_REG_GROUP];
     for(i = 0; i < NUMBER_OF_SLAVE_BOARDS; i++){
         struct ConfigReg* current_Reg = &ConfigRegData[i];
@@ -47,12 +46,12 @@ void Config_Struct2Words(uint16_t* data){
         data8[5] = ((current_Reg->dcto & 0x0F) << 4U)
                  | ((current_Reg->DCC  >> 8U)  & 0x0F);
 
-        bytes2words(data8, data, WORDS_PER_REG_GROUP, BigEndian);
+        bytes2words(data8, data16, WORDS_PER_REG_GROUP, BigEndian);
+        memcpy(data, data16, WORDS_PER_REG_GROUP * sizeof(uint16_t));
         data += WORDS_PER_REG_GROUP;
     }
 }
-
-void Config_Words2Struct(uint16_t* data){
+void Config_Words2Struct(const uint16_t* data){
     int i, idx;
     uint8_t byteLow, byteHigh;
     uint8_t vuv_lo;
@@ -145,45 +144,85 @@ void Stat_Words2Struct(uint16_t* data){
 }
 
 //---------------------------------------------------------------------------------------------------------
-uint32 Write_CFGR(){
-          uint16_t WriteConfig[NUMBER_OF_CONFIG_WORDS];
-//          uint16_t ReadConfig [NUMBER_OF_REG_WORDS_PER_CMD];
+void Write_CFGR(){
+      uint16_t WriteConfig[NUMBER_OF_CONFIG_WORDS];
 
-          const uint16_t cmds_W[NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD] = {LTC6811_WRCFGA};
-//          const uint16_t cmds_R[NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD] = {LTC6811_RDCFGA};
+      const uint16_t cmds_W[NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD] = {LTC6811_WRCFGA};
 
-          Config_Struct2Words(WriteConfig);
+      Config_Struct2Words(WriteConfig);
 
-          int i;
-
-          for(i=0;i<NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD;i++){
-              WriteRegGroup(cmds_W[i], &WriteConfig[i*NUMBER_OF_REG_WORDS_PER_CMD]);
-//              ReadRegGroup( cmds_R[i], &ReadConfig[NUMBER_OF_REG_WORDS_PER_CMD] );
-//              if(array16_eq_all(WriteConfig, ReadConfig, NUMBER_OF_REG_WORDS_PER_CMD)){
-//                  i--;
-//          }
-          }
-     return TRUE;
+      WriteMultiRegGroups(cmds_W, NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD, WriteConfig);
+      return;
  }
- void Read_CFGR(){
+ bool Read_CFGR(){
      uint16_t raw[NUMBER_OF_CONFIG_WORDS];
      uint16_t cmds[NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD] = {LTC6811_RDCFGA};
 
-     ReadMultiRegGroups(cmds, NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD, raw);
+     bool PecEq = ReadMultiRegGroups(cmds, NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD, raw);
 
-     Config_Words2Struct(raw);
+     if(PecEq){
+         Config_Words2Struct(raw);
+         return true;
+     }
 
-    return;
+    return false ;
  }
- void Read_STAT(){
+
+ bool WriteThenRead_CFGR(){
+       bool PecEq, RW_EQ;
+       uint16_t WriteConfig[NUMBER_OF_CONFIG_WORDS];
+       uint16_t ReadConfig [NUMBER_OF_CONFIG_WORDS];
+
+       uint16_t* WriteDataPrt = WriteConfig;
+       uint16_t* ReadDataPrt  = ReadConfig;
+
+       const uint16_t cmds_W[NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD] = {LTC6811_WRCFGA};
+       const uint16_t cmds_R[NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD] = {LTC6811_RDCFGA};
+
+       Config_Struct2Words(WriteConfig);
+
+       int i,j;
+
+
+       for(i=0; i<NUMBER_OF_FAILS_ALLOWED; i++){
+           WriteMultiRegGroups(cmds_W, NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD, WriteConfig);
+           PecEq = ReadMultiRegGroups(cmds_R, NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD, ReadConfig);
+
+
+           for(j=0; j<NUMBER_OF_CONFIG_WORDS; j++){
+               WriteDataPrt[0]  &= ~(0x0002);
+               ReadDataPrt[0]   &= ~(0x0002);
+
+               WriteDataPrt     += NUMBER_OF_CONFIG_WORDS;
+               ReadDataPrt      += NUMBER_OF_CONFIG_WORDS;
+
+           }
+
+           RW_EQ = array16_eq_all(WriteConfig, ReadConfig, NUMBER_OF_CONFIG_WORDS);
+           if(RW_EQ && PecEq){
+               return true;
+           }
+       }
+       return false;
+  }
+ bool Read_STAT(){
      uint16_t raw[NUMBER_OF_STAT_WORDS];
      uint16_t cmds[NUMBER_OF_STAT_REG_GROUPS_PER_BOARD] = {LTC6811_RDSTATA, LTC6811_RDSTATB};
 
-     ReadMultiRegGroups(cmds, NUMBER_OF_STAT_REG_GROUPS_PER_BOARD, raw);
+     bool PecEq = ReadMultiRegGroups(cmds, NUMBER_OF_STAT_REG_GROUPS_PER_BOARD, raw);
 
-     Config_Words2Struct(raw);
+     int i;
+     bool AllValid = TRUE;
+     for(i=0; i<NUMBER_OF_STAT_WORDS; i+=WORDS_PER_REG_GROUP){
+         AllValid &= !array16_eq_every(&raw[i], SPI_DUMMY_DATA_WORD, WORDS_PER_REG_GROUP);
+     }
 
-     return;
+     if(PecEq & AllValid){
+         Stat_Words2Struct(raw);
+         return true;
+     }
+
+     return false ;
  }
 //---------------------------------------------------------------------------------------------
 
@@ -239,13 +278,13 @@ uint32_t checkStatFlags(){
      for(i=0, Shift=0;i<NUMBER_OF_SLAVE_BOARDS;i++, Shift=0){
          struct StatusReg* current_Reg = &StatusRegData[i];
 
-         flag = current_Reg->OV_flags != 0;
+         flag = current_Reg->OV_flags == 0;
          Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->UV_flags != 0;
+         flag = current_Reg->UV_flags == 0;
          Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->THSD != 0;
+         flag = !current_Reg->THSD;
          Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->MUXFAIL != 0;
+         flag = !current_Reg->MUXFAIL;
          Flags |= (uint32_t)flag<<Shift++;
 
          flag = current_Reg->ITMP >MAX_INTERNAL_DIE_TEMPERATURE_FLAG;
@@ -266,95 +305,95 @@ uint32_t checkStatFlags(){
 }
 //---------------------------------------------------------------------------------------------------------
 
-CS_Level checkSPIFree(){
-    return  GetCS();
-};
-uint32_t waitSPIFree(const uint32_t wait_periods_us){
-     CS_Level status;
-      uint32_t PollingWaits = 0;
-
-      for(PollingWaits=0; PollingWaits < SLAVE_CONVERSATION_TIMEOUT; PollingWaits++){
-          status =  checkSPIFree();
-          if(status == HIGH){
-              ++PollingWaits;
-              return PollingWaits;
-          }
-          delay_ms_us(0, wait_periods_us);
-      }
-
-      if(status != HIGH){
-          setCS(HIGH);
-      }
-      return 0;
-  }
-
-#define Imp 2
- bool isConvComplete() {
-     uint8_t status = 0;
-     setCS(LOW);
-     SendCmdAndPec2Slave(LTC6811_PLADC);
-     status =  SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE);
-     setCS(HIGH);
-     // If any bit is high, conversion is done (SDO is open-drain, driven low only when busy)
-     return (status != 0x00);
- }
-
- uint32_t waitConvComplete(const uint32_t wait_periods_us){
-     bool status;
-     uint32_t BytesWaiting = 0;
-
-     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
-    #if Imp == 1
-     for(BytesWaiting=0; BytesWaiting < SLAVE_CONVERSATION_TIMEOUT; BytesWaiting++){
-
-         status = isConvComplete();
-         if(status){
-             break;
-         }
-
-         delay_ms_us(0,wait_periods_us);
-     }
-    #elif Imp == 2
-
-     setCS(LOW);
-     SendCmdAndPec2Slave(LTC6811_PLADC);
-
-     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
-
-     status = FALSE;
-     for(BytesWaiting=0; BytesWaiting < SLAVE_CONVERSATION_TIMEOUT; BytesWaiting++){
-
-         status = SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE) & 0x0001;
-         if(status){
-             break;
-         }
-
-         delay_ms_us(0,wait_periods_us);
-     }
-     setCS(HIGH);
-
-    #endif
-
-     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
-
-     return status ? ++BytesWaiting : 0;
- }
- uint32_t waitConvComplete_ADC_Cells(){
-     uint32_t PollsWaited =  waitConvComplete(500);
-     return PollsWaited;
- }
- uint32_t waitConvComplete_ADC_GPIO(){
-     uint32_t PollsWaited =  waitConvComplete(500);
-     return PollsWaited;
- }
- uint32_t waitConvComplete_ADC_STAT(){
-     uint32_t PollsWaited =  waitConvComplete(500);
-     return PollsWaited;
- }
- uint32_t waitConvComplete_Cell_Bal(){
-     uint32_t PollsWaited =  waitConvComplete(500);
-     return PollsWaited;
- }
+//CS_Level checkSPIFree(){
+//    return  GetCS();
+//};
+//uint32_t waitSPIFree(const uint32_t wait_periods_us){
+//     CS_Level status;
+//      uint32_t PollingWaits = 0;
+//
+//      for(PollingWaits=0; PollingWaits < MAX_POLLS_TIMEOUT; PollingWaits++){
+//          status =  checkSPIFree();
+//          if(status == HIGH){
+//              ++PollingWaits;
+//              return PollingWaits;
+//          }
+//          delay_ms_us(0, wait_periods_us);
+//      }
+//
+//      if(status != HIGH){
+//          setCS(HIGH);
+//      }
+//      return 0;
+//  }
+//
+//#define Imp 2
+// bool isConvComplete() {
+//     uint8_t status = 0;
+//     setCS(LOW);
+//     SendCmdAndPec2Slave(LTC6811_PLADC);
+//     status =  SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE);
+//     setCS(HIGH);
+//     // If any bit is high, conversion is done (SDO is open-drain, driven low only when busy)
+//     return (status != 0x00);
+// }
+//
+// uint32_t waitConvComplete(const uint32_t wait_periods_us){
+//     bool status;
+//     uint32_t BytesWaiting = 0;
+//
+//     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
+//    #if Imp == 1
+//     for(BytesWaiting=0; BytesWaiting < MAX_POLLS_TIMEOUT; BytesWaiting++){
+//
+//         status = isConvComplete();
+//         if(status){
+//             break;
+//         }
+//
+//         delay_ms_us(0,wait_periods_us);
+//     }
+//    #elif Imp == 2
+//
+//     setCS(LOW);
+//     SendCmdAndPec2Slave(LTC6811_PLADC);
+//
+//     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
+//
+//     status = FALSE;
+//     for(BytesWaiting=0; BytesWaiting < MAX_POLLS_TIMEOUT; BytesWaiting++){
+//
+//         status = SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE) & 0x0001;
+//         if(status){
+//             break;
+//         }
+//
+//         delay_ms_us(0,wait_periods_us);
+//     }
+//     setCS(HIGH);
+//
+//    #endif
+//
+//     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
+//
+//     return status ? ++BytesWaiting : 0;
+// }
+// uint32_t waitConvComplete_ADC_Cells(){
+//     uint32_t PollsWaited =  waitConvComplete(500);
+//     return PollsWaited;
+// }
+// uint32_t waitConvComplete_ADC_GPIO(){
+//     uint32_t PollsWaited =  waitConvComplete(500);
+//     return PollsWaited;
+// }
+// uint32_t waitConvComplete_ADC_STAT(){
+//     uint32_t PollsWaited =  waitConvComplete(500);
+//     return PollsWaited;
+// }
+// uint32_t waitConvComplete_Cell_Bal(){
+//     uint32_t PollsWaited =  waitConvComplete(500);
+//     return PollsWaited;
+// }
 
 //---------------------------------------------------------------------------------------------------------
  void ClearCellsCMD(){
@@ -364,33 +403,44 @@ uint32_t waitSPIFree(const uint32_t wait_periods_us){
      SendCMD2Slave_alone(LTC6811_CLRAUX);
  }
  void ClearStatCMD(){
-     SendCMD2Slave_alone(LTC6811_CLRCELL);
+     SendCMD2Slave_alone(LTC6811_CLRSTAT);
+ }
+ void ClearSCtrlCMD(){
+     SendCMD2Slave_alone(LTC6811_CLRSCTRL);
+ }
+
+ void ClearSlaveRegs(){
+     ClearCellsCMD();
+     ClearAUXCMD();
+     ClearStatCMD();
+     ClearSCtrlCMD();
  }
  //---------------------------------------------------------------------------------------------------------
- uint32 CheckSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
-                     const uint8_t ST)    //  Self Test Mode Selection
+ bool CheckSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                   const uint8_t ST)    //  Self Test Mode Selection
  {
 
      uint16_t MD_bits     = ((uint16_t)MD & 0x03) << 7;
      uint16_t ST_bits     = ((uint16_t)ST & 0x03) << 5;
      uint16_t cmd = LTC6811_STATST| MD_bits | ST_bits;
 
-     return SendCMD2Slave_alone(cmd);
+     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_STAT_US);
  }
- uint32 MeasureSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
-                       const uint8_t CHST)    //  Status Group Selection
+ bool MeasureSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                     const uint8_t CHST)    //  Status Group Selection
  {
 
      uint16_t MD_bits     = ((uint16_t)MD & 0x03) << 7;
      uint16_t ST_bits     = CHST & 0x7;
      uint16_t cmd = LTC6811_ADSTAT| MD_bits | ST_bits;
 
-     return SendCMD2Slave_alone(cmd);
+     ClearStatCMD();
+     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_STAT_US);
  }
 
- uint32 MeasureCellsCmd(const uint8_t MD  , // DC mode: 0=Fast, 1=Normal, 2=Filtered
-                        const bool DCP    , // Discharge Permit
-                        const uint8_t CHG ) // Cell Selection for ADC Conversion
+ bool MeasureCellsCmd(const uint8_t MD  , // DC mode: 0=Fast, 1=Normal, 2=Filtered
+                      const bool DCP    , // Discharge Permit
+                      const uint8_t CHG ) // Cell Selection for ADC Conversion
  {
 
      uint16 CHG_bits     = CHG & 0x07;
@@ -398,48 +448,60 @@ uint32_t waitSPIFree(const uint32_t wait_periods_us){
      uint16_t MD_bits    = ((uint16_t)MD & 0x03) << 7;
      uint16_t cmd = LTC6811_ADCV | MD_bits | DCP_bits | CHG_bits;
 
-     return SendCMD2Slave_alone(cmd);
+     ClearCellsCMD();
+     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_CELL_VOLTS_US);
  }
 
- uint32 MeasureAUXCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
-                      const uint8_t CHG)    //  GPIO Selection for ADC Conversion
+ bool MeasureAUXCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                    const uint8_t CHG)    //  GPIO Selection for ADC Conversion
  {
      uint16 CHG_bits     = CHG & 0x07;
      uint16_t MD_bits    = ((uint16_t)MD & 0x03) << 7;
      uint16_t cmd = LTC6811_ADAX | MD_bits | CHG_bits;
 
-     return SendCMD2Slave_alone(cmd);
+     ClearAUXCMD();
+     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_AUX_US);
  }
  bool Start_S_CTRL_Pulsing(){
-     return SendCMD2Slave_alone(LTC6811_STSCTRL);
+     return SendCMD2Slave_pollAndWait(LTC6811_STSCTRL, POLL_PERIOD_CELL_BAL_US);
  }
  //---------------------------------------------------------------------------------------------------------
-bool Write_S_CTRL(uint8* nibbles){
-    return WriteBytes2RegGroup(LTC6811_WRSCTRL, nibbles);
+void Write_S_CTRL(const uint8* nibbles){
+    WriteBytes2RegGroup(LTC6811_WRSCTRL, nibbles);
 }
 bool Read_S_CTRL(uint8* nibbles){
-    return WriteBytes2RegGroup(LTC6811_RDSCTRL, nibbles);
+    return ReadBytesFromRegGroup(LTC6811_RDSCTRL, nibbles);
 }
-bool Write_PWM(uint8* nibbles){
-    return WriteBytes2RegGroup(LTC6811_WRPWM, nibbles);
+void Write_PWM(const uint8* nibbles){
+    WriteBytes2RegGroup(LTC6811_WRPWM, nibbles);
 }
 bool Read_PWM(uint8* nibbles){
-    return WriteBytes2RegGroup(LTC6811_RDPWM, nibbles);
+    return ReadBytesFromRegGroup(LTC6811_RDPWM, nibbles);
+}
+bool WriteThenRead_PWM(const uint8* nibbles){
+    return WriteThenReadRegGroup_Bytes(LTC6811_WRPWM, LTC6811_RDPWM, nibbles);
+}
+bool SetAllPWM_Regs(uint8_t nibble){
+    nibble &= 0xF;
+    nibble |= nibble<<4;
+    uint8_t nibbles[NUMBER_OF_CELLS/2];
+    memset(nibbles, nibble, NUMBER_OF_CELLS/2);
+    return WriteThenRead_PWM(nibbles);
 }
  //---------------------------------------------------------------------------------------------------------
  bool GetVoltageReadings(uint16_t* data){
      const uint16_t cmds[NUMBER_OF_CELL_VOLTAGE_REG_GROUPS_PER_BOARD] = {LTC6811_RDCVA, LTC6811_RDCVB, LTC6811_RDCVC, LTC6811_RDCVD};
 
-     ReadMultiRegGroups(cmds, NUMBER_OF_CELL_VOLTAGE_REG_GROUPS_PER_BOARD, data);
+     bool PecEq = ReadMultiRegGroups(cmds, NUMBER_OF_CELL_VOLTAGE_REG_GROUPS_PER_BOARD, data);
 
-     return TRUE;
+     return PecEq;
  }
  bool GetGPIOReadings_Analog(uint16_t* data){
       uint16_t cmds[NUMBER_OF_GPIO_VOLTAGE_REG_GROUPS_PER_BOARD] = {LTC6811_RDAUXA,LTC6811_RDAUXB};
 
-      ReadMultiRegGroups(cmds, NUMBER_OF_GPIO_VOLTAGE_REG_GROUPS_PER_BOARD, data);
+      bool PecEq = ReadMultiRegGroups(cmds, NUMBER_OF_GPIO_VOLTAGE_REG_GROUPS_PER_BOARD, data);
 
-      return TRUE;
+      return PecEq;
   }
 // bool GetGPIOReadings_Digital(uint8_t *gpio_data)
 // {
@@ -461,7 +523,7 @@ bool Read_PWM(uint8* nibbles){
      const bool     DTEN    = TRUE;
      const bool     refon   = TRUE;
      const uint8_t  gpio    = 0b00000;
-     const uint16_t DCC     = 0xFFF;//0b0000111111111110;//0xFFF;
+     const uint16_t DCC     = 0x0;//0b0000111111111110;//0xFFF;
      const uint8_t dcto     = 0x0;
 
      int i;
@@ -478,105 +540,16 @@ bool Read_PWM(uint8* nibbles){
          current_Reg->VOV       = OVER_VOLTAGE_CONFIG;
      }
 
-     Write_CFGR();
- }
- //---------------------------------------------------------------------------------------------------------
-bool AreCellsUnBalance(const uint16* Volts, uint16_t *avg, uint16_t *min){
-    uint16_t minAvgDiff;
-    static bool Balance_Hysteresis = FALSE;
-
-    *min = array16_min(Volts, NUMBER_OF_CELLS);
-    *avg = array16_avg(Volts, NUMBER_OF_CELLS);
-
-    minAvgDiff = avg-min;
-
-    if (CELL_BALANCE_TRIGGER_HIGH_VOLTS_ADC < minAvgDiff ){
-        Balance_Hysteresis = TRUE;
-    }
-    else if(CELL_BALANCE_TRIGGER_LOW_VOLTS_ADC > minAvgDiff){
-        Balance_Hysteresis = FALSE;
-    }
-    else{
-        Balance_Hysteresis = Balance_Hysteresis;
-    }
-    return Balance_Hysteresis;
-}
- uint8_t BalanceCellVaule(const uint16 cellVolt, const uint16_t min, const bool UnBalance){
-     uint8_t nibble;
-
-     uint16_t Vdiff = cellVolt - min;
-     if(cellVolt > MAX_CELL_CHARGING_VOLTAGE_TARGET){
-         nibble  = 0xF;
-     }
-
-     else if(CELL_BALANCE_THESHOLD_VOLTS_ADC < Vdiff && UnBalance){
-         nibble= 0xF;
-//         nibble  = (Vdiff + VOLTS_ADC_DRAINED_PER_PULSE/2);
-//         nibble /= VOLTS_ADC_DRAINED_PER_PULSE;
-     }
-     else{
-         nibble  = 0x0;
-     }
-
-
-     return nibble;
- }
-
-  bool GetBalanceNibbles(const uint16* Volts, uint8_t* BalanceNibbles){
-    int i, j;
-    uint16_t min, avg, cellVolt;
-    uint8_t nibble, byte;
-
-
-    bool UnBalance = AreCellsUnBalance(Volts, &avg, &min);
-//    if(!UnBalance){
-//        return Balance_Hysteresis;
-//    }
-
-    for(i=0;i<NUMBER_OF_CELLS/NIBBLE2BYTES; i++){
-        byte = 0;
-
-        for(j=0;j<NIBBLE2BYTES;j++){
-            cellVolt = (*Volts++);
-
-            nibble = BalanceCellVaule(cellVolt, min, UnBalance);
-
-//            nibble &= 0xF;
-            byte |= nibble<<(j*4);
-        }
-        BalanceNibbles[i] = byte;
-    }
-
-
-    return !UnBalance;
-}
-bool GetBalanceDCC(const uint16* Volts, uint16_t* DCC){
-//     const uint8_t Nibbles2Bytes = 2;
-     int i, j;
-     uint16_t min, avg, cellVolt;
-     uint8_t nibble= 2;
-
-     bool UnBalance = AreCellsUnBalance(Volts, &avg, &min);
-
-     for(i=0;i<NUMBER_OF_SLAVE_BOARDS;i++){
-         *DCC = 0;
-
-         for (j=0;j<CELLS_PER_SLAVE_BOARD; j++){
-             cellVolt = (*Volts++);
-
-             nibble = BalanceCellVaule(cellVolt, min, UnBalance);
-             if(nibble){
-                 *DCC |= 1U<<j;
-             }
-         }
-
-         DCC++;
-     }
-     return !UnBalance;
+     return Write_CFGR();
+//     bool WriteThenRead_PWM(const uint8* nibbles);
  }
 //---------------------------------------------------------------------------------------------------------
-void ClearSlaveRegs(){
-    ClearCellsCMD();
-    ClearAUXCMD();
-    ClearStatCMD();
+void SendDummyCMD(){
+    SendCMD2Slave_alone(DUMMY_CMD);
+}
+void waitDummyCMD(const uint32_t WaitPeriod_ms, const uint32_t WaitPeriod_us, uint16_t WaitSends){
+    for(;WaitSends!=0;WaitSends--){
+        SendCMD2Slave_alone(DUMMY_CMD);
+        delay_ms_us(WaitPeriod_ms,WaitPeriod_us);
+    }
 }

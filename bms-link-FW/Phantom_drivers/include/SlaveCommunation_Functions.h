@@ -9,63 +9,16 @@
 #define PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_FUNCTIONS_H_
 #include <stdint.h>
 #include <stdbool.h>
-#include "spi.h"
-#include "SlaveCommunication_Drivers.h"
+#include "ltc6811_commands.h"
+#include "SlaveCommunation_Hardware.h"
+#include "BatteryData.h"
+
 //------------------------------------------------------------------------
-//////////////////////////////////////////////////////////////////
-#define CELLS_PER_SLAVE_BOARD          12
-#define AUCILIARY_PER_SLAVE_BOARD       6
-#define CELL_IN_PARALLEL                5
-
-#define GPIOS_PER_SLAVE_BOARD           (AUCILIARY_PER_SLAVE_BOARD-1)
-#define REF_2ND_PER_SLAVE_BOARD         1
-
-/////////////////////////////////////////////////////////////////
-#define NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD           1
-#define NUMBER_OF_STAT_REG_GROUPS_PER_BOARD             2
-
-#define NUMBER_OF_CELL_VOLTAGE_REG_GROUPS_PER_BOARD     (CELLS_PER_SLAVE_BOARD/WORDS_PER_REG_GROUP)
-#define NUMBER_OF_GPIO_VOLTAGE_REG_GROUPS_PER_BOARD     (AUCILIARY_PER_SLAVE_BOARD/WORDS_PER_REG_GROUP)
-/////////////////////////////////////////////////////////////////
-
-#define NUMBER_OF_CELLS             (CELLS_PER_SLAVE_BOARD     * NUMBER_OF_SLAVE_BOARDS)
-#define NUMBER_OF_AUCILIARY         (AUCILIARY_PER_SLAVE_BOARD * NUMBER_OF_SLAVE_BOARDS)
-#define NUMBER_OF_GPIOS             (GPIOS_PER_SLAVE_BOARD     * NUMBER_OF_SLAVE_BOARDS)
-#define NUMBER_OF_REF_2ND           (REF_2ND_PER_SLAVE_BOARD   * NUMBER_OF_SLAVE_BOARDS)
-
-//#define CELL_IN_SERIES               NUMBER_OF_CELLS
-#define NUMBER_OF_CONFIG_WORDS      (NUMBER_OF_REG_WORDS_PER_CMD * NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD)
-#define NUMBER_OF_STAT_WORDS        (NUMBER_OF_REG_WORDS_PER_CMD * NUMBER_OF_STAT_REG_GROUPS_PER_BOARD)
-/////////////////////////////////////////////////////////////////
-#define ADC_MEASURE_MODE 2 //0=Fast, 1=Normal, 2=Filtered
-#define ADC_Measure_Discharge_Permit TRUE
-
-#define SLAVE_CONVERSATION_TIMEOUT 20
-#define NUMBER_OF_GARBAGE_BYTES ((NUMBER_OF_SLAVE_BOARDS-7)/8)
-//////////////////////////////////////////////////////////////////
-// ADC specs
-#define ADC2MICRO_VOLTS      100
-#define ADC2VOLTS            ((float)(ADC2MICRO_VOLTS) * 1e-6f)
-//#define ADC2VOLTS            (ADC2MICRO_VOLTS / 1000000.0f)
-#define ADC_OFFSET_VOLTS                (ADC2VOLTS * 0.00f)
-#define ADC_RESOLUTION_BIT              14
-//#define ADC_RESOLUTION_BIT_MASK         (~((1<<(16-ADC_RESOLUTION_BIT))-1))//0xFFFC//(~MINUS1(16-ADC_RESOLUTION_BIT))//
-#define ADC_MRCRO_VOLT_NOISE            250
-#define ADC_MAX_VOLT    0.0f
-#define ADC_MIN_VOLT    5.0f
-
-#define ITMP_MILLI_VOLTS_2_CELCIUS 7.5f
-#define ITMP_KELVIN_2_CELCIUS  273
-/////////////////////////////////////////////////////////////////
-#define CELL_BALANCE_THESHOLD_VOLTS_ADC 1000 //0.1V
-#define CELL_BALANCE_HYSTERSIS_BAND_VOLTS_ADC 500 // 0.05
-#define CELL_BALANCE_TRIGGER_HIGH_VOLTS_ADC (CELL_BALANCE_THESHOLD_VOLTS_ADC + CELL_BALANCE_HYSTERSIS_BAND_VOLTS_ADC)
-#define CELL_BALANCE_TRIGGER_LOW_VOLTS_ADC (CELL_BALANCE_THESHOLD_VOLTS_ADC - CELL_BALANCE_HYSTERSIS_BAND_VOLTS_ADC)
-
-#define VOLTS_ADC_DRAINED_PER_PULSE 100
+#define DUMMY_CMD LTC6811_PLADC
+////////////////////////////////////////////////////////////////////
 //------------------------------------------------------------------------
-#define MAX_INTERNAL_DIE_TEMPERATURE_FLAG  55000
-#define MIN_INTERNAL_DIE_TEMPERATURE_FLAG  55000
+#define MAX_INTERNAL_DIE_TEMPERATURE_FLAG  50000
+#define MIN_INTERNAL_DIE_TEMPERATURE_FLAG  01000
 
 #define MAX_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG  55000
 #define MIN_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG  45000
@@ -74,13 +27,15 @@
 #define MAX_2ND_REFERENCE_VOLTAGE_FLAG        29900
 #define MIN_2ND_REFERENCE_VOLTAGE_FLAG        30100
 
-#define OVER_VOLTAGE_FLAG       41000
-#define UNDER_VOLTAGE_FLAG      33000
+#define OVER_VOLTAGE_FLAG       CELL_VOLT_OVER
+#define UNDER_VOLTAGE_FLAG      CELL_VOLT_UNDER
 #define OVER_VOLTAGE_CONFIG     (OVER_VOLTAGE_FLAG>>4)
 #define UNDER_VOLTAGE_CONFIG    ((UNDER_VOLTAGE_FLAG>>4)-1)
-
-
-#define MAX_CELL_CHARGING_VOLTAGE_TARGET 42000
+ //---------------------------------------------------------------------------------------------------------
+#define POLL_PERIOD_STAT_US 1000
+#define POLL_PERIOD_AUX_US 1000
+#define POLL_PERIOD_CELL_VOLTS_US 1000
+#define POLL_PERIOD_CELL_BAL_US 1000
 
 //------------------------------------------------------------------------
 struct ConfigReg{
@@ -118,24 +73,27 @@ struct StatusReg {
 //void GetValueStatusReg(uint16_t* data, StatusReg_Values Value2Get);
  //---------------------------------------------------------------------------------------------------------
 
-uint32_t Write_CFGR();
-void Read_CFGR();
-void Read_STAT();
+void Write_CFGR();
+bool Read_CFGR();
+bool Read_STAT();
 //--------------------------------------------------------------------------------------------------------
 void ClearCellsCMD();
 void ClearAUXCMD();
 void ClearStatCMD();
+void ClearSCtrlCMD();
+void ClearSlaveRegs();
+
 //---------------------------------------------------------------------------------------------------------
- uint32 MeasureCellsCmd(const uint8_t MD, //ADC Mode
+ bool MeasureCellsCmd(const uint8_t MD, //ADC Mode
                         const bool DCP,   //Discharge Permit
                         const uint8_t CHG //  GPIO Selection for ADC Conversion
                         );
 
- uint32 MeasureAUXCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
-                      const uint8_t CHG    //  GPIO Selection for ADC Conversion
-                      );
- uint32 MeasureSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
-                       const uint8_t CHST    //  Status Group Selection
+ bool MeasureAUXCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                    const uint8_t CHG    //  GPIO Selection for ADC Conversion
+                    );
+ bool MeasureSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                     const uint8_t CHST    //  Status Group Selection
                      );
  //---------------------------------------------------------------------------------------------------------
 
@@ -157,13 +115,12 @@ void ClearStatCMD();
  bool GetGPIOReadings_Digital(uint8_t *gpio_data);
  //---------------------------------------------------------------------------------------------------------
 bool Start_S_CTRL_Pulsing();
-bool Write_S_CTRL(uint8* S_CTRL_nibbles);
+void Write_S_CTRL(const uint8* S_CTRL_nibbles);
 bool Read_S_CTRL(uint8* S_CTRL_nibbles);
-bool Write_PWM(uint8* PWM_nibbles);
+void Write_PWM(const uint8* PWM_nibbles);
 bool Read_PWM(uint8* PWM_nibbles);
-//---------------------------------------------------------------------------------------------------------
-bool GetBalanceNibbles(const uint16* Volts, uint8_t* BalanceNibbles);
-bool GetBalanceDCC(const uint16* Volts, uint16_t* DCC);
+bool WriteThenRead_PWM(const uint8* nibbles);
+bool SetAllPWM_Regs(uint8_t nibble);
 //---------------------------------------------------------------------------------------------------------
 void ReadConfig_DCC(uint16_t* DCC);
 void SetConfig_DCC(const uint16_t* DCC);
@@ -174,6 +131,11 @@ void SetConfig_gpio(const uint8_t* gpio);
 uint32_t checkStatFlags();
 //---------------------------------------------------------------------------------------------------------
 void initConfig();
-void ClearSlaveRegs();
+//---------------------------------------------------------------------------------------------------------
+void SendDummyCMD();
+void waitDummyCMD(const uint32_t WaitPeriod_ms, const uint32_t WaitPeriod_us, uint16_t WaitSends);
 
+//---------------------------------------------------------------------------------------------------------
+struct ConfigReg ConfigRegData[NUMBER_OF_SLAVE_BOARDS];
+struct StatusReg StatusRegData[NUMBER_OF_SLAVE_BOARDS];
 #endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_FUNCTIONS_H_ */
