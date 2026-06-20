@@ -58,5 +58,6 @@ void updateIsolationState(unsigned int duty_value);
 void updateIMDData();
 void updateIMDState(unsigned int freq_value, unsigned int duty_value);
 IMDData_t getIMDData();
+void checkIMDState(); // to implement
 
 #endif /* BMS_MASTER_INCLUDE_IMD_H_ */

@@ -128,3 +128,4 @@ void updateIMDState(unsigned int freq_value, unsigned int duty_value){
 IMDData_t getIMDData(){
     return IMDData;
 }
+
