@@ -63,7 +63,6 @@
 //#define CELL_IN_SERIES               NUMBER_OF_CELLS
 #define NUMBER_OF_CONFIG_WORDS      (NUMBER_OF_REG_WORDS_PER_CMD * NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD)
 #define NUMBER_OF_STAT_WORDS        (NUMBER_OF_REG_WORDS_PER_CMD * NUMBER_OF_STAT_REG_GROUPS_PER_BOARD)
-
 ////////////////////////////////////////////////////////////////////
 #define ADC_MEASURE_MODE 2 //0=Fast, 1=Normal, 2=Filtered
 #define ADC_MEASURE_DISCHARGE_PERMITED TRUE

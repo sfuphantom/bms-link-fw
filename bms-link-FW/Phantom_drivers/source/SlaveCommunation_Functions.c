@@ -14,7 +14,10 @@
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Functions.h"
 #include "PhantomHelpers.h"
-
+//---------------------------------------------------------------------------------------------------------
+struct StatusReg* GetStatusRegData(){
+    return StatusRegData;
+}
 //---------------------------------------------------------------------------------------------------------
 void Config_Struct2Words(uint16_t* data){
     int i;
@@ -269,40 +272,40 @@ void SetConfig_gpio(const uint8_t* gpio){
     }
 }
 //---------------------------------------------------------------------------------------------------------
-uint32_t checkStatFlags(){
-    uint8_t Shift=0;
-     bool flag;
-     uint32_t Flags = 0;
-
-     int i;
-     for(i=0, Shift=0;i<NUMBER_OF_SLAVE_BOARDS;i++, Shift=0){
-         struct StatusReg* current_Reg = &StatusRegData[i];
-
-         flag = current_Reg->OV_flags == 0;
-         Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->UV_flags == 0;
-         Flags |= (uint32_t)flag<<Shift++;
-         flag = !current_Reg->THSD;
-         Flags |= (uint32_t)flag<<Shift++;
-         flag = !current_Reg->MUXFAIL;
-         Flags |= (uint32_t)flag<<Shift++;
-
-         flag = current_Reg->ITMP >MAX_INTERNAL_DIE_TEMPERATURE_FLAG;
-         Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->ITMP <MIN_INTERNAL_DIE_TEMPERATURE_FLAG;
-         Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->VA > MAX_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG;
-         Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->VA < MIN_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG;
-         Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->VD > MAX_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG;
-         Flags |= (uint32_t)flag<<Shift++;
-         flag = current_Reg->VD < MIN_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG;
-         Flags |= (uint32_t)flag<<Shift++;
-     }
-
-     return Flags;
-}
+//uint32_t checkStatFlags(){
+//    uint8_t Shift=0;
+//     bool flag;
+//     uint32_t Flags = 0;
+//
+//     int i;
+//     for(i=0, Shift=0;i<NUMBER_OF_SLAVE_BOARDS;i++, Shift=0){
+//         struct StatusReg* current_Reg = &StatusRegData[i];
+//
+//         flag = current_Reg->OV_flags == 0;
+//         Flags |= (uint32_t)flag<<Shift++;
+//         flag = current_Reg->UV_flags == 0;
+//         Flags |= (uint32_t)flag<<Shift++;
+//         flag = !current_Reg->THSD;
+//         Flags |= (uint32_t)flag<<Shift++;
+//         flag = !current_Reg->MUXFAIL;
+//         Flags |= (uint32_t)flag<<Shift++;
+//
+//         flag = current_Reg->ITMP > MAX_INTERNAL_DIE_TEMPERATURE_FLAG;
+//         Flags |= (uint32_t)flag<<Shift;
+//         flag = current_Reg->ITMP < MIN_INTERNAL_DIE_TEMPERATURE_FLAG;
+//         Flags |= (uint32_t)flag<<Shift++;
+//         flag = current_Reg->VA > MAX_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG;
+//         Flags |= (uint32_t)flag<<Shift;
+//         flag = current_Reg->VA < MIN_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG;
+//         Flags |= (uint32_t)flag<<Shift++;
+//         flag = current_Reg->VD > MAX_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG;
+//         Flags |= (uint32_t)flag<<Shift;
+//         flag = current_Reg->VD < MIN_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG;
+//         Flags |= (uint32_t)flag<<Shift++;
+//     }
+//
+//     return Flags;
+//}
 //---------------------------------------------------------------------------------------------------------
 
 //CS_Level checkSPIFree(){

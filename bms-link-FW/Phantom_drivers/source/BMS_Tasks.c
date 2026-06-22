@@ -11,12 +11,9 @@
 #include "system.h"
 
 #include "SlaveCommunication_Routines.h"
-
 #include "BatteryData.h"
 #include "Charger.h"
-
 #include "PhantomHelpers.h"
-
 #include "BMS_Tasks.h"
 
 //----------------------------------------------------------------------------------------------------
@@ -27,34 +24,68 @@ void init_BMS_system(){
     initLink();
 
     initBatteryData();
-
 }
 //----------------------------------------------------------------------------------------------------
- void CellVoltageControlTask(){
+void TaskSuperLoop(struct Task_t AllTasks[], uint8_t NumOfTasks, void (*ElseFunction)(void)){
+    int i;
+    uint32_t now = getNow_us();
+    struct Task_t currentTask;
+
+    for(i=0; i<NumOfTasks; i++){
+        currentTask = AllTasks[i];
+        if(now - currentTask.LastDone > currentTask.Period){
+            currentTask.RoutineFunction();
+            currentTask.LastDone = now;
+        }
+        else{
+            ElseFunction();
+        }
+    }
+}
+//----------------------------------------------------------------------------------------------------
+struct Task_t SlaveComunationSubTask[] =    {
+                                             {CellVoltageControlRoutine,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0},
+                                             {MonitorCellTempRoutine,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0},
+                                             {SlaveFlagsRoutine,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0},
+                                            };
+void SlaveComunation_Task(){
+    TaskSuperLoop(SlaveComunationSubTask, 3, keepAwake);
+}
+
+struct Task_t AllTask[] =   {
+                               {SlaveComunation_Task,0,0},
+                            };
+
+//----------------------------------------------------------------------------------------------------
+
+ bool CellVoltageControlTask(){
 //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
      if(!rtiTimerExpired(CellVoltageControl_ID, CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS, 0)){
          keepAwake();
-         return;
+         return false;
      }
 
      CellVoltageControlRoutine();
+     return true;
  }
- void MonitorCellTempTask(){
+ bool MonitorCellTempTask(){
 //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
-     if(!rtiTimerExpired(MonitorCellTemp_ID, CELL_TEMP_CONTROL_TASK_PERIOD_MS, 0)){
+     if(!rtiTimerExpired(MonitorCellTemp_ID, CELL_TEMP_MONITOR_TASK_PERIOD_MS, 0)){
          keepAwake();
-         return;
+         return false;
      }
 
      MonitorCellTempRoutine();
+     return true;
  }
- void SlaveFlagsCheckTasks(){
+ bool SlaveFlagsCheckTasks(){
  //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
       if(!rtiTimerExpired(SlaveFlagsCheck_ID, SLAVE_FLAG_CHECK_TASK_PERIOD_MS, 0)){
           keepAwake();
-          return;
+          return false;
       }
       SlaveFlagsRoutine();
+      return true;
   }
  //----------------------------------------------------------------------------------------------------
 

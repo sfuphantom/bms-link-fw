@@ -25,6 +25,9 @@ typedef enum {  nibble  = 4 ,
 
 void delay_ms_us(const uint32_t ms, const uint32_t us);
 boolean rtiTimerExpired(const uint32 id, const uint32 ms, const uint32 us);
+uint32_t getNow_tick();
+uint32_t getNow_us();
+uint32_t getNow_ms();
 uint32_t timer_tic_tick();
 uint32_t timer_toc_us(const uint32_t tic);
 // -----------------------------------------

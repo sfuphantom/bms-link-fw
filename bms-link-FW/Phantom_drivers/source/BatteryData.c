@@ -86,6 +86,10 @@ inline bool GetChargingStatus(){
  void SetAllSlaveFaults(const uint16_t NewSlaveFaults){
      BatteryData.FaultsData.Slave_Faults = NewSlaveFaults;
  }
+ void AddSlaveFaults(const uint16_t NewSlaveFaults){
+     BatteryData.FaultsData.Slave_Faults |= NewSlaveFaults;
+ }
+
  void ClearSlaveFaults(){
      SetAllSlaveFaults(SLAVE_NO_FAULT_VAL);
  }
@@ -313,7 +317,6 @@ inline bool GetChargingStatus(){
    }
   //----------------------------------------------------------------------------------------------------
 
-  //----------------------------------------------------------------------------------------------------
   struct BatteryData_struct* GetBatteryData(){
       return &BatteryData;
   }

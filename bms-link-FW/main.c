@@ -158,7 +158,7 @@ void main(void)
     float VoltCells[NUMBER_OF_CELLS];
     float VoltGPIO[NUMBER_OF_GPIOS];
 
-    float AvgCellVolt_f, AvgCellSoC;
+    float AvgCellVolt_f, AvgCellSoC, MinCellVolt_f;
     uint16_t AvgCellVolt_16;
 
     SetChargingStatus(TRUE);
@@ -171,34 +171,35 @@ void main(void)
 //            ToggleCS();
 //        }
 
+        uint32_t tic = timer_tic_tick();
+        CellVoltageControlRoutine();
+        uint32_t toc_V = timer_toc_us(tic);
+
+        tic = timer_tic_tick();
+        MonitorCellTempRoutine();
+        uint32_t toc_T = timer_toc_us(tic);
+
+        tic = timer_tic_tick();
+        SlaveFlagsRoutine();
+        uint32_t toc_F = timer_toc_us(tic);
 
 
-//        uint32_t tic = timer_tic_tick();
-//        CellVoltageControlRoutine();
-//        uint32_t toc_V = timer_toc_us(tic);
-//
-//        tic = timer_tic_tick();
-//        MonitorCellTempRoutine();
-//        uint32_t toc_T = timer_toc_us(tic);
-//
-//        tic = timer_tic_tick();
-//        SlaveFlagsRoutine();
-//        uint32_t toc_F = timer_toc_us(tic);
-
-
-
-        CellVoltageControlTask();
-        MonitorCellTempTask();
-        SlaveFlagsCheckTasks();
+//        CellVoltageControlTask();
+//#if USE_ANILOG_GPIO
+//        MonitorCellTempTask();
+//#endif
+//        SlaveFlagsCheckTasks();
 
         Slave_ADC2Volt_arr(GetCellVoltReadPrt(), VoltCells, NUMBER_OF_CELLS);
         AvgCellVolt_16 = GetAvgCellVolt();
         AvgCellVolt_f = GetAvgCellVolt_float();
+        MinCellVolt_f = GetMinCellVolt_float();
+
         AvgCellSoC = GetAvgCellSOC();
 
         if(i<1){
             i=0;
-//            initLink();
+            initLink();
             initBatteryData();
         }
         else

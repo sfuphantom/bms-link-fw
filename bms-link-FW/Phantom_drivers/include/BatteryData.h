@@ -27,7 +27,7 @@
 #define CELL_CHARGING_SOC_TARGET_TOLORENCES_PERCENTAGE    (02.0f / 100)
 /////////////////////////////////////////////////////////////////
 #define CELL_BALANCE_THESHOLD_VOLTS_ADC 1000 //0.1V
-#define CELL_BALANCE_HYSTERSIS_BAND_VOLTS_ADC 500 // 0.05
+#define CELL_BALANCE_HYSTERSIS_BAND_VOLTS_ADC 200 // 0.05
 #define CELL_BALANCE_TRIGGER_HIGH_VOLTS_ADC (CELL_BALANCE_THESHOLD_VOLTS_ADC + CELL_BALANCE_HYSTERSIS_BAND_VOLTS_ADC)
 #define CELL_BALANCE_TRIGGER_LOW_VOLTS_ADC (CELL_BALANCE_THESHOLD_VOLTS_ADC - CELL_BALANCE_HYSTERSIS_BAND_VOLTS_ADC)
 
@@ -43,7 +43,7 @@
 #define NUMBER_OF_VOLT_SAMPLES_SAVED 3
 //////////////////////////////////////////////////////////////
 
- typedef enum {Temp_HIGH, OV_flags, UV_flags, THSD, MUXFAIL, ITMP_HIGH, ITMP_LOW, VA_HIGH, VA_LOW, VD_HIGH, VD_LOW, BAD_SLAVE_CONNECTION_FLAG}Slave_Faults;
+ typedef enum {BAD_Temp_HIGH, BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL, BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND, BAD_SLAVE_CONNECTION_FLAG}Slave_Faults;
  typedef enum { BMS_RUNNING, BMS_CHARGING, BMS_DONE_CHARGING, BMS_DISCHARGING, BMS_SLEEPING, BMS_IDLE, BMS_FAULT } BMSState_t;
 //----------------------------------------------------------------------------------------------------
  struct FaultsData_struct{
@@ -87,6 +87,7 @@
   inline uint16_t* GetRefVolt2ndWritePrt();
  //----------------------------------------------------------------------------------------------------
   void SetAllSlaveFaults(const uint16_t NewSlaveFaults);
+  void AddSlaveFaults(const uint16_t NewSlaveFaults);
   void ClearSlaveFaults();
   uint16_t GetAllSlaveFaults();
   bool AnySlaveFaults();

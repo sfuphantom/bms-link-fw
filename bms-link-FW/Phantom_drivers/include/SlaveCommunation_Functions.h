@@ -20,12 +20,15 @@
 #define MAX_INTERNAL_DIE_TEMPERATURE_FLAG  50000
 #define MIN_INTERNAL_DIE_TEMPERATURE_FLAG  01000
 
+#define MAX_CELL_TEMPERATURE_FLAG  01000
+
 #define MAX_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG  55000
 #define MIN_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG  45000
 #define MAX_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG 27000
 #define MIN_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG 36000
 #define MAX_2ND_REFERENCE_VOLTAGE_FLAG        29900
 #define MIN_2ND_REFERENCE_VOLTAGE_FLAG        30100
+
 
 #define OVER_VOLTAGE_FLAG       CELL_VOLT_OVER
 #define UNDER_VOLTAGE_FLAG      CELL_VOLT_UNDER
@@ -72,6 +75,7 @@ struct StatusReg {
 // void SetAllConfigReg(bool* adcopt, bool* DTEN, bool* refon, uint8_t* gpio,  uint16_t* VUV, uint16_t* VOV, uint16_t* DCC, uint8_t* dcto);
 //void GetValueStatusReg(uint16_t* data, StatusReg_Values Value2Get);
  //---------------------------------------------------------------------------------------------------------
+struct StatusReg* GetStatusRegData();
 
 void Write_CFGR();
 bool Read_CFGR();
@@ -127,8 +131,6 @@ void SetConfig_DCC(const uint16_t* DCC);
 void ReadConfig_gpio(uint8_t* gpio);
 bool ReadConfig_gpio_allZero();
 void SetConfig_gpio(const uint8_t* gpio);
-//---------------------------------------------------------------------------------------------------------
-uint32_t checkStatFlags();
 //---------------------------------------------------------------------------------------------------------
 void initConfig();
 //---------------------------------------------------------------------------------------------------------

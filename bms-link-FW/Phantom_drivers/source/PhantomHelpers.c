@@ -158,7 +158,7 @@ uint16_t swap_word_bytes(const uint16_t input){
         const uint32 start = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
         /* Wait until the required number of ticks has elapsed */
 //        rtiBASE_t * rtiRegDelay = rtiREG1;
-        const uint32_t * timer = &rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
+//        const uint32_t * timer = &rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
         while ((rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx - start) < (uint32)total_ticks)
         {
             /* Busy wait */
@@ -225,15 +225,27 @@ boolean rtiTimerExpired(const uint32 id, const uint32 ms, const uint32 us)
     return false;
 }
 
-uint32_t timer_tic_tick(){
+uint32_t getNow_tick(){
     const uint32_t now = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
     return now;
 }
+uint32_t getNow_us(){
+    return getNow_tick()/RTI_US_2_TICKS;
+}
+uint32_t getNow_ms(){
+    return getNow_tick()/RTI_MS_2_TICKS;
+}
+uint32_t timer_tic_tick(){
+    return getNow_tick();
+}
 uint32_t timer_toc_us(const uint32_t tic){
-    const uint32_t now = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
+    const uint32_t now = getNow_tick();
     uint32_t diff = (now-tic)/RTI_US_2_TICKS;
     return diff;
 }
+
+
+
 //----------------------------------------------------------------------------------------
 
 uint16 round16(uint16_t input, uint8_t bit2Round){
