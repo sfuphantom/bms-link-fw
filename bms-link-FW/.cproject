@@ -44,6 +44,8 @@
 									<listOptionValue builtIn="false" value="${PROJECT_ROOT}"/>
 									<listOptionValue builtIn="false" value="${PROJECT_ROOT}/BMS_Master/include"/>
 									<listOptionValue builtIn="false" value="${PROJECT_ROOT}/BMS_Master/source"/>
+									<listOptionValue builtIn="false" value="${PROJECT_ROOT}/Phantom_drivers/include"/>
+									<listOptionValue builtIn="false" value="${PROJECT_ROOT}/Phantom_drivers/source"/>
 									<listOptionValue builtIn="false" value="C:/ti/Hercules/F021 Flash API/02.01.01/include"/>
 									<listOptionValue builtIn="false" value="C:/ti/Hercules/F021 Flash API/02.01.01/source"/>
 									<listOptionValue builtIn="false" value="${CG_TOOL_ROOT}/include"/>

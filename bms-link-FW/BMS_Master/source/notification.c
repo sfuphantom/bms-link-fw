@@ -51,6 +51,7 @@
 #include "esm.h"
 #include "sys_selftest.h"
 #include "adc.h"
+#include "gio.h"
 #include "sci.h"
 #include "spi.h"
 #include "dcc.h"
@@ -118,6 +119,16 @@ void dccNotification(dccBASE_t  *dcc,uint32 flags)
 }
 
 /* USER CODE BEGIN (18) */
+/* USER CODE END */
+#pragma WEAK(gioNotification)
+void gioNotification(gioPORT_t *port, uint32 bit)
+{
+/*  enter user code between the USER CODE BEGIN and USER CODE END. */
+/* USER CODE BEGIN (19) */
+/* USER CODE END */
+}
+
+/* USER CODE BEGIN (20) */
 /* USER CODE END */
 #pragma WEAK(i2cNotification)
 void i2cNotification(i2cBASE_t *i2c, uint32 flags)      
