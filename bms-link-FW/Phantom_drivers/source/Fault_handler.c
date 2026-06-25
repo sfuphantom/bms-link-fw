@@ -22,13 +22,14 @@ uint32 InvertAndInsertBit(uint32 Num, const uint8_t bit, bool * const new_val){
     const uint32_t bitMask = 1U << bit;
 
     *new_val = (0 == (Num & bitMask));
+    Num ^= bitMask;
 
-    if(*new_val){
-        Num |= bitMask;
-    }
-    else{
-        Num &= ~bitMask;
-    }
+//    if(*new_val){
+//        Num |= bitMask;
+//    }
+//    else{
+//        Num &= ~bitMask;
+//    }
     return Num;
 }
 uint32 GetAndInsertBit(uint32 Num, const uint8_t bit, const bool New_val, bool *const last_val){

@@ -27,25 +27,33 @@ void main(void)
 {
 /* USER CODE BEGIN (3) */
     gioInit();
+//    gioInit();
 
     while(1)        /* continious desplay        */
     {
+//        int i;
+//        for(i=0;i<32;i++)
+//            gioToggleBit(gioPORTA, i);
         Gio_State_t T0 = gioToggleBitHelper(GIO_IMD_FAULT_BIT);
         Gio_State_t T1 = gioToggleBitHelper(GIO_BMS_FAULT_BIT);
-        Gio_State_t T2 = gioToggleBitHelper(GIO_START_CHARGING_BIT);
-        Gio_State_t T3 = gioToggleBitHelper(GIO_DEGUBING_BIT1);
+//        Gio_State_t T2 = gioToggleBitHelper(GIO_START_CHARGING_BIT);
+//        Gio_State_t T3 = gioToggleBitHelper(GIO_DEGUBING_BIT1);
 
-        wait_us(10);
+//        wait_us(10);
 
         Gio_State_t Get0 = gioGetBitHelper(GIO_IMD_FAULT_BIT);
         Gio_State_t Get1 = gioGetBitHelper(GIO_BMS_FAULT_BIT);
         Gio_State_t Get2 = gioGetBitHelper(GIO_START_CHARGING_BIT);
         Gio_State_t Get3 = gioGetBitHelper(GIO_DEGUBING_BIT1);
-
-        gioSetBitHelper(GIO_IMD_FAULT_BIT, GIO_LOW);
-        gioSetBitHelper(GIO_BMS_FAULT_BIT, GIO_LOW);
-        gioSetBitHelper(GIO_START_CHARGING_BIT, GIO_LOW);
-        gioSetBitHelper(GIO_DEGUBING_BIT1, GIO_LOW);
+        if (Get2 != GIO_LOW || Get3 != GIO_LOW ){
+           int a=1+1;
+           a++;
+        }
+//
+//        gioSetBitHelper(GIO_IMD_FAULT_BIT, GIO_LOW);
+//        gioSetBitHelper(GIO_BMS_FAULT_BIT, GIO_LOW);
+//        gioSetBitHelper(GIO_START_CHARGING_BIT, GIO_LOW);
+//        gioSetBitHelper(GIO_DEGUBING_BIT1, GIO_LOW);
 
 
 

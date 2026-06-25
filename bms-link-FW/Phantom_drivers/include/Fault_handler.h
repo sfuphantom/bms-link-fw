@@ -14,14 +14,19 @@
 //--------------------------------------------------------------------------
 #define GIO_PORT_A gioPORTA
 #define GIO_PORT_B gioPORTB
+
+#define GIO_MAX_PERIOD_US 3
 //--------------------------------------------------------------------------
-enum Gio_Bits { GIO_IMD_FAULT_BIT        = 2,
-                GIO_BMS_FAULT_BIT        = 5,
-                GIO_START_CHARGING_BIT   = 6,
-                GIO_DEGUBING_BIT1        = 7,
+enum Gio_Bits { GIO_DEGUBING_BIT1        = 2,
+
+                GIO_IMD_FAULT_BIT        = 6,
+                GIO_BMS_FAULT_BIT        = 7,
+
+                GIO_START_CHARGING_BIT   = 8,
+
 };
 //#define (sizeof(Gio_Bits)/sizeof(Gio_Bits[1]))
-typedef enum{GIO_LOW, GIO_HIGH, GIO_RISING_EGDE, GIO_FALLING_EGDE} Gio_State_t;
+typedef enum{GIO_LOW, GIO_HIGH, GIO_FALLING_EGDE, GIO_RISING_EGDE} Gio_State_t;
 
 //--------------------------------------------------------------------------
 struct {
