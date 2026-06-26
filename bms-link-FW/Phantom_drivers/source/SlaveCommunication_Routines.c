@@ -202,11 +202,12 @@
  bool ReadStatAndGetFlagsSubRoutine_NoErrorHandling(){
      const uint32_t cmdDone = MeasureSTATCmd(ADC_MEASURE_MODE,0x0);
 
-
      const bool Stat_Valid = Read_STAT();
 
 #if !USE_ANILOG_GPIO
      const bool Config_Valid = Read_CFGR();
+#else
+     const bool Config_Valid = TRUE;
 #endif
 
      const bool Valid = (cmdDone != 0) && Stat_Valid && Config_Valid;
@@ -231,13 +232,12 @@
      int repeat_idx;
      bool Valid;
 
-
-
      for(repeat_idx=0; repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
 //         if(GetSlaveFault_bool(BAD_SLAVE_CONNECTION_FLAG)){
 //            return;
 //         }
 
+         wakeup_sleep();
          Valid = SubRoutine_prt();
 
          if(Valid){return;}

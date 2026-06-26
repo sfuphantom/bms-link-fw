@@ -32,7 +32,7 @@
 #define MAX_STEADY_STATE_TIME_CURRENT_MS
 #define MAX_STEADY_STATE_TIME_CURRENT_MS
 //----------------------------------------------------------------------------------------------------
-typedef enum {NOT_CHARGING, CHARGING, DONE_CHARGING, CHARGER_FALUT} ChargerState_t;
+typedef enum {NOT_CHARGING, Start_CHARGING, CHARGING, DONE_CHARGING, CHARGER_FALUT} ChargerState_t;
 //----------------------------------------------------------------------------------------------------
 struct ChargerData_t {
   ChargerState_t ChargerState;

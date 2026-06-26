@@ -175,9 +175,9 @@ void main(void)
         CellVoltageControlRoutine();
         uint32_t toc_V = timer_toc_us(tic);
 
-        tic = timer_tic_tick();
-        MonitorCellTempRoutine();
-        uint32_t toc_T = timer_toc_us(tic);
+//        tic = timer_tic_tick();
+//        MonitorCellTempRoutine();
+//        uint32_t toc_T = timer_toc_us(tic);
 
         tic = timer_tic_tick();
         SlaveFlagsRoutine();
@@ -189,6 +189,8 @@ void main(void)
 //        MonitorCellTempTask();
 //#endif
 //        SlaveFlagsCheckTasks();
+
+//        TaskSuperLoop(SlaveComunationSubTask, 3, keepAwake);
 
         Slave_ADC2Volt_arr(GetCellVoltReadPrt(), VoltCells, NUMBER_OF_CELLS);
         AvgCellVolt_16 = GetAvgCellVolt();
