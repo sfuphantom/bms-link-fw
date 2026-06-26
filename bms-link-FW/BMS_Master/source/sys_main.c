@@ -43,14 +43,14 @@
 
 
 /* USER CODE BEGIN (0) */
-// /* USER CODE END */
+/* USER CODE END */
 
 /* Include Files */
 
 #include "sys_common.h"
 
 /* USER CODE BEGIN (1) */
-// /* USER CODE END */
+/* USER CODE END */
 
 /** @fn void main(void)
 *   @brief Application main function
@@ -61,7 +61,7 @@
 */
 
 /* USER CODE BEGIN (2) */
-// /* USER CODE END */
+/* USER CODE END */
 
 uint8	emacAddress[6U] = 	{0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU};
 uint32 	emacPhyAddress	=	0U;
@@ -69,11 +69,11 @@ uint32 	emacPhyAddress	=	0U;
 int main(void)
 {
 /* USER CODE BEGIN (3) */
-// /* USER CODE END */
+/* USER CODE END */
 
     return 0;
 }
 
 
 /* USER CODE BEGIN (4) */
-// /* USER CODE END */
+/* USER CODE END */

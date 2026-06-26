@@ -120,6 +120,34 @@ void ExtendByte2Word(const uint8_t *bytes, uint16_t *words, uint16_t NumberOfWor
             words[i]    = theByte<<shiftConst;
     }
 }
+
+uint32 InvertAndInsertBit(uint32 Num, const uint8_t bit, bool * const new_val){
+    const uint32_t bitMask = 1U << bit;
+
+    *new_val = (0 == (Num & bitMask));
+    Num ^= bitMask;
+
+//    if(*new_val){
+//        Num |= bitMask;
+//    }
+//    else{
+//        Num &= ~bitMask;
+//    }
+    return Num;
+}
+uint32 GetAndInsertBit(uint32 Num, const uint8_t bit, const bool New_val, bool *const last_val){
+    const uint32_t bitMask = 1U << bit;
+
+    *last_val = (0 != (Num & bitMask));
+
+    if(New_val){
+        Num |= bitMask;
+    }
+    else{
+        Num &= ~bitMask;
+    }
+    return Num;
+}
 //----------------------------------------------------------------------------------------
 uint16_t swap_word_bytes(const uint16_t input){
     uint16_t FirstByte = (input >> 8) & 0xFF;

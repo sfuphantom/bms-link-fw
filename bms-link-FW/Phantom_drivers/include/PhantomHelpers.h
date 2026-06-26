@@ -63,5 +63,8 @@ bool array16_eq_every(const uint16_t* arr1, uint16_t val, uint8_t len);
 bool array16_less_every(const uint16_t* arr1, uint16_t val, uint8_t len);
 bool array16_greater_every(const uint16_t* arr1, uint16_t val, uint8_t len);
 
+uint32 InvertAndInsertBit(uint32 Num, const uint8_t bit, bool * const new_val);
+uint32 GetAndInsertBit(uint32 Num, const uint8_t bit, const bool New_val, bool *const last_val);
+
 
 #endif /* HELPERS_H */
