@@ -79,7 +79,7 @@
 #include "system.h"
 
 /* USER CODE BEGIN (1) */
-#include "spi.h"
+//#include "spi.h"
 //#include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunication_Routines.h"
 #include "PhantomHelpers.h"
@@ -110,7 +110,7 @@ uint16 RX_Data_Master[16] = { 0 };
 uint16 RX_Data_Slave[16]  = { 0 };
 /* USER CODE END */
 
-void main(void)
+void SPI_main(void)
 {
 /* USER CODE BEGIN (3) */
 
@@ -147,7 +147,7 @@ void main(void)
 #else
 
 
-void main(void)
+void SlaveCommunations_main(void)
 {
 /* USER CODE BEGIN (3) */
     init_BMS_system();
