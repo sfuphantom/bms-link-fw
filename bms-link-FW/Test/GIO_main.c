@@ -23,7 +23,7 @@ void wait_us(uint32 time_us){
 }
 
 
-void main(void)
+void GIO_main(void)
 {
 /* USER CODE BEGIN (3) */
     gioInit();
