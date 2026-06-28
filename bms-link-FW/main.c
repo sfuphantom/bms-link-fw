@@ -97,7 +97,7 @@ void main(void)
     int i=0;
 
     float VoltCells[NUMBER_OF_CELLS];
-    float VoltGPIO[NUMBER_OF_GPIOS];
+//    float VoltGPIO[NUMBER_OF_GPIOS];
 
     float AvgCellVolt_f, AvgCellSoC, MinCellVolt_f;
     uint16_t AvgCellVolt_16;

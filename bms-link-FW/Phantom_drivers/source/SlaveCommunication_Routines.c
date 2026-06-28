@@ -12,6 +12,8 @@
 
 #include "BatteryData.h"
 #include "Charger.h"
+#include "Fault_handler.h"
+
 
 //struct BatteryData_struct SlaveData;
 //---------------------------------------------------------------------------------------------------------

@@ -55,10 +55,10 @@ inline float CellVolts2SoC(const uint16_t CellVolt){
 }
  //----------------------------------------------------------------------------------------------------
 inline void SetChargingStatus(const bool NewStat){
-     BatteryData.StartCharging = NewStat;
+     BatteryData.Charging = NewStat;
  }
 inline bool GetChargingStatus(){
-     return BatteryData.StartCharging;
+     return BatteryData.Charging;
  }
 // void CheckChargingSatusTask(){
 //     SetChargingStatus(TRUE);
@@ -83,55 +83,6 @@ inline bool GetChargingStatus(){
      return BatteryData.RefVolt2nd;
  }
  //----------------------------------------------------------------------------------------------------
- void SetAllSlaveFaults(const uint16_t NewSlaveFaults){
-     BatteryData.FaultsData.Slave_Faults = NewSlaveFaults;
- }
- void AddSlaveFaults(const uint16_t NewSlaveFaults){
-     BatteryData.FaultsData.Slave_Faults |= NewSlaveFaults;
- }
-
- void ClearSlaveFaults(){
-     SetAllSlaveFaults(SLAVE_NO_FAULT_VAL);
- }
- uint16_t GetAllSlaveFaults(){
-     return BatteryData.FaultsData.Slave_Faults;
- }
- bool AnySlaveFaults(){
-     return (BatteryData.FaultsData.Slave_Faults != SLAVE_NO_FAULT_VAL);
- }
- void SetSlaveFault(const uint8_t Val, const uint8_t bitSize, const Slave_Faults Fault){
-//     const uint8_t mask = (1U<<bitSize)-1;
-     const uint8_t mask = MINUS1(bitSize);
-     uint8_t Val_mask   = Val & mask;
-
-     BatteryData.FaultsData.Slave_Faults &= ~((uint32_t)mask    << Fault);
-     BatteryData.FaultsData.Slave_Faults |=  (uint32_t)Val_mask << Fault;
- }
-  void SetSlaveFault_bool(const bool Val, const Slave_Faults Fault){
-     BatteryData.FaultsData.Slave_Faults &= ~(1U << Fault);
-     BatteryData.FaultsData.Slave_Faults |= (uint32_t)Val << Fault;
- }
-  void SetSlaveFault_bool_HIGH(const Slave_Faults Fault){
-     BatteryData.FaultsData.Slave_Faults |= 1U << Fault;
- }
-  bool GetSlaveFault_bool(const Slave_Faults Fault){
-     uint16_t Val = BatteryData.FaultsData.Slave_Faults & ~(1U << Fault);
-     return (Val != 0);
- }
- //----------------------------------------------------------------------------------------------------
-  void SetAllIMDFaults(const uint8_t NewIMDFaluts){
-      BatteryData.FaultsData.IMD_Fault = NewIMDFaluts & 0x7;
-  }
-  void ClearIMDFaults(){
-      SetAllIMDFaults(IMD_NO_FAULT_VAL);
-  }
-  uint8_t GetAllIMDFaults(){
-      return BatteryData.FaultsData.IMD_Fault;
-  }
-  bool AnyIMDFaults(){
-      return (BatteryData.FaultsData.IMD_Fault != IMD_NO_FAULT_VAL);
-  }
-  //----------------------------------------------------------------------------------------------------
   inline void SetBatteryCurrentVal(const uint16_t ADC_Val){
       BatteryData.current = ADC_Val;
   }
@@ -317,15 +268,12 @@ inline bool GetChargingStatus(){
    }
   //----------------------------------------------------------------------------------------------------
 
-  struct BatteryData_struct* GetBatteryData(){
+  struct BatteryData_t* GetBatteryData(){
       return &BatteryData;
   }
   void initBatteryData(){
       BatteryData.BMS_State = BMS_RUNNING;
-      BatteryData.FaultsData.HV_LV_ISOLATION = 0;
-      BatteryData.FaultsData.IMD_Fault = 0;
-      BatteryData.FaultsData.Slave_Faults = 0;
-      BatteryData.FaultsData.other_Faults = 0;
+
 
       memset(BatteryData.CellTemp     , 0, NUMBER_OF_GPIOS  *sizeof (uint16_t));
       memset(BatteryData.CellVolt     , 0, NUMBER_OF_CELLS  *sizeof (uint16_t));

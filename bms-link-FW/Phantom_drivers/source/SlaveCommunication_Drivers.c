@@ -215,41 +215,72 @@ void init_PEC15_Table(){
      uint32_t FullCmdRx = (uint32_t)Rx_cmd<<16 | (uint32_t)Rx_pec;
      return FullCmdRx;
  }
+#if CUSTOM_POLL_WAIT
+// uint32_t pollAndWait(const uint32_t wait_periods_us){
+//     bool status = FALSE;
+//     uint32_t PollsWaited = 1;
+//
+//     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
+//
+//     for(PollsWaited=1; PollsWaited < MAX_POLLS_TIMEOUT; PollsWaited++){
+//         status = SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE) & 0x0001;
+//         if(status){
+//             return PollsWaited;
+//         }
+//
+//         delay_ms_us(0,wait_periods_us);
+//     }
+//     return 0;
+//
+// }
+#else
+  uint32_t pollAndWait(){
+      bool status = FALSE;
+      uint32_t PollsWaited = 1;
 
- uint32_t pollAndWait(const uint32_t wait_periods_us){
-     bool status = FALSE;
-     uint32_t PollsWaited = 1;
+      SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
 
-     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
+      for(PollsWaited=1; PollsWaited < MAX_POLLS_TIMEOUT; PollsWaited++){
+          status = SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE) & 0x0001;
+          if(status){
+              return PollsWaited;
+          }
 
-     for(PollsWaited=1; PollsWaited < MAX_POLLS_TIMEOUT; PollsWaited++){
-         status = SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE) & 0x0001;
-         if(status){
-             return PollsWaited;
-         }
+      }
+      return 0;
 
-         delay_ms_us(0,wait_periods_us);
-     }
-     return 0;
-
- }
+  }
+#endif
  //---------------------------------------------------------------------------------------------------------
  void SendCMD2Slave_alone(const uint16_t cmd){
      setCS(LOW);
      SendCmdAndPec2Slave(cmd);
      setCS(HIGH);
  }
-
+#if CUSTOM_POLL_WAIT
  uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd, const uint32_t wait_periods_us){
+      setCS(LOW);
+
+      SendCmdAndPec2Slave(cmd);
+      uint32_t PollsWaited = pollAndWait(wait_periods_us);
+
+      setCS(HIGH);
+
+      return PollsWaited;
+  }
+#else
+ uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd){
      setCS(LOW);
 
      SendCmdAndPec2Slave(cmd);
-     uint32_t PollsWaited = pollAndWait(wait_periods_us);
+     uint32_t PollsWaited = pollAndWait();
 
      setCS(HIGH);
 
      return PollsWaited;
  }
+#endif
+
 
 
 // void SendClearThenMeasureCMD(const uint16_t cmd_clear, const uint16_t cmd_Measure){
@@ -438,14 +469,14 @@ void init_PEC15_Table(){
  }
  //---------------------------------------------------------------------------------------------------------
  void WriteBytes2RegGroup(const uint16_t cmd, const uint8_t* Bytes){
-     bytes2words(Bytes , SubDataWords  , NUMBER_OF_REG_WORDS_PER_CMD, BigEndian);
+     bytes2words_arr(Bytes , SubDataWords  , NUMBER_OF_REG_WORDS_PER_CMD, BigEndian);
 
      WriteRegGroup(cmd, SubDataWords);
  }
  bool ReadBytesFromRegGroup(const uint16_t cmd, uint8_t* Bytes){
      uint16_t PecEq = ReadRegGroup(cmd, SubDataWords);
 
-     words2bytes(SubDataWords, Bytes, NUMBER_OF_REG_WORDS_PER_CMD, BigEndian);
+     words2bytes_arr(SubDataWords, Bytes, NUMBER_OF_REG_WORDS_PER_CMD, BigEndian);
      return PecEq;
  }
 

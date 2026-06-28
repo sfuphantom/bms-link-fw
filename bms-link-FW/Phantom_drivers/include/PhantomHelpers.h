@@ -12,6 +12,7 @@
 #define DWORDS2BYTES 4
 #define QWORDS2BYTES 8
 
+//#define NAN_FLOAT    (0.0/0.0)
 // -----------------------------------------
 typedef enum {LittleEndian, BigEndian} Endianness;
 typedef enum {  nibble  = 4 ,
@@ -35,8 +36,8 @@ void word2byte(const uint16_t word, uint8_t *byteLow, uint8_t *byteHigh);
 uint16_t word2byte_BigEndian(const uint8_t byteLow, const uint8_t byteHigh);
 uint16_t word2byte_LittleEndian(const uint8_t byte1, const uint8_t byte2);
 // -----------------------------------------
-void bytes2words(const uint8_t *bytes, uint16_t *words, uint16_t NumberOfWords, Endianness Endian);
-void words2bytes(const uint16_t *words, uint8_t *bytes, uint16_t NumberOfWords, Endianness Endian);
+void bytes2words_arr(const uint8_t *bytes, uint16_t *words, uint16_t NumberOfWords, Endianness Endian);
+void words2bytes_arr(const uint16_t *words, uint8_t *bytes, uint16_t NumberOfWords, Endianness Endian);
 
 uint16_t swap_word_bytes(const uint16_t input);
 void     swap_word_bytes_arr(const uint16_t *input, uint16_t *output, uint16_t len);

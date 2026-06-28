@@ -23,7 +23,7 @@ typedef enum  {LOW, HIGH} CS_Level;
 #define SPI_DUMMY_DATA_QWORD 0xFFFFFFFFFFFFFFFFU
 //#define SPI_DUMMY_CMD  0xFFFF
 
-#define MAX_POLLS_TIMEOUT 20
+#define MAX_POLLS_TIMEOUT 2000
 #define NUMBER_OF_GARBAGE_BYTES ((NUMBER_OF_SLAVE_BOARDS-7)/8)
 //----------------------------------------------------------------------------------------
 //uint16_t pec15Table[256];
@@ -55,7 +55,12 @@ void init_PEC15_Table();
 
  uint32 SendCmdAndPec2Slave(const uint16_t cmd);
  void SendCMD2Slave_alone(const uint16_t cmd);
- uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd, const uint32_t wait_periods_us);
+#define CUSTOM_POLL_WAIT FALSE
+#if CUSTOM_POLL_WAIT
+// uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd, const uint32_t wait_periods_us);
+#else
+uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd);
+#endif
  //---------------------------------------------------------------------------------------------------------
  void WriteRegGroup(const uint16_t cmd, const uint16_t *data);
  bool ReadRegGroup(const uint16_t cmd, uint16_t *data);

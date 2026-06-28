@@ -14,6 +14,7 @@
 #include "BatteryData.h"
 #include "Charger.h"
 #include "PhantomHelpers.h"
+#include "Fault_handler.h"
 #include "BMS_Tasks.h"
 
 //----------------------------------------------------------------------------------------------------
@@ -22,8 +23,10 @@ void init_BMS_system(){
     spiInit();
     rtiInit();
     initLink();
+    init_BMS_Faults();
 
     initBatteryData();
+    initCharger();
 }
 //----------------------------------------------------------------------------------------------------
 void TaskSuperLoop(struct Task_t AllTasks[], uint8_t NumOfTasks, void (*ElseFunction)(void)){

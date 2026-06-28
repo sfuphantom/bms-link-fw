@@ -58,40 +58,11 @@ uint16_t bytes2word_LittleEndian(const uint8_t byte1, const uint8_t byte2){
     return word;
 }
 //----------------------------------------------------------------------------------------
-void words2bytes(const uint16_t *words, uint8_t *bytes, uint16_t NumberOfWords, Endianness Endian){
-    const uint8_t TIMES_MORE_BITS = 2;
-    int i;
-    uint8_t High, Low;
-
-    for (i = 0; i < NumberOfWords; i++){
-        word2byte(words[i], &Low, &High);
-
-        if(Endian == BigEndian){
-            bytes[TIMES_MORE_BITS*i  ] = Low;
-            bytes[TIMES_MORE_BITS*i+1] = High;
-        }
-        else{
-            bytes[TIMES_MORE_BITS*i  ] = High;
-            bytes[TIMES_MORE_BITS*i+1] = Low;
-        }
-    }
-}
-void bytes2words(const uint8_t *bytes, uint16_t *words, uint16_t NumberOfWords, Endianness Endian){
-    const uint8_t TIMES_MORE_BITS = 2;
-    int i;
-    uint8_t High, Low;
-
-    for (i = 0; i < NumberOfWords; i++){
-        High = bytes[TIMES_MORE_BITS*i+1];
-        Low  = bytes[TIMES_MORE_BITS*i  ];
-
-        if(Endian == BigEndian){
-            words[i] = bytes2word_BigEndian(Low, High);
-        }
-        else{
-            words[i] = bytes2word_LittleEndian(Low, High);
-        }
-    }
+uint16_t swap_word_bytes(const uint16_t input){
+    uint16_t FirstByte = (input >> 8) & 0xFF;
+    uint16_t LastByte  = (input << 8);
+    uint16_t output = FirstByte | LastByte;
+    return output;
 }
 
 void ExtractByteFromWord(const uint16_t *words, uint8_t *bytes, uint16_t NumberOfWords, bool frontNback){
@@ -108,31 +79,14 @@ void ExtractByteFromWord(const uint16_t *words, uint8_t *bytes, uint16_t NumberO
             bytes[i]    = theByte;
     }
 }
-void ExtendByte2Word(const uint8_t *bytes, uint16_t *words, uint16_t NumberOfWords, bool frontNback){
 
-    const uint8_t shiftConst = frontNback ? 8:0;
-
-    uint16_t theByte;
-    int i;
-
-    for (i = 0; i < NumberOfWords; i++){
-            theByte     = bytes[i];
-            words[i]    = theByte<<shiftConst;
-    }
-}
 
 uint32 InvertAndInsertBit(uint32 Num, const uint8_t bit, bool * const new_val){
     const uint32_t bitMask = 1U << bit;
 
     *new_val = (0 == (Num & bitMask));
-    Num ^= bitMask;
 
-//    if(*new_val){
-//        Num |= bitMask;
-//    }
-//    else{
-//        Num &= ~bitMask;
-//    }
+    Num ^= bitMask;
     return Num;
 }
 uint32 GetAndInsertBit(uint32 Num, const uint8_t bit, const bool New_val, bool *const last_val){
@@ -148,17 +102,47 @@ uint32 GetAndInsertBit(uint32 Num, const uint8_t bit, const bool New_val, bool *
     }
     return Num;
 }
+
 //----------------------------------------------------------------------------------------
-uint16_t swap_word_bytes(const uint16_t input){
-    uint16_t FirstByte = (input >> 8) & 0xFF;
-    uint16_t LastByte  = (input << 8);
-    uint16_t output = FirstByte | LastByte;
-    return output;
-}
  void swap_word_bytes_arr(const uint16_t *input, uint16_t *output, uint16_t len){
     uint16_t i;
     for (i = 0; i < len; i++)
         output[i] = swap_word_bytes(input[i]);
+ }
+ void words2bytes_arr(const uint16_t *words, uint8_t *bytes, uint16_t NumberOfWords, const Endianness Endian){
+     const uint8_t TIMES_MORE_BITS = 2;
+     int i;
+     uint8_t High, Low;
+
+     for (i = 0; i < NumberOfWords; i++){
+         word2byte(words[i], &Low, &High);
+
+         if(Endian == BigEndian){
+             bytes[TIMES_MORE_BITS*i  ] = Low;
+             bytes[TIMES_MORE_BITS*i+1] = High;
+         }
+         else{
+             bytes[TIMES_MORE_BITS*i  ] = High;
+             bytes[TIMES_MORE_BITS*i+1] = Low;
+         }
+     }
+ }
+ void bytes2words_arr(const uint8_t *bytes, uint16_t *words, uint16_t NumberOfWords, const Endianness Endian){
+     const uint8_t TIMES_MORE_BITS = 2;
+     int i;
+     uint8_t High, Low;
+
+     for (i = 0; i < NumberOfWords; i++){
+         High = bytes[TIMES_MORE_BITS*i+1];
+         Low  = bytes[TIMES_MORE_BITS*i  ];
+
+         if(Endian == BigEndian){
+             words[i] = bytes2word_BigEndian(Low, High);
+         }
+         else{
+             words[i] = bytes2word_LittleEndian(Low, High);
+         }
+     }
  }
 
 //----------------------------------------------------------------------------------------

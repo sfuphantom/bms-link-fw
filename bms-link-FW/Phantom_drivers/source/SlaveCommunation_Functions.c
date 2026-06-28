@@ -24,7 +24,7 @@ void Config_Struct2Words(uint16_t* data){
     uint16_t data16[WORDS_PER_REG_GROUP];
     uint8_t data8[BYTES_PER_REG_GROUP];
     for(i = 0; i < NUMBER_OF_SLAVE_BOARDS; i++){
-        struct ConfigReg* current_Reg = &ConfigRegData[i];
+        struct ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
         // CFGR0: GPIO[4:0] in bits[7:3], REFON in bit2, DTEN in bit1, ADCOPT in bit0
         data8[0] = ((current_Reg->gpio   & 0x1F) << 3U)
@@ -49,7 +49,7 @@ void Config_Struct2Words(uint16_t* data){
         data8[5] = ((current_Reg->dcto & 0x0F) << 4U)
                  | ((current_Reg->DCC  >> 8U)  & 0x0F);
 
-        bytes2words(data8, data16, WORDS_PER_REG_GROUP, BigEndian);
+        bytes2words_arr(data8, data16, WORDS_PER_REG_GROUP, BigEndian);
         memcpy(data, data16, WORDS_PER_REG_GROUP * sizeof(uint16_t));
         data += WORDS_PER_REG_GROUP;
     }
@@ -60,7 +60,7 @@ void Config_Words2Struct(const uint16_t* data){
     uint8_t vuv_lo;
 
     for(i = 0, idx = 0; i < NUMBER_OF_SLAVE_BOARDS; i++){
-        struct ConfigReg* current_Reg = &ConfigRegData[i];
+        struct ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
         // word[0] = CFGR1(high byte) | CFGR0(low byte)
         // CFGR0 = GPIO5..GPIO1 | REFON | DTEN | ADCOPT
@@ -232,7 +232,7 @@ void Write_CFGR(){
  void ReadConfig_DCC(uint16_t* DCC){
     int i;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
-         struct ConfigReg* current_Reg = &ConfigRegData[i];
+         struct ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
          DCC[i] = current_Reg->DCC;
     }
@@ -240,7 +240,7 @@ void Write_CFGR(){
 void SetConfig_DCC(const uint16_t* DCC){
     int i;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
-         struct ConfigReg* current_Reg = &ConfigRegData[i];
+         struct ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
           current_Reg->DCC = DCC[i];
     }
@@ -248,7 +248,7 @@ void SetConfig_DCC(const uint16_t* DCC){
 void ReadConfig_gpio(uint8_t* gpio){
     int i;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
-         struct ConfigReg* current_Reg = &ConfigRegData[i];
+         struct ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
          gpio[i] = current_Reg->gpio;
     }
@@ -257,7 +257,7 @@ bool ReadConfig_gpio_allZero(){
     int i;
     bool allZero = TRUE;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
-         struct ConfigReg* current_Reg = &ConfigRegData[i];
+         struct ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
          allZero &= !(current_Reg->gpio);
     }
@@ -266,7 +266,7 @@ bool ReadConfig_gpio_allZero(){
 void SetConfig_gpio(const uint8_t* gpio){
     int i;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
-         struct ConfigReg* current_Reg = &ConfigRegData[i];
+         struct ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
           current_Reg->gpio = gpio[i];
     }
@@ -427,7 +427,9 @@ void SetConfig_gpio(const uint8_t* gpio){
      uint16_t ST_bits     = ((uint16_t)ST & 0x03) << 5;
      uint16_t cmd = LTC6811_STATST| MD_bits | ST_bits;
 
-     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_STAT_US);
+     return SendCMD2Slave_pollAndWait(cmd);
+//     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_STAT_US);
+
  }
  bool MeasureSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
                      const uint8_t CHST)    //  Status Group Selection
@@ -438,7 +440,8 @@ void SetConfig_gpio(const uint8_t* gpio){
      uint16_t cmd = LTC6811_ADSTAT| MD_bits | ST_bits;
 
      ClearStatCMD();
-     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_STAT_US);
+     return SendCMD2Slave_pollAndWait(cmd);
+//     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_STAT_US);
  }
 
  bool MeasureCellsCmd(const uint8_t MD  , // DC mode: 0=Fast, 1=Normal, 2=Filtered
@@ -452,7 +455,8 @@ void SetConfig_gpio(const uint8_t* gpio){
      uint16_t cmd = LTC6811_ADCV | MD_bits | DCP_bits | CHG_bits;
 
      ClearCellsCMD();
-     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_CELL_VOLTS_US);
+     return SendCMD2Slave_pollAndWait(cmd);
+//     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_CELL_VOLTS_US);
  }
 
  bool MeasureAUXCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
@@ -463,10 +467,12 @@ void SetConfig_gpio(const uint8_t* gpio){
      uint16_t cmd = LTC6811_ADAX | MD_bits | CHG_bits;
 
      ClearAUXCMD();
-     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_AUX_US);
+     return SendCMD2Slave_pollAndWait(cmd);
+//     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_AUX_US);
  }
  bool Start_S_CTRL_Pulsing(){
-     return SendCMD2Slave_pollAndWait(LTC6811_STSCTRL, POLL_PERIOD_CELL_BAL_US);
+     return SendCMD2Slave_pollAndWait(LTC6811_STSCTRL);
+//     return SendCMD2Slave_pollAndWait(LTC6811_STSCTRL, POLL_PERIOD_CELL_BAL_US);
  }
  //---------------------------------------------------------------------------------------------------------
 void Write_S_CTRL(const uint8* nibbles){
@@ -526,12 +532,12 @@ bool SetAllPWM_Regs(uint8_t nibble){
      const bool     DTEN    = TRUE;
      const bool     refon   = TRUE;
      const uint8_t  gpio    = 0b00000;
-     const uint16_t DCC     = 0x0;//0b0000111111111110;//0xFFF;
+     const uint16_t DCC     = 0xFFF;//0b0000111111111110;//0xFFF;
      const uint8_t dcto     = 0x0;
 
      int i;
      for(i=0;i<NUMBER_OF_SLAVE_BOARDS;i++){
-         struct ConfigReg* current_Reg = &ConfigRegData[i];
+         struct ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
          current_Reg->adcopt    = adcopt;
          current_Reg->DTEN      = DTEN  ;

@@ -36,26 +36,16 @@
 //#define MAX_CHARGER_CURRENT_AMPS 1
 //#define CHARGER_CURRENT_AMPS
 /////////////////////////////////////////////////////////////////
-#define SLAVE_NO_FAULT_VAL 0
-#define IMD_NO_FAULT_VAL 0
-//#define BMS_NO_FALUT_VAL 0
-//////////////////////////////////////////////////////////////
+
 #define NUMBER_OF_VOLT_SAMPLES_SAVED 3
 //////////////////////////////////////////////////////////////
 
- typedef enum {BAD_Temp_HIGH, BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL, BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND, BAD_SLAVE_CONNECTION_FLAG}Slave_Faults;
  typedef enum { BMS_RUNNING, BMS_CHARGING, BMS_DONE_CHARGING, BMS_DISCHARGING, BMS_SLEEPING, BMS_IDLE, BMS_FAULT } BMSState_t;
 //----------------------------------------------------------------------------------------------------
- struct FaultsData_struct{
-     uint8_t  IMD_Fault;
-     uint8_t  HV_LV_ISOLATION;
-     uint16_t Slave_Faults;
-     uint16_t other_Faults;
- };
 
- struct BatteryData_struct {
+ struct BatteryData_t {
 
-   bool StartCharging;
+   bool Charging;
 //   bool DoneChaging;
 //   uint16_t ChargerCurrent;
    BMSState_t BMS_State;
@@ -68,7 +58,6 @@
 
    uint16_t RefVolt2nd[NUMBER_OF_REF_2ND];
    uint16_t current;
-   struct FaultsData_struct FaultsData;
  };
  //----------------------------------------------------------------------------------------------------
  inline uint16_t Slave_Volt2ADC(const float ADC_Volt);
@@ -85,21 +74,7 @@
   inline uint16_t* GetCellVoltWritePrt();
   inline uint16_t* GetCellTempWritePrt();
   inline uint16_t* GetRefVolt2ndWritePrt();
- //----------------------------------------------------------------------------------------------------
-  void SetAllSlaveFaults(const uint16_t NewSlaveFaults);
-  void AddSlaveFaults(const uint16_t NewSlaveFaults);
-  void ClearSlaveFaults();
-  uint16_t GetAllSlaveFaults();
-  bool AnySlaveFaults();
-  void SetSlaveFault(const uint8_t Val, const uint8_t bitSize, const Slave_Faults Fault);
-  void SetSlaveFault_bool(const bool Val, const Slave_Faults Fault);
-  void SetSlaveFault_bool_HIGH(const Slave_Faults Fault);
-  bool GetSlaveFault_bool(const Slave_Faults Fault);
-//----------------------------------------------------------------------------------------------------
-  void SetAllIMDFaults(const uint8_t NewIMDFaluts);
-  void ClearIMDFaults();
-  uint8_t GetAllIMDFaults();
-  bool AnyIMDFaults();
+
 //----------------------------------------------------------------------------------------------------
   void SetBatteryCurrentVal(const uint16_t ADC_Val);
   uint16_t GetBatteryCurrentVal();
@@ -117,10 +92,10 @@
   uint8_t GetBalanceNibbles(uint8_t* BalanceNibbles);
   uint8_t GetBalanceDCC(uint16_t* DCC);
   //---------------------------------------------------------------------------------------------------------
-  struct ChargerData_t* GetBatteryDataPrt();
+  struct BatteryData_t* GetBatteryDataPrt();
   void initBatteryData();
   //---------------------------------------------------------------------------------------------------------
-  struct BatteryData_struct BatteryData;
+  struct BatteryData_t BatteryData;
 
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_BATTERYDATA_H_ */

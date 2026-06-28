@@ -138,6 +138,7 @@ void SendDummyCMD();
 void waitDummyCMD(const uint32_t WaitPeriod_ms, const uint32_t WaitPeriod_us, uint16_t WaitSends);
 
 //---------------------------------------------------------------------------------------------------------
-struct ConfigReg ConfigRegData[NUMBER_OF_SLAVE_BOARDS];
+struct ConfigReg ConfigRegWriteData[NUMBER_OF_SLAVE_BOARDS];
+//struct ConfigReg ConfigRegReadData[NUMBER_OF_SLAVE_BOARDS];
 struct StatusReg StatusRegData[NUMBER_OF_SLAVE_BOARDS];
 #endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_FUNCTIONS_H_ */

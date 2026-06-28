@@ -37,10 +37,15 @@ typedef enum {NOT_CHARGING, Start_CHARGING, CHARGING, DONE_CHARGING, CHARGER_FAL
 struct ChargerData_t {
   ChargerState_t ChargerState;
 
-  uint16_t ChargerCurrent;
-  uint16_t ChargerVoltage;
+  uint16_t TargetChargerCurrent;
+  uint16_t TargetChargerVoltage;
+  bool enable;
 
-  uint16_t ChargerFaluts;
+  uint16_t OutputChargerVoltage;
+  uint16_t OutputChargerCurrent;
+  uint8_t status;
+
+  float EstimateTimeDone;
 };
 
 //----------------------------------------------------------------------------------------------------
@@ -48,22 +53,22 @@ bool isCharging();
 void StartCharging();
 void DoneCharging();
 
-ChargerState_t CheckChargerState();
+ChargerState_t CheckChargerState(const bool start_charging);
 //----------------------------------------------------------------------------------------------------
 uint16_t GetChargerFaluts();
 void SetChargerFaluts(const uint16_t Faluts);
 //----------------------------------------------------------------------------------------------------
-void SetChargerVoltage(const uint16_t Volt);
-void SetChargerCurrent(const uint16_t current);
+bool SetChargerVoltage(const uint16_t Volt);
+bool SetChargerCurrent(const uint16_t current);
 uint16_t GetChargerVoltage();
 uint16_t GetChargerCurrent();
 
-void TurnChargerOn();
-void TurnChargerOff();
+bool TurnChargerOn();
+bool TurnChargerOff();
 
 uint16_t CalcNewCurrentSetting(const float SOC);
 //----------------------------------------------------------------------------------------------------
-
+void initCharger();
 //----------------------------------------------------------------------------------------------------
 struct ChargerData_t ChargerData;
 
