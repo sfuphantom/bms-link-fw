@@ -21,6 +21,24 @@ main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/can.h
 main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_can.h
 main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/charger_can.h
 main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/vcu_can.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/IMD.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/het.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_het.h
+main.obj: C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include/string.h
+main.obj: C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include/_ti_config.h
+main.obj: C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include/linkage.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/gio.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/sys_vim.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_vim.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/rti.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_rti.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/sci.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_sci.h
+main.obj: C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include/stdlib.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/ecap.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_ecap.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/etpwm.h
+main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_etpwm.h
 main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/esm.h
 main.obj: C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_esm.h
 
@@ -45,5 +63,23 @@ C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/can.h:
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_can.h: 
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/charger_can.h: 
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/vcu_can.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/IMD.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/het.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_het.h: 
+C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include/string.h: 
+C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include/_ti_config.h: 
+C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include/linkage.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/gio.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/sys_vim.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_vim.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/rti.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_rti.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/sci.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_sci.h: 
+C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include/stdlib.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/ecap.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_ecap.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/etpwm.h: 
+C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_etpwm.h: 
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/esm.h: 
 C:/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_esm.h: 

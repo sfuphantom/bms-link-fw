@@ -87,6 +87,64 @@ void initalizeIMD(){
 
 }
 
+void initalizeIMD2(){
+  /*
+    hetInit();    //Initialized in phantomSystemInit()
+//    gioInit();    //Initialized in phantomSystemInit()
+//    rtiInit();    //Previously commented
+//    sciInit();    //Previously commented; Initialized in phantomSystemInit()
+//    rtiResetCounter(rtiCOUNTER_BLOCK1);   //Previously commented
+
+//    _enable_IRQ();    //Previously commented; Initialized in phantomSystemInit()
+
+    edgeEnableNotification(hetREG1, edge0);
+    edgeEnableNotification(hetREG1, edge1);
+    edgeEnableNotification(hetREG1, edge2);
+    edgeEnableNotification(hetREG1, edge3);
+    edgeEnableNotification(hetREG1, edge4);
+    edgeEnableNotification(hetREG1, edge5);
+    edgeEnableNotification(hetREG1, edge6);
+    edgeEnableNotification(hetREG1, edge7);
+    //gioEnableNotification(gioPORTA,5);
+    //gioEnableNotification(gioPORTA,6);
+//    rtiStartCounter(rtiCOUNTER_BLOCK1); // cant read register without this (RTI doesnt start?)    //Previously commented
+*/
+
+    etpwmSetClkDiv(etpwmREG1, ClkDiv_by_1, HspClkDiv_by_1);
+
+    /* Set the time period as 1000 ns (Divider value = (1000ns * 90MHz) - 1 = 89)*/
+    etpwmSetTimebasePeriod(etpwmREG1, 89);
+
+    /* Configure Compare A value as half the time period */
+    etpwmSetCmpA(etpwmREG1, 45);
+
+    /* Configure mthe module to set PWMA value as 1 when CTR=0 and as 0 when CTR=CmpA  */
+    etpwmActionQualConfig_t configPWMA;
+    configPWMA.CtrEqZero_Action = ActionQual_Set;
+    configPWMA.CtrEqCmpAUp_Action = ActionQual_Clear;
+    configPWMA.CtrEqPeriod_Action = ActionQual_Disabled;
+    configPWMA.CtrEqCmpADown_Action = ActionQual_Disabled;
+    configPWMA.CtrEqCmpBUp_Action = ActionQual_Disabled;
+    configPWMA.CtrEqCmpBDown_Action = ActionQual_Disabled;
+    etpwmSetActionQualPwmA(etpwmREG1, configPWMA);
+
+    /* Start counter in CountUp mode */
+    etpwmSetCount(etpwmREG1, 0);
+    etpwmSetCounterMode(etpwmREG1, CounterMode_Up);
+    etpwmStartTBCLK();
+
+    /* Configure ECAP1 */
+    /* Configure Event 1 to Capture the rising edge */
+    ecapSetCaptureEvent1(ecapREG2, RISING_EDGE, RESET_DISABLE);
+    ecapSetCaptureEvent2(ecapREG2, FALLING_EDGE, RESET_DISABLE);
+    ecapSetCaptureEvent3(ecapREG2, RISING_EDGE, RESET_ENABLE);
+    ecapSetCaptureMode(ecapREG2, CONTINUOUS, CAPTURE_EVENT3);
+    ecapStartCounter(ecapREG2);
+    ecapEnableCapture(ecapREG2);
+    ecapEnableInterrupt(ecapREG2, ecapInt_CEVT3);
+
+}
+
 void updateIsolationState(unsigned int duty_value){
     if (duty_value >= 5 && duty_value <10) isolationState = Normal; //PWM is between 5-10%
     else if (duty_value >= 10 && duty_value <30) isolationState = Normal_75; //PWM is between 10-30%

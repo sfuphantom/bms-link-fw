@@ -54,6 +54,7 @@ typedef struct{
 
 
 void initalizeIMD();
+void initalizeIMD1();
 void updateIsolationState(unsigned int duty_value);
 void updateIMDData();
 void updateIMDState(unsigned int freq_value, unsigned int duty_value);

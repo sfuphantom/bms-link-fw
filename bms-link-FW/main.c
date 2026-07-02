@@ -44,6 +44,7 @@
 #include "can.h"
 #include "charger_can.h"
 #include "vcu_can.h"
+#include "IMD.h"
 
 /* Include ESM header file - types, definitions and function declarations for system driver */
 #include "esm.h"
@@ -67,36 +68,12 @@ void main(void)
 /* USER CODE BEGIN (3) */
 
     canInit();
+    initalizeIMD1();
 
+    while(1){
+        updateIMDData();
+    }
 
-
-//#if LOOPBACK_TEST
-//    while(1);
-//
-//#else
-//    // Packets are all arbitrary values atm.
-//    // Charger Packets
-//    ChargerCmd_t cmd = {0};
-//    ChargerStatus_t s = {0};
-//
-//    cmd.max_voltage_dV = 4000;
-//    cmd.max_current_dA = 200;
-//    cmd.charge_enable = 0;
-//
-//    //VCU
-//    BMSStatusFlags_t bms_flags = {0};
-//
-//    bms_flags.bms_fault = 0;
-//    bms_flags.imd_fault = 0;
-//    bms_flags.hv_active = 1;
-//
-//    while(1){
-//        Charger_Update(&cmd, &s);
-//
-//        VCU_TransmitStatus(&bms_flags);
-//    }
-//
-//#endif
 /* USER CODE END */
 }
 
