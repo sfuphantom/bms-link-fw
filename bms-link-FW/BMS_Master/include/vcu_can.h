@@ -17,6 +17,8 @@
 #define BMS_IMD canMESSAGE_BOX2
 #define BMS_HV canMESSAGE_BOX3
 
+
+
 typedef struct{
     uint8_t bms_fault;
     uint8_t imd_fault;

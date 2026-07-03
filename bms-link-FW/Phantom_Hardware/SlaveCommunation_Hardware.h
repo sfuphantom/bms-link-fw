@@ -27,17 +27,17 @@
 #define tIDEL_us  4300
 #define fADC_kHz  3300
 //////////////////////////////////////////////////////////////////
-//SPI
-#define SPI_WAIT_BYTE_FINISH_COUNT 0xFF
-
-#define REG_FOR_SPI     spiREG3
+////SPI
+//#define SPI_WAIT_BYTE_FINISH_COUNT 0xFF
+//
+//#define REG_FOR_SPI     spiREG3
 #define CS_PIN_ID       0x00U
-#define CS_PIN_MASK     (1U << CS_PIN_ID)//0xFEU//0b11111110 << Active low
-#define CS_HOLD_MASK    0x10000000U
-#define SPI_WDEL        FALSE
-
-#define SPI_CONFIG0_WORD (((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_0 << 24U) | (uint32)CS_PIN_MASK<<16)
-#define SPI_CONFIG1_WORD (((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_1 << 24U) | (uint32)CS_PIN_MASK<<16)
+//#define CS_PIN_MASK     (1U << CS_PIN_ID)//0xFEU//0b11111110 << Active low
+//#define CS_HOLD_MASK    0x10000000U
+//#define SPI_WDEL        FALSE
+//
+//#define SPI_CONFIG0_WORD (((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_0 << 24U) | (uint32)CS_PIN_MASK<<16)
+//#define SPI_CONFIG1_WORD (((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_1 << 24U) | (uint32)CS_PIN_MASK<<16)
 /////////////////////////////////////////////////////////////////
 
 

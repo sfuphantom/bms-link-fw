@@ -20,3 +20,4 @@ void VCU_TransmitStatus(const BMSStatusFlags_t *f){
     transmit_data(BMS_IMD, f->imd_fault);
     transmit_data(BMS_HV, f->hv_active);
 }
+

@@ -7,18 +7,19 @@ Author: Tanjosh Sidhu
 #include <stdbool.h>
 #include <stdio.h>
 #include "string.h"
+#include "spi_drivers.h"
 
-#include "spi.h"
+//#include "spi.h"
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Hardware.h"
 #include "PhantomHelpers.h"
 
 //spiDAT1_t *SPI_LinkConfigData;
-spiBASE_t* Slave_SPI_REG = REG_FOR_SPI;
+//spiBASE_t* REG_FOR_SPI = REG_FOR_SPI;
 static uint16_t SubDataWords[NUMBER_OF_REG_WORDS_PER_CMD];
 
 
-CS_Level Current_CS_Level = HIGH;
+//CS_Level Current_CS_Level = HIGH;
 bool ADC_is_Free = TRUE;
 
 #define USE_MEMCPY TRUE
@@ -68,111 +69,111 @@ void init_PEC15_Table(){
      return pec15_calc(1, &cmd);
  }
 //---------------------------------------------------------------------------------------------------------
-
- void setCS(const CS_Level level){
-//     const uint32 CS_MaskPin = (1U << CS_PIN_ID);
-     Current_CS_Level = level;
-     if(level == LOW)
-         Slave_SPI_REG->PC3 &= ~(uint32_t)CS_PIN_MASK;
-     else if(level == HIGH)
-         Slave_SPI_REG->PC3 |=  (uint32_t)CS_PIN_MASK;
- }
- CS_Level GetCS(){
-     return Current_CS_Level;
- }
- CS_Level ToggleCS(){
-     if(Current_CS_Level == HIGH){
-         Slave_SPI_REG->PC3 &= ~(uint32_t)CS_PIN_MASK;
-         Current_CS_Level = LOW;
-     }
-     else if(Current_CS_Level == LOW){
-         Slave_SPI_REG->PC3 |=  (uint32_t)CS_PIN_MASK;
-         Current_CS_Level = HIGH;
-     }
-     return Current_CS_Level;
- }
- uint8_t SPI_SR2Link_2Bits(const uint8_t Tx){
-//     const uint8_t waitCount = 0xFF;
-
-     Slave_SPI_REG->DAT1 =   SPI_CONFIG1_WORD | (uint32)(Tx);
-
-     int i=0;
-     while((Slave_SPI_REG->FLG & 0x00000100U) != 0x00000100U && i < SPI_WAIT_BYTE_FINISH_COUNT ){
-         i++;
-     } /* Wait */
-
-     uint8_t Rx = Slave_SPI_REG->BUF;
-     return Rx;
- }
- uint8_t SPI_SR2Link_BYTE(const uint8_t Tx){
-//     const uint8_t waitCount = 0xFF;
-
-     Slave_SPI_REG->DAT1 =   SPI_CONFIG0_WORD | (uint32)(Tx);
-
-     int i=0;
-     while((Slave_SPI_REG->FLG & 0x00000100U) != 0x00000100U && i < SPI_WAIT_BYTE_FINISH_COUNT ){
-         i++;
-     } /* Wait */
-
-     uint8_t Rx = Slave_SPI_REG->BUF;
-     return Rx;
- }
- uint64_t SPI_SR2Link_MultiBYTE(const uint64_t Tx_Full, const uint8_t Bytes){
-      const uint8_t Bits = Bytes<<3;
-
-      uint8_t Tx = 0;
-      uint8_t Rx = 0;
-      uint64_t Rx_Full = 0;
-
-      int i;
-
-      for (i=0;i<Bits;i+=8){
-          Tx = Tx_Full >> (Bits - i-8);
-          Rx = SPI_SR2Link_BYTE(Tx);
-
-          Rx_Full |= (uint64_t)Rx<<i;
-      }
-
-      return Rx_Full;
-  }
-
- uint16_t SPI_SR2Link_WORD(const uint16_t Tx){
-     const uint8_t NumOfBytes = 2;
-     uint16_t Rx = SPI_SR2Link_MultiBYTE(Tx, NumOfBytes);
-     return Rx;
- }
- uint32_t SPI_SR2Link_DWORD(const uint32_t Tx){
-     const uint8_t NumOfBytes = 4;
-     uint16_t Rx = SPI_SR2Link_MultiBYTE(Tx, NumOfBytes);
-     return Rx;
- }
- uint64_t SPI_SR2Link_QWORD(const uint64_t Tx){
-     const uint8_t NumOfBytes = 8;
-     uint16_t Rx = SPI_SR2Link_MultiBYTE(Tx, NumOfBytes);
-     return Rx;
- }
- void SPI_Clock_BYTES(const uint8_t Bytes2Clock){
-     int i;
-     for(i=0;i<Bytes2Clock; i++)
-         SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE);
- }
+//
+// void setCS(const CS_Level level){
+////     const uint32 CS_MaskPin = (1U << CS_PIN_ID);
+//     Current_CS_Level = level;
+//     if(level == LOW)
+//         REG_FOR_SPI->PC3 &= ~(uint32_t)CS_PIN_MASK;
+//     else if(level == HIGH)
+//         REG_FOR_SPI->PC3 |=  (uint32_t)CS_PIN_MASK;
+// }
+// CS_Level GetCS(){
+//     return Current_CS_Level;
+// }
+// CS_Level ToggleCS(){
+//     if(Current_CS_Level == HIGH){
+//         REG_FOR_SPI->PC3 &= ~(uint32_t)CS_PIN_MASK;
+//         Current_CS_Level = LOW;
+//     }
+//     else if(Current_CS_Level == LOW){
+//         REG_FOR_SPI->PC3 |=  (uint32_t)CS_PIN_MASK;
+//         Current_CS_Level = HIGH;
+//     }
+//     return Current_CS_Level;
+// }
+// uint8_t SPI_SR2Link_2Bits(const uint8_t Tx){
+////     const uint8_t waitCount = 0xFF;
+//
+//     REG_FOR_SPI->DAT1 =   SPI_CONFIG1_WORD | (uint32)(Tx);
+//
+//     int i=0;
+//     while((REG_FOR_SPI->FLG & 0x00000100U) != 0x00000100U && i < SPI_WAIT_BYTE_FINISH_COUNT ){
+//         i++;
+//     } /* Wait */
+//
+//     uint8_t Rx = REG_FOR_SPI->BUF;
+//     return Rx;
+// }
+// uint8_t SPI_SR2Link_BYTE(const uint8_t Tx){
+////     const uint8_t waitCount = 0xFF;
+//
+//     REG_FOR_SPI->DAT1 =   SPI_CONFIG0_WORD | (uint32)(Tx);
+//
+//     int i=0;
+//     while((REG_FOR_SPI->FLG & 0x00000100U) != 0x00000100U && i < SPI_WAIT_BYTE_FINISH_COUNT ){
+//         i++;
+//     } /* Wait */
+//
+//     uint8_t Rx = REG_FOR_SPI->BUF;
+//     return Rx;
+// }
+// uint64_t SPI_SR2Link_MultiBYTE(const uint64_t Tx_Full, const uint8_t Bytes){
+//      const uint8_t Bits = Bytes<<3;
+//
+//      uint8_t Tx = 0;
+//      uint8_t Rx = 0;
+//      uint64_t Rx_Full = 0;
+//
+//      int i;
+//
+//      for (i=0;i<Bits;i+=8){
+//          Tx = Tx_Full >> (Bits - i-8);
+//          Rx = SPI_SR2Link_BYTE(Tx);
+//
+//          Rx_Full |= (uint64_t)Rx<<i;
+//      }
+//
+//      return Rx_Full;
+//  }
+//
+// uint16_t SPI_SR2Link_WORD(const uint16_t Tx){
+//     const uint8_t NumOfBytes = 2;
+//     uint16_t Rx = SPI_SR2Link_MultiBYTE(Tx, NumOfBytes);
+//     return Rx;
+// }
+// uint32_t SPI_SR2Link_DWORD(const uint32_t Tx){
+//     const uint8_t NumOfBytes = 4;
+//     uint16_t Rx = SPI_SR2Link_MultiBYTE(Tx, NumOfBytes);
+//     return Rx;
+// }
+// uint64_t SPI_SR2Link_QWORD(const uint64_t Tx){
+//     const uint8_t NumOfBytes = 8;
+//     uint16_t Rx = SPI_SR2Link_MultiBYTE(Tx, NumOfBytes);
+//     return Rx;
+// }
+// void SPI_Clock_BYTES(const uint8_t Bytes2Clock){
+//     int i;
+//     for(i=0;i<Bytes2Clock; i++)
+//         SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE);
+// }
 
  //---------------------------------------------------------------------------------------------------------
  void wakeup_idle(){ //Number of ICs in the system
      int i;
      for (i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
-         setCS(LOW);
+         setCS(LOW, CS_PIN_ID);
          SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE);
-         setCS(HIGH);
+         setCS(HIGH, CS_PIN_ID);
      }
  }
  void wakeup_sleep() {
-     setCS(LOW);
+     setCS(LOW, CS_PIN_ID);
      int i;
      for (i = 0; i < NUMBER_OF_SLAVE_BOARDS; i++) {
-         setCS(LOW);
+         setCS(LOW, CS_PIN_ID);
          delay_ms_us(0, 2*tWAKE_us);
-         setCS(HIGH);
+         setCS(HIGH, CS_PIN_ID);
          delay_ms_us(0, 10);
      }
  }
@@ -181,14 +182,14 @@ void init_PEC15_Table(){
       uint16_t Tx_Data;
 
       uint16 tx_Pec = pec15_calc(MsgSize, Tx);
-     while(MsgSize-- && !(Slave_SPI_REG->FLG & 0xFF)){
+     while(MsgSize-- && !(REG_FOR_SPI->FLG & 0xFF)){
          Tx_Data = *Tx++;
 
           (void)SPI_SR2Link_WORD(Tx_Data);
 
       }
       uint16_t Rx_pec = SPI_SR2Link_WORD(tx_Pec);
-//      return (Slave_SPI_REG->FLG & 0xFF);
+//      return (REG_FOR_SPI->FLG & 0xFF);
  //     return Rx_pec;
   }
  uint32 Read_Data(uint16_t* Rx, uint32 MsgSize){
@@ -197,13 +198,13 @@ void init_PEC15_Table(){
 
      uint16_t Rx_Data;
 
-     while(MsgSize-- && !(Slave_SPI_REG->FLG & 0xFF)){
+     while(MsgSize-- && !(REG_FOR_SPI->FLG & 0xFF)){
           Rx_Data = SPI_SR2Link_WORD(Tx_Data);
 
           *Rx++ = Rx_Data;
       }
       uint16_t Rx_pec = SPI_SR2Link_WORD(tx_Pec);
-//      return (Slave_SPI_REG->FLG & 0xFF);
+//      return (REG_FOR_SPI->FLG & 0xFF);
       return Rx_pec;
   }
 
@@ -253,29 +254,29 @@ void init_PEC15_Table(){
 #endif
  //---------------------------------------------------------------------------------------------------------
  void SendCMD2Slave_alone(const uint16_t cmd){
-     setCS(LOW);
+     setCS(LOW, CS_PIN_ID);
      SendCmdAndPec2Slave(cmd);
-     setCS(HIGH);
+     setCS(HIGH, CS_PIN_ID);
  }
 #if CUSTOM_POLL_WAIT
  uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd, const uint32_t wait_periods_us){
-      setCS(LOW);
+      setCS(LOW, CS_PIN_ID);
 
       SendCmdAndPec2Slave(cmd);
       uint32_t PollsWaited = pollAndWait(wait_periods_us);
 
-      setCS(HIGH);
+      setCS(HIGH, CS_PIN_ID);
 
       return PollsWaited;
   }
 #else
  uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd){
-     setCS(LOW);
+     setCS(LOW, CS_PIN_ID);
 
      SendCmdAndPec2Slave(cmd);
      uint32_t PollsWaited = pollAndWait();
 
-     setCS(HIGH);
+     setCS(HIGH, CS_PIN_ID);
 
      return PollsWaited;
  }
@@ -301,7 +302,7 @@ void init_PEC15_Table(){
      uint16_t ReadOneReg[WORDS_PER_REG_GROUP];
 
 
-     setCS(LOW);
+     setCS(LOW, CS_PIN_ID);
 
      (void)SendCmdAndPec2Slave(cmd);
 
@@ -325,7 +326,7 @@ void init_PEC15_Table(){
          }
      }
 
-     setCS(HIGH);
+     setCS(HIGH, CS_PIN_ID);
      return TRUE;//TODO should return Pec_Equal, however PEC_Equal is alway false idk
  }
  bool ReadRegGroup(const uint16_t cmd, uint16_t *data){
@@ -343,7 +344,7 @@ void init_PEC15_Table(){
  void WriteRegGroup(const uint16_t cmd, const uint16_t *data){
       int i;
       uint8_t idx;
-      setCS(LOW);
+      setCS(LOW, CS_PIN_ID);
       uint32_t cmdRx = SendCmdAndPec2Slave(cmd);
 
       for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
@@ -351,7 +352,7 @@ void init_PEC15_Table(){
 
           Write_Data(&data[idx], WORDS_PER_REG_GROUP);
       }
-          setCS(HIGH);
+          setCS(HIGH, CS_PIN_ID);
  }
  bool WriteThenReadRegGroup(const uint16_t W_cmd, const uint16_t R_cmd, const uint16_t *W_data){
       bool RW_EQ;

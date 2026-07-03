@@ -18,7 +18,6 @@ C_SRCS += \
 ../BMS_Master/source/Fapi_UserDefinedFunctions.c \
 ../BMS_Master/source/adc.c \
 ../BMS_Master/source/can.c \
-../BMS_Master/source/charger_can.c \
 ../BMS_Master/source/crc.c \
 ../BMS_Master/source/dcc.c \
 ../BMS_Master/source/ecap.c \
@@ -60,15 +59,13 @@ C_SRCS += \
 ../BMS_Master/source/ti_fee_shutdown.c \
 ../BMS_Master/source/ti_fee_util.c \
 ../BMS_Master/source/ti_fee_writeAsync.c \
-../BMS_Master/source/ti_fee_writeSync.c \
-../BMS_Master/source/vcu_can.c 
+../BMS_Master/source/ti_fee_writeSync.c 
 
 C_DEPS += \
 ./BMS_Master/source/Device_TMS570LS12.d \
 ./BMS_Master/source/Fapi_UserDefinedFunctions.d \
 ./BMS_Master/source/adc.d \
 ./BMS_Master/source/can.d \
-./BMS_Master/source/charger_can.d \
 ./BMS_Master/source/crc.d \
 ./BMS_Master/source/dcc.d \
 ./BMS_Master/source/ecap.d \
@@ -110,8 +107,7 @@ C_DEPS += \
 ./BMS_Master/source/ti_fee_shutdown.d \
 ./BMS_Master/source/ti_fee_util.d \
 ./BMS_Master/source/ti_fee_writeAsync.d \
-./BMS_Master/source/ti_fee_writeSync.d \
-./BMS_Master/source/vcu_can.d 
+./BMS_Master/source/ti_fee_writeSync.d 
 
 OBJS += \
 ./BMS_Master/source/Device_TMS570LS12.obj \
@@ -119,7 +115,6 @@ OBJS += \
 ./BMS_Master/source/adc.obj \
 ./BMS_Master/source/ajsm.obj \
 ./BMS_Master/source/can.obj \
-./BMS_Master/source/charger_can.obj \
 ./BMS_Master/source/crc.obj \
 ./BMS_Master/source/dabort.obj \
 ./BMS_Master/source/dcc.obj \
@@ -166,8 +161,7 @@ OBJS += \
 ./BMS_Master/source/ti_fee_shutdown.obj \
 ./BMS_Master/source/ti_fee_util.obj \
 ./BMS_Master/source/ti_fee_writeAsync.obj \
-./BMS_Master/source/ti_fee_writeSync.obj \
-./BMS_Master/source/vcu_can.obj 
+./BMS_Master/source/ti_fee_writeSync.obj 
 
 ASM_DEPS += \
 ./BMS_Master/source/ajsm.d \
@@ -183,7 +177,6 @@ OBJS__QUOTED += \
 "BMS_Master\source\adc.obj" \
 "BMS_Master\source\ajsm.obj" \
 "BMS_Master\source\can.obj" \
-"BMS_Master\source\charger_can.obj" \
 "BMS_Master\source\crc.obj" \
 "BMS_Master\source\dabort.obj" \
 "BMS_Master\source\dcc.obj" \
@@ -230,15 +223,13 @@ OBJS__QUOTED += \
 "BMS_Master\source\ti_fee_shutdown.obj" \
 "BMS_Master\source\ti_fee_util.obj" \
 "BMS_Master\source\ti_fee_writeAsync.obj" \
-"BMS_Master\source\ti_fee_writeSync.obj" \
-"BMS_Master\source\vcu_can.obj" 
+"BMS_Master\source\ti_fee_writeSync.obj" 
 
 C_DEPS__QUOTED += \
 "BMS_Master\source\Device_TMS570LS12.d" \
 "BMS_Master\source\Fapi_UserDefinedFunctions.d" \
 "BMS_Master\source\adc.d" \
 "BMS_Master\source\can.d" \
-"BMS_Master\source\charger_can.d" \
 "BMS_Master\source\crc.d" \
 "BMS_Master\source\dcc.d" \
 "BMS_Master\source\ecap.d" \
@@ -280,8 +271,7 @@ C_DEPS__QUOTED += \
 "BMS_Master\source\ti_fee_shutdown.d" \
 "BMS_Master\source\ti_fee_util.d" \
 "BMS_Master\source\ti_fee_writeAsync.d" \
-"BMS_Master\source\ti_fee_writeSync.d" \
-"BMS_Master\source\vcu_can.d" 
+"BMS_Master\source\ti_fee_writeSync.d" 
 
 ASM_DEPS__QUOTED += \
 "BMS_Master\source\ajsm.d" \
@@ -296,7 +286,6 @@ C_SRCS__QUOTED += \
 "../BMS_Master/source/Fapi_UserDefinedFunctions.c" \
 "../BMS_Master/source/adc.c" \
 "../BMS_Master/source/can.c" \
-"../BMS_Master/source/charger_can.c" \
 "../BMS_Master/source/crc.c" \
 "../BMS_Master/source/dcc.c" \
 "../BMS_Master/source/ecap.c" \
@@ -338,8 +327,7 @@ C_SRCS__QUOTED += \
 "../BMS_Master/source/ti_fee_shutdown.c" \
 "../BMS_Master/source/ti_fee_util.c" \
 "../BMS_Master/source/ti_fee_writeAsync.c" \
-"../BMS_Master/source/ti_fee_writeSync.c" \
-"../BMS_Master/source/vcu_can.c" 
+"../BMS_Master/source/ti_fee_writeSync.c" 
 
 ASM_SRCS__QUOTED += \
 "../BMS_Master/source/ajsm.asm" \

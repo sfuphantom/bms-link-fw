@@ -213,19 +213,19 @@ void QEPInit(void)
   eqepREG2->QPOSMAX  =  0x00000000U;
   
   /** - Set the initial Position compare value   */ 
-  eqepREG2->QPOSCMP  =  0U;
+  eqepREG2->QPOSCMP  =  0x00000000U;
   
   /** - Clear the time base   */ 
   eqepREG2->QUTMR    =  0x00000000U;
   
   /** - Configure unit period register   */ 
-  eqepREG2->QUPRD    =  (uint32) 0U;
+  eqepREG2->QUPRD    =  (uint32) 0x00000000U;
   
   /** - Clear Watchdog Timer register  */ 
   eqepREG2->QWDTMR   = 	(uint16) 0x00000000U;
   
   /** - Configure Watchdog Period   */ 
-  eqepREG2->QWDPRD   =  (uint16) 0U;
+  eqepREG2->QWDPRD   =  (uint16) 0x0000U;
   
 /* USER CODE BEGIN (5) */
 /* USER CODE END */
@@ -283,7 +283,7 @@ void QEPInit(void)
   eqepREG2->QPOSCTL  = (uint16)((uint16)((uint16)0U << 15U)
 					   | (uint16)((uint16)eQEP_QPOSCNT_EQ_QPSCMP << 14U)
 					   | (uint16)((uint16)eQEP_ACTIVE_HIGH << 13U)
-					   | (uint16)((uint16)0U)					   
+					   | (uint16)((uint16)0x000U)					   
 					   | (uint16)0x0000U);
 
   /** - Setup eQEP Capture Control Register

@@ -136,14 +136,14 @@ void _c_int00(void)
     /* check for power-on reset condition */
     /*SAFETYMCUSW 139 S MR:13.7 <APPROVED> "Hardware status bit read check" */
     if ((SYS_EXCEPTION & POWERON_RESET) != 0U)
-    {
+    {		
 /* USER CODE BEGIN (12) */
 /* USER CODE END */
         /* Add condition to check whether PLL can be started successfully */
         if (_errata_SSWF021_45_both_plls(PLL_RETRIES) != 0U)
         {
             /* Put system in a safe state */
-            handlePLLLockFail();
+			handlePLLLockFail();
         }
         /* clear all reset status flags */
         SYS_EXCEPTION = 0xFFFFU;
@@ -191,7 +191,7 @@ void _c_int00(void)
             SYS_EXCEPTION = ICEPICK_RESET;
 /* USER CODE BEGIN (19) */
 /* USER CODE END */
-        }
+		}
     }
     /*SAFETYMCUSW 139 S MR:13.7 <APPROVED> "Hardware status bit read check" */
     else if ((SYS_EXCEPTION & CPU_RESET) !=0U)
@@ -215,10 +215,10 @@ void _c_int00(void)
     {
         /* Reset caused due to software reset.
         Add user code to handle software reset. */
-
+		
 /* USER CODE BEGIN (22) */
 /* USER CODE END */
-    }
+	}
     else
     {
         /* Reset caused by nRST being driven low externally.
@@ -226,7 +226,7 @@ void _c_int00(void)
 
 /* USER CODE BEGIN (23) */
 /* USER CODE END */
-    }
+	}
 
     /* Check if there were ESM group3 errors during power-up.
      * These could occur during eFuse auto-load or during reads from flash OTP
@@ -258,15 +258,15 @@ void _c_int00(void)
     
     /* Workaround for Errata PBIST#4 */
     errata_PBIST_4();
-
+	
     /* Run a diagnostic check on the memory self-test controller.
      * This function chooses a RAM test algorithm and runs it on an on-chip ROM.
      * The memory self-test is expected to fail. The function ensures that the PBIST controller
      * is capable of detecting and indicating a memory self-test failure.
      */
-    pbistSelfCheck();
-
-    /* Run PBIST on STC ROM */
+    pbistSelfCheck();	
+	
+	/* Run PBIST on STC ROM */
     pbistRun((uint32)STC_ROM_PBIST_RAM_GROUP,
              ((uint32)PBIST_TripleReadSlow | (uint32)PBIST_TripleReadFast));
     
@@ -287,11 +287,11 @@ void _c_int00(void)
         pbistFail();
 
     }   
-
+	
     /* Disable PBIST clocks and disable memory self-test mode */
     pbistStop();
 
-    /* Run PBIST on PBIST ROM */
+	/* Run PBIST on PBIST ROM */
     pbistRun((uint32)PBIST_ROM_PBIST_RAM_GROUP,
              ((uint32)PBIST_TripleReadSlow | (uint32)PBIST_TripleReadFast));
     
@@ -312,9 +312,9 @@ void _c_int00(void)
         pbistFail();
 
     } 
-
+	
     /* Disable PBIST clocks and disable memory self-test mode */
-    pbistStop();
+    pbistStop();	
 /* USER CODE BEGIN (29) */
 /* USER CODE END */
 
@@ -661,10 +661,10 @@ void handlePLLLockFail(void)
 {
 /* USER CODE BEGIN (79) */
 /* USER CODE END */
-    while(1)
-    {
-
-    }
+	while(1)
+	{
+		
+	}
 /* USER CODE BEGIN (80) */
 /* USER CODE END */
 }

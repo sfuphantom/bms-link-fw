@@ -90,16 +90,16 @@ void dccInit(void)
     /** @b initialize @b DCC2 */
 
     /** DCC2 Clock0 Counter Seed value configuration */
-    dccREG2->CNT0SEED   = 0U;
+    dccREG2->CNT0SEED   = 78408U;
     
     /** DCC2 Clock0 Valid Counter Seed value configuration */
-    dccREG2->VALID0SEED = 0U;          
+    dccREG2->VALID0SEED = 1584U;          
     
     /** DCC2 Clock1 Counter Seed value configuration */
-    dccREG2->CNT1SEED   = 0U;
+    dccREG2->CNT1SEED   = 396000U;
 
     /** DCC2 Clock1 Source 1 Select */
-    dccREG2->CNT1CLKSRC = (uint32)((uint32)0xAU << 12U) |     /** DCC Enable Key */
+    dccREG2->CNT1CLKSRC = (uint32)((uint32)10U << 12U) |     /** DCC Enable Key */
                           (uint32) DCC2_CNT1_VCLK;  /** DCC2 Clock Source 1 */
    
     dccREG2->CNT0CLKSRC = (uint32)DCC2_CNT0_OSCIN;  /** DCC2 Clock Source 0 */

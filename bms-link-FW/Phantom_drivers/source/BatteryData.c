@@ -267,6 +267,13 @@ inline bool GetChargingStatus(){
        return NumCellsFull;
    }
   //----------------------------------------------------------------------------------------------------
+void setBMS_State(BMSState_t State){
+    BatteryData.BMS_State = State;
+}
+BMSState_t getBMS_State(){
+    return BatteryData.BMS_State;
+}
+  //----------------------------------------------------------------------------------------------------
 
   struct BatteryData_t* GetBatteryData(){
       return &BatteryData;

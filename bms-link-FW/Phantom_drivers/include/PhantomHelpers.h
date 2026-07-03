@@ -13,6 +13,7 @@
 #define QWORDS2BYTES 8
 
 //#define NAN_FLOAT    (0.0/0.0)
+#define NUM_E 2.718281828f
 // -----------------------------------------
 typedef enum {LittleEndian, BigEndian} Endianness;
 typedef enum {  nibble  = 4 ,
@@ -22,6 +23,10 @@ typedef enum {  nibble  = 4 ,
                 qWord   = 64 } dataType;
 // -----------------------------------------
 #define MINUS1(Bits) ((1U<<(Bits))-1)
+
+#define Bit2Bytes_Ceil(Bits) (((Bits-7)/8)+1)
+
+#define sizeof_arr(arr) (sizeof(arr)/sizeof(arr[0]))
 // -----------------------------------------
 
 void delay_ms_us(const uint32_t ms, const uint32_t us);
@@ -44,6 +49,8 @@ void     swap_word_bytes_arr(const uint16_t *input, uint16_t *output, uint16_t l
 // -----------------------------------------
 uint16 round16(const uint16_t word, uint8_t bit2Round);
 
+//uint32_t divCeil_u32(uint32_t num,  uint32_t dem);
+//uint32_t Bit2Bytes_Ceil(uint32_t Bits);
 // -----------------------------------------
 void array16_minAndIdx(const uint16_t* arr, uint8_t len, uint16_t* min, uint8_t* idx);
 void array16_maxAndIdx(const uint16_t* arr, uint8_t len, uint16_t* max, uint8_t* idx);

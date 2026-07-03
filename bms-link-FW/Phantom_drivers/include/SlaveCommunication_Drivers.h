@@ -10,21 +10,16 @@ Author: Tanjosh Sidhu
 #include <stdbool.h>
 //#include "spi.h"
 #include "SlaveCommunation_Hardware.h"
-//#include "PhantomHelpers.h"
+#include "PhantomHelpers.h"
 
 /////////////////////////////////////////////////////////////////
 #define NUMBER_OF_FAILS_ALLOWED         2
 /////////////////////////////////////////////////////////////////
-typedef enum  {LOW, HIGH} CS_Level;
-//////////////////////////////////////////////////////////////////
-#define SPI_DUMMY_DATA_BYTE 0xFFU
-#define SPI_DUMMY_DATA_WORD 0xFFFFU
-#define SPI_DUMMY_DATA_DWORD 0xFFFFFFFFU
-#define SPI_DUMMY_DATA_QWORD 0xFFFFFFFFFFFFFFFFU
+
 //#define SPI_DUMMY_CMD  0xFFFF
 
 #define MAX_POLLS_TIMEOUT 2000
-#define NUMBER_OF_GARBAGE_BYTES ((NUMBER_OF_SLAVE_BOARDS-7)/8)
+#define NUMBER_OF_GARBAGE_BYTES     (Bit2Bytes_Ceil(NUMBER_OF_SLAVE_BOARDS))
 //----------------------------------------------------------------------------------------
 //uint16_t pec15Table[256];
 #define PEC_INIT_VALUE 0x0010
@@ -32,19 +27,6 @@ typedef enum  {LOW, HIGH} CS_Level;
 
 void init_PEC15_Table();
  uint16_t pec15_calc(uint8_t len, const uint16_t *data);
-//---------------------------------------------------------------------------------------------------------
-
- void setCS(const CS_Level level);
- CS_Level GetCS();
- CS_Level ToggleCS();
-
- uint8_t SPI_SR2Link_2Bits(const uint8_t Tx);
- uint8_t SPI_SR2Link_BYTE(const uint8_t Tx);
- uint64_t SPI_SR2Link_MultiBYTE(const uint64_t Tx_Full, const uint8_t Bytes);
- uint16_t SPI_SR2Link_WORD(const uint16_t Tx);
- uint32_t SPI_SR2Link_DWORD(const uint32_t Tx);
- uint64_t SPI_SR2Link_QWORD(const uint64_t Tx);
- void SPI_Clock_BYTES(const uint8_t Bytes2Clock);
  //---------------------------------------------------------------------------------------------------------
  void wakeup_idle();
  void wakeup_sleep();

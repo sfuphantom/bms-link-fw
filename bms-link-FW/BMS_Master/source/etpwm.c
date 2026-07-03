@@ -82,13 +82,13 @@ void etpwmInit(void)
     etpwmREG1->TBCTL |= (uint16)((uint16)0U << 10U);
 
     /** - Sets time period or frequency for ETPWM block both PWMA and PWMB*/
-    etpwmREG1->TBPRD = 1000U;
+    etpwmREG1->TBPRD = 79U;
 
     /** - Setup the duty cycle for PWMA */
-    etpwmREG1->CMPA = 50U;
+    etpwmREG1->CMPA = 40U;
 
     /** - Setup the duty cycle for PWMB */
-    etpwmREG1->CMPB = 50U;
+    etpwmREG1->CMPB = 40U;
 
     /** - Force EPWMxA output high when counter reaches zero and low when counter reaches Compare A value */
     etpwmREG1->AQCTLA = ((uint16)((uint16)ActionQual_Set   << 0U)
@@ -122,7 +122,7 @@ void etpwmInit(void)
     *     -Sets the period for the subsequent pulse train
     */
     etpwmREG1->PCCTL = ((uint16)((uint16)0U << 0U)    /* Enable/Disable chopper module */
-                      | (uint16)((uint16)1U << 1U)    /* One-shot Pulse Width */
+                      | (uint16)((uint16)0U << 1U)    /* One-shot Pulse Width */
                       | (uint16)((uint16)3U << 8U)    /* Chopping Clock Duty Cycle */
                       | (uint16)((uint16)0U << 5U));  /* Chopping Clock Frequency */
 
@@ -177,13 +177,13 @@ void etpwmInit(void)
     etpwmREG2->TBCTL |= (uint16)((uint16)0U << 10U);
 
     /** - Sets time period or frequency for ETPWM block both PWMA and PWMB*/
-    etpwmREG2->TBPRD = 1000U;
+    etpwmREG2->TBPRD = 79U;
 
     /** - Setup the duty cycle for PWMA */
-    etpwmREG2->CMPA = 50U;
+    etpwmREG2->CMPA = 40U;
 
     /** - Setup the duty cycle for PWMB */
-    etpwmREG2->CMPB = 50U;
+    etpwmREG2->CMPB = 40U;
 
     /** - Force EPWMxA output high when counter reaches zero and low when counter reaches Compare A value */
     etpwmREG2->AQCTLA = ((uint16)((uint16)ActionQual_Set   << 0U)
@@ -217,7 +217,7 @@ void etpwmInit(void)
     *     -Sets the period for the subsequent pulse train
     */
     etpwmREG2->PCCTL = ((uint16)((uint16)0U << 0U) /* Enable/Disable chopper module */
-                      | (uint16)((uint16)1U << 1U)    /* One-shot Pulse Width */
+                      | (uint16)((uint16)0U << 1U)    /* One-shot Pulse Width */
                       | (uint16)((uint16)3U << 8U)  /* Chopping Clock Duty Cycle */
                       | (uint16)((uint16)0U << 5U));  /* Chopping Clock Frequency */
 
@@ -272,13 +272,13 @@ void etpwmInit(void)
     etpwmREG3->TBCTL |= (uint16)((uint16)0U << 10U);
 
     /** - Sets time period or frequency for ETPWM block both PWMA and PWMB*/
-    etpwmREG3->TBPRD = 1000U;
+    etpwmREG3->TBPRD = 79U;
 
     /** - Setup the duty cycle for PWMA */
-    etpwmREG3->CMPA = 50U;
+    etpwmREG3->CMPA = 40U;
 
     /** - Setup the duty cycle for PWMB */
-    etpwmREG3->CMPB = 50U;
+    etpwmREG3->CMPB = 40U;
 
     /** - Force EPWMxA output high when counter reaches zero and low when counter reaches Compare A value */
     etpwmREG3->AQCTLA = ((uint16)((uint16)ActionQual_Set   << 0U)
@@ -312,7 +312,7 @@ void etpwmInit(void)
     *     -Sets the period for the subsequent pulse train
     */
     etpwmREG3->PCCTL = ((uint16)((uint16)0U << 0U) /* Enable/Disable chopper module */
-                      | (uint16)((uint16)1U << 1U)    /* One-shot Pulse Width */
+                      | (uint16)((uint16)0U << 1U)    /* One-shot Pulse Width */
                       | (uint16)((uint16)3U << 8U)  /* Chopping Clock Duty Cycle */
                       | (uint16)((uint16)0U << 5U));  /* Chopping Clock Frequency */
 

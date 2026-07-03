@@ -7,7 +7,14 @@
 //----------------------------------------------------------------------------------------------------
 #include "rti.h"
 #include "spi.h"
-#include "sys_common.h"
+#include "can.h"
+#include "het.h"
+#include "ecap.h"
+#include "sys_vim.h"
+#include "sys_core.h"
+
+
+//#include "sys_common.h"
 #include "system.h"
 
 #include "SlaveCommunication_Routines.h"
@@ -16,17 +23,38 @@
 #include "PhantomHelpers.h"
 #include "Fault_handler.h"
 #include "BMS_Tasks.h"
+#include "Fans.h"
 
 //----------------------------------------------------------------------------------------------------
-void init_BMS_system(){
+void enableAllInterrupts(){
+    vimInit();
     _enable_IRQ();
+    _enable_interrupt_();
+}
+
+void init_BMS_system(){
+    systemInit();
+
+    enableAllInterrupts();
+
     spiInit();
     rtiInit();
-    initLink();
+    canInit();
+    hetInit();
+//    ecapInit();
+
+    init_fans();
+
     init_BMS_Faults();
+
+    initLink();
 
     initBatteryData();
     initCharger();
+}
+//----------------------------------------------------------------------------------------------------
+void DoNothing(){
+
 }
 //----------------------------------------------------------------------------------------------------
 void TaskSuperLoop(struct Task_t AllTasks[], uint8_t NumOfTasks, void (*ElseFunction)(void)){

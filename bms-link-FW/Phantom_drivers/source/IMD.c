@@ -1,0 +1,469 @@
+/** @file sys_main.c 
+*   @brief Application main file
+*   @date 21-May-2020
+* */
+#include "IMD.h"
+#define SERIAL_SEND
+
+// Global Variables
+//static const float FREQ_RUNNING_COUNTER = 10000000.00; // 10Mhz
+//static const uint32_t UINT32_MAX_ = 4294967295;
+//static uint32_t last_time1, time1, time2;
+//float period, time_on, frequency, duty_cycle, IMD_resistance;
+
+// SCI variables
+//unsigned int NumberofCharsFreq, freq_value, NumberofCharsDuty, duty_value;
+//unsigned char freq_data[8];
+//unsigned char duty_data[8];
+//const float f_HCLK = 160.00;
+
+
+IMDData_t IMDData = {Normal_Condition};
+ecapIMDData_t ecapIMDData;
+
+//IMDStateEnum currentState;
+//IsolationStateEnum isolationState;
+
+/*
+* Fn: initalizeIMD
+* Purpose: Initializes all functions required to make reading the IMD work
+*/
+void initalizeIMD(){
+    IMDData.IMDState        = Normal_Condition;
+    IMDData.IsolationState  = Normal;
+
+    ecapIMDData.duty        = 0;
+    ecapIMDData.freq        = 0;
+    ecapIMDData.resistance  = 0;
+  /*  
+    hetInit();    //Initialized in phantomSystemInit()
+//    gioInit();    //Initialized in phantomSystemInit()
+//    rtiInit();    //Previously commented
+//    sciInit();    //Previously commented; Initialized in phantomSystemInit()
+//    rtiResetCounter(rtiCOUNTER_BLOCK1);   //Previously commented
+
+//    _enable_IRQ();    //Previously commented; Initialized in phantomSystemInit()
+
+    edgeEnableNotification(hetREG1, edge0);
+    edgeEnableNotification(hetREG1, edge1);
+    edgeEnableNotification(hetREG1, edge2);
+    edgeEnableNotification(hetREG1, edge3);
+    edgeEnableNotification(hetREG1, edge4);
+    edgeEnableNotification(hetREG1, edge5);
+    edgeEnableNotification(hetREG1, edge6);
+    edgeEnableNotification(hetREG1, edge7);
+    //gioEnableNotification(gioPORTA,5);
+    //gioEnableNotification(gioPORTA,6);
+//    rtiStartCounter(rtiCOUNTER_BLOCK1); // cant read register without this (RTI doesnt start?)    //Previously commented
+*/
+
+//    etpwmSetClkDiv(etpwmREG1, ClkDiv_by_1, HspClkDiv_by_1);
+//
+//    /* Set the time period as 1000 ns (Divider value = (1000ns * 90MHz) - 1 = 89)*/
+//    etpwmSetTimebasePeriod(etpwmREG1, 89);
+//
+//    /* Configure Compare A value as half the time period */
+//    etpwmSetCmpA(etpwmREG1, 45);
+//
+//    /* Configure mthe module to set PWMA value as 1 when CTR=0 and as 0 when CTR=CmpA  */
+//    etpwmActionQualConfig_t configPWMA;
+//    configPWMA.CtrEqZero_Action = ActionQual_Set;
+//    configPWMA.CtrEqCmpAUp_Action = ActionQual_Clear;
+//    configPWMA.CtrEqPeriod_Action = ActionQual_Disabled;
+//    configPWMA.CtrEqCmpADown_Action = ActionQual_Disabled;
+//    configPWMA.CtrEqCmpBUp_Action = ActionQual_Disabled;
+//    configPWMA.CtrEqCmpBDown_Action = ActionQual_Disabled;
+//    etpwmSetActionQualPwmA(etpwmREG1, configPWMA);
+//
+//    /* Start counter in CountUp mode */
+//    etpwmSetCount(etpwmREG1, 0);
+//    etpwmSetCounterMode(etpwmREG1, CounterMode_Up);
+//    etpwmStartTBCLK();
+//
+//    /* Configure ECAP1 */
+//    /* Configure Event 1 to Capture the rising edge */
+//    ecapSetCaptureEvent1(ecapREG1, RISING_EDGE, RESET_DISABLE);
+//
+//    /* Configure Event 2 to Capture the falling edge */
+//    ecapSetCaptureEvent2(ecapREG1, FALLING_EDGE, RESET_DISABLE);
+//
+//    /* Configure Event 3 to Capture the rising edge with reset counter enable */
+//    ecapSetCaptureEvent3(ecapREG1, RISING_EDGE, RESET_ENABLE);
+//
+//    /* Set Capure mode as Continuous and Wrap event as CAP3  */
+//    ecapSetCaptureMode(ecapREG1, CONTINUOUS, CAPTURE_EVENT3);
+//
+//    /* Start counter */
+//    ecapStartCounter(ecapREG1);
+//
+//    /* Enable Loading on Capture */
+//    ecapEnableCapture(ecapREG1);
+//
+//    /* Enable Interrupt for CAP3 event */
+//    ecapEnableInterrupt(ecapREG1, ecapInt_CEVT3);
+
+}
+
+/*
+* Fn: updateIMDState
+* Purpose: Message Mapping for IMD Operation State
+* To-do: Need to find what the tolerance is for frequency when testing (i.e. is it +- 5hz?)
+*/
+void updateIMDState(unsigned int freq_value, unsigned int duty_value){
+
+
+    IMDStateEnum currentState;
+
+    if (freq_value <=5) currentState = Short_Circuit; //0Hz
+    else if (freq_value > 5 && freq_value <=15) currentState = Normal_Condition; //10Hz, PWM is between 5-95%
+    else if (freq_value > 15 && freq_value <=25) currentState = Undervoltage_Condition; //20Hz, PWM is between 5-95%
+    else if (freq_value > 25 && freq_value <=35) //30Hz, PWM is between 5-10% (good) or 90-95% (bad)
+    {
+        if(duty_value >= 5 && duty_value <= 10) currentState = Speed_Start_Measurement_Good;
+        else if(duty_value >= 90 && duty_value <= 95) currentState = Speed_Start_Measurement_Bad;
+        else currentState = Undefined_Fault;
+    }
+    else if (freq_value > 35 && freq_value <=45 && duty_value >= 47 && duty_value <= 53) currentState = Device_Error; //40Hz, PWM is between 47.5-52.5%
+    else if (freq_value > 45 && freq_value <=55 && duty_value >= 47 && duty_value <= 53) currentState = Connection_Fault_Earth; //50Hz, PWM is between 47.5-52.5%
+    else currentState = Undefined_Fault; //Freq range outside known values
+
+    IMDData.IMDState = currentState;
+}
+
+
+//void updateIMDStateFloat(float64 freq_value, float64 duty_value){// same as above, just uses floats, instead of int
+//
+//
+//    if (freq_value <=5) currentState = Short_Circuit; //0Hz
+//    else if (freq_value > 5 && freq_value <=15) currentState = Normal_Condition; //10Hz, PWM is between 5-95%
+//    else if (freq_value > 15 && freq_value <=25) currentState = Undervoltage_Condition; //20Hz, PWM is between 5-95%
+//    else if (freq_value > 25 && freq_value <=35) //30Hz, PWM is between 5-10% (good) or 90-95% (bad)
+//    {
+//        if(duty_value >= 5 && duty_value <= 10) currentState = Speed_Start_Measurement_Good;
+//        else if(duty_value >= 90 && duty_value <= 95) currentState = Speed_Start_Measurement_Bad;
+//        else currentState = Undefined_Fault;
+//    }
+//    else if (freq_value > 35 && freq_value <=45 && duty_value >= 47 && duty_value <= 53) currentState = Device_Error; //40Hz, PWM is between 47.5-52.5%
+//    else if (freq_value > 45 && freq_value <=55 && duty_value >= 47 && duty_value <= 53) currentState = Connection_Fault_Earth; //50Hz, PWM is between 47.5-52.5%
+//    else currentState = Undefined_Fault; //Freq range outside known values
+//
+//    IMDData.IMDState = currentState;
+//}
+
+
+/*
+*   Fn: updateIsolationState
+*   Purpose: Message Mapping for HV/LV Isolation State
+*   Duty Cycle Mapping. If Duty Cycle is anything other than Normal, it means either the isolation is dropping
+*   or that something is wrong with the IMD
+*   ex. If IMD State is Normal or in UnderVoltage Condition and the IsolationState, that's fine
+*   ex. But if IMD State is Normal and Duty Cycle is anything other than Normal, there is an isolation problem
+*/
+void updateIsolationState(unsigned int duty_value){
+
+      IsolationStateEnum isolationState;
+
+      if (duty_value >= 5 && duty_value <10) isolationState = Normal; //PWM is between 5-10%
+      else if (duty_value >= 10 && duty_value <30) isolationState = Normal_75; //PWM is between 10-30%
+      else if (duty_value >= 30 && duty_value <60) isolationState = Normal_50; //PWM is between 30-60%
+      else if (duty_value >= 60 && duty_value <90) isolationState = Normal_25; //PWM is between 60-90%
+      else if (duty_value >= 90 && duty_value <=95) isolationState = Isolation_Failure; //PWM is between 90-95%
+      else isolationState = Unknown;
+
+      IMDData.IsolationState = isolationState;
+}
+
+/*
+* Fn: updateIMDData
+* Purpose: Updates the message statuses for what is inside the IMDData Struct
+*/
+
+//void updateIMDData()    {
+//        // adding this 0.5 and then typecasting to an int (truncating all decimals)
+//        // basically acts as rounding the float to the nearest integer
+//        freq_value = (unsigned int) (frequency + 0.5);
+//        duty_value = (unsigned int) (duty_cycle*100.0 + 0.5);
+//
+//        updateIMDState(freq_value,duty_value);
+//        updateIsolationState(duty_value);
+//    }
+
+
+void updateIMDDataLocal(float64 freq, float64 duty)    {//same as above, just without global variable
+        // adding this 0.5 and then typecasting to an int (truncating all decimals)
+        // basically acts as rounding the float to the nearest integer
+
+        unsigned int freq_value = (unsigned int) (freq + 0.5);
+        unsigned int duty_value = (unsigned int) (duty*100.0 + 0.5);
+
+        updateIMDState(freq_value,duty_value);
+        updateIsolationState(duty_value);
+    }
+
+
+
+/*
+* Fn: serialSendData
+* Purpose: Sends the current Frequency and Duty Cycle read from the IMD
+*/
+//void serialSendData() {
+//    NumberofCharsFreq = ltoa(freq_value, (char*) freq_data);
+//    NumberofCharsDuty = ltoa(duty_value, (char*) duty_data);
+//
+//    sciSend(scilinREG, NumberofCharsFreq, freq_data);
+//    sciSend(scilinREG, 4, (unsigned char*)" Hz ");
+//
+//    sciSend(scilinREG, NumberofCharsDuty, duty_data);
+//    sciSend(scilinREG, 4, (unsigned char*)" %\r\n");
+//}
+
+/*
+* Fn: getIMDData
+* Purpose: Getter function for reading IMDData
+* Returns: IMDData Struct
+*/
+IMDData_t getIMDData(){
+    return IMDData;
+}
+
+/*
+* Fn: getIMDResistance
+* Purpose: Calculates and returns IMD Resistance
+* The equation uses duty cycle as a variable for an equation found in the datasheet
+* to calculate the resistance in Ohms
+* Returns: IMD Resistance in Ohms
+*/
+
+//TODO: Check if this is set to 500 Ohms or higher according to EV.7.6.3 in the 2024 V1 rulebook
+//float getIMDResistance(){
+//    // Equation from data sheet correlating duty cycle with resistance
+//   float IMD_resistance = 90.0*1200.0/(duty_cycle*100.0 - 5.0)-1200.0;
+//   return IMD_resistance;
+//}
+
+uint32 getIMDResistanceLocal_uint(float64 duty_val){//same as above, just without global variable, outputs uint
+    // Equation from data sheet correlating duty cycle with resistance
+   float IMD_resistance = 90.0*1200.0/(duty_val*100.0 - 5.0)-1200.0;
+   uint32 IMD_R_Uint;
+   if (IMD_resistance < 0)
+       IMD_R_Uint = (uint32)(-IMD_resistance);
+   else
+       IMD_R_Uint = (uint32)(IMD_resistance);
+
+   return IMD_R_Uint;
+}
+//---------------------------------------------------------------------------------------------------------
+
+void ecapResetCAP(ecapBASE_t * ecap){
+    ecap->CAP1=0;
+    ecap->CAP2=0;
+    ecap->CAP3=0;
+    ecap->CAP4=0;
+}
+
+//---------------------------------------------------------------------------------------------------------
+void ecapNotification(ecapBASE_t *ecap, uint16 flags)
+{
+/*  enter user code between the USER CODE BEGIN and USER CODE END. */
+/* USER CODE BEGIN (51) */
+
+    // mibspi3miso (X1, pin 5 on the right) <- input
+
+    if (ecap != IMD_ECAP_REG) {return;} // change this is there is more then 1 ecap
+    if (flags & VALID_FLAG_MASK != VALID_FLAG_VAL) {return;} // double check flags
+
+    const uint32 C1 = ecapGetCAP1(ecap);
+    const uint32 C2 = ecapGetCAP2(ecap);
+    const uint32 C3 = ecapGetCAP3(ecap);
+
+    if (!(C2>C1 && C3>C2)){ return; }//if event 1 is >= event 2 or event 2 >= event 3,
+    //leave the function, the reading are invaded and it would cause the program to go to dabort if you don't
+
+    const uint32_t period_scale = (C3 - C1);
+    const float freq_scale      = 1/period_scale;
+    ecapIMDData.duty            = freq_scale * (C2 - C1);
+    ecapIMDData.freq            = freq_scale * ecap_sec2counts;
+
+    updateIMDDataLocal(ecapIMDData.freq, ecapIMDData.duty);
+//    updateIMDData()
+
+    ecapIMDData.resistance  = getIMDResistanceLocal_uint(ecapIMDData.duty);
+
+    //see what is wrong in helcogen, I should not need these functions
+//    ecapResetCAP(ecap);
+
+
+/* USER CODE END */
+}
+/*
+* Fn: edgeNotification
+* Purpose: Interrupt handler for when a rising or falling edge occurs
+* on the square wave that the IMD is outputting
+*/
+
+//void edgeNotification(hetBASE_t * hetREG,uint32 edge)
+//{
+//    // if rising edge
+//    if(hetREG == hetREG1 && edge == 0)
+//    {
+//        //LED on board
+//        gioToggleBit(gioPORTB,2);
+//
+//        // pinStatus indicates if it is a rising or falling edge
+//        uint32 pinStatus = gioGetBit(hetPORT1, 20);
+//
+//        //if it is a rising edge, record the time (time1 = rising edge timestamp)
+//        if(pinStatus == 1) time1 = rtiREG1->CNT[1].FRCx;    //TODO: change to freeRTOS register
+//        //if(pinStatus == 1) time1 = portRTI_CNT0_FRC0_REG;
+//
+//        // else it is a falling edge
+//        else
+//        {
+//            // time2 = falling edge timestamp
+//            time2 = rtiREG1->CNT[1].FRCx;   //TODO: change to freeRTOS register
+//            //time2 = portRTI_CNT0_FRC0_REG;
+//
+//            // if there is no overflow for time 1 (rising edge)
+//            //last_time1 is the last rising edge, time_1 is latest rising edge
+//            if(last_time1 <= time1)
+//            {
+//                // free running counter is one tick every 10MHz
+//                period = ((float)time1 - (float)last_time1)/FREQ_RUNNING_COUNTER;
+//                frequency = 1/period;
+//
+//                // checks if there is overflow for time2 (falling edge)
+//                // if no overflow
+//                if(time1 <= time2) time_on = ((float)time2 - (float)time1)/FREQ_RUNNING_COUNTER;
+//
+//                else
+//                // overflow occurred in time2
+//                {
+//                    time_on = ((float)time2 + (UINT32_MAX_-(float)time1))/FREQ_RUNNING_COUNTER;
+//                }
+//
+//                duty_cycle = (time_on/period);
+//                last_time1=time1;
+//            }
+//
+//            else // there is an overflow
+//            {
+//                // overflow occurred in time_1
+//                period = ((float)time1 + (UINT32_MAX_-(float)last_time1))/FREQ_RUNNING_COUNTER;
+//                frequency = 1/period;
+//
+//
+//                // if time2 is still ahead of time1
+//                if(time1 <= time2) time_on = ((float)time2 - (float)time1)/FREQ_RUNNING_COUNTER;
+//
+//                // handles if time_2 overflowed and time1 did not
+//                // we are already in the else statement where time1 overflowed so:
+//                // THIS SHOULD NEVER HAPPEN *something probably went wrong*
+//                else
+//                {
+//                    // some error occurred, should trigger an undefined fault
+//                    time_on = ((float)time2 + (UINT32_MAX_-(float)time1))/FREQ_RUNNING_COUNTER;
+//                }
+//
+//                duty_cycle = (time_on/period);
+//                last_time1=time1;
+//            }
+//        }
+//    }
+//}
+
+//TODO: verify if this functions works to read PWM values
+//void readPWMValues(hetRAMBASE_t *hetRAM, uint32 pwm) {
+//    hetSIGNAL_t pwmSignal; // Struct to hold PWM signal values
+//
+//    // Retrieve the signal details of the specified PWM channel
+//    pwmGetSignal(hetRAM, pwm, &pwmSignal);
+//
+//    // Convert signal parameters
+//    float frequency = pwmSignal.period > 0 ? (1.0 / (pwmSignal.period / FREQ_RUNNING_COUNTER)) : 0;
+//    float dutyCycle = pwmSignal.period > 0 ? ((float)pwmSignal.duty / pwmSignal.period) * 100.0 : 0;
+//
+//    // Round and store values
+//    freq_value = (unsigned int)(frequency + 0.5);
+//    duty_value = (unsigned int)(dutyCycle + 0.5);
+//
+//    // Update IMD states using existing functions
+//    updateIMDState(freq_value, duty_value);
+//    updateIsolationState(duty_value);
+//
+//    //Send data over serial for debugging or logging
+//    serialSendData();
+//}
+//=======
+//void edgeNotification(hetBASE_t * hetREG,uint32 edge)
+//{
+//
+//    // if rising edge
+//    if(hetREG == hetREG1 && edge == 0)
+//    {
+//        //LED on board
+//        gioToggleBit(gioPORTB,2);
+//
+//        // pinStatus indicates if it is a rising or falling edge
+//        uint32 pinStatus = gioGetBit(hetPORT1, 9);
+//
+//        //if it is a rising edge, record the time (time1 = rising edge timestamp)
+//        if(pinStatus == 1) {
+//            time1 = rtiREG1->CNT[1].FRCx;    //TODO: change to freeRTOS register
+//        }
+//        //if(pinStatus == 1) time1 = portRTI_CNT0_FRC0_REG;
+//
+//        // else it is a falling edge
+//        else
+//        {
+//            // time2 = falling edge timestamp
+//            time2 = rtiREG1->CNT[1].FRCx;   //TODO: change to freeRTOS register
+//            //time2 = portRTI_CNT0_FRC0_REG;
+//
+//            // if there is no overflow for time 1 (rising edge)
+//            //last_time1 is the last rising edge, time_1 is latest rising edge
+//            if(last_time1 <= time1)
+//            {
+//                // free running counter is one tick every 10MHz
+//                period = ((float)time1 - (float)last_time1)/FREQ_RUNNING_COUNTER;
+//                frequency = 1/period;
+//
+//                // checks if there is overflow for time2 (falling edge)
+//                // if no overflow
+//                if(time1 <= time2) time_on = ((float)time2 - (float)time1)/FREQ_RUNNING_COUNTER;
+//
+//                else
+//                // overflow occurred in time2
+//                {
+//                    time_on = ((float)time2 + (UINT32_MAX_-(float)time1))/FREQ_RUNNING_COUNTER;
+//                }
+//
+//                duty_cycle = (time_on/period);
+//                last_time1=time1;
+//            }
+//
+//            else // there is an overflow
+//            {
+//                // overflow occurred in time_1
+//                period = ((float)time1 + (UINT32_MAX_-(float)last_time1))/FREQ_RUNNING_COUNTER;
+//                frequency = 1/period;
+//
+//
+//                // if time2 is still ahead of time1
+//                if(time1 <= time2) time_on = ((float)time2 - (float)time1)/FREQ_RUNNING_COUNTER;
+//
+//                // handles if time_2 overflowed and time1 did not
+//                // we are already in the else statement where time1 overflowed so:
+//                // THIS SHOULD NEVER HAPPEN *something probably went wrong*
+//                else
+//                {
+//                    // some error occurred, should trigger an undefined fault
+//                    time_on = ((float)time2 + (UINT32_MAX_-(float)time1))/FREQ_RUNNING_COUNTER;
+//                }
+//
+//                duty_cycle = (time_on/period);
+//                last_time1=time1;
+//            }
+//        }
+//    }
+//}
+//

@@ -500,9 +500,9 @@ typedef struct eqep_config_reg
 								   | (uint16)((uint16)0U << 1U)))   
 #define EQEP2_QPOSINIT_CONFIGVALUE ((uint32)0x00000000U)
 #define EQEP2_QPOSMAX_CONFIGVALUE ((uint32)0x00000000U)
-#define EQEP2_QPOSCMP_CONFIGVALUE ((uint32)0U)
-#define EQEP2_QUPRD_CONFIGVALUE ((uint32) 0U)
-#define EQEP2_QWDPRD_CONFIGVALUE ((uint16) 0U)
+#define EQEP2_QPOSCMP_CONFIGVALUE ((uint32)0x00000000U)
+#define EQEP2_QUPRD_CONFIGVALUE ((uint32) 0x00000000U)
+#define EQEP2_QWDPRD_CONFIGVALUE ((uint16) 0x0000U)
 #define EQEP2_QDECCTL_CONFIGVALUE ((uint16)((uint16)((uint16)eQEP_DIRECTION_COUNT << 14U)\
 								   | (uint16)((uint16)0U << 13U)\
 								   | (uint16)((uint16)eQEP_INDEX_PIN << 12U)\
@@ -533,7 +533,7 @@ typedef struct eqep_config_reg
 #define EQEP2_QPOSCTL_CONFIGVALUE ((uint16)((uint16)((uint16)0U << 15U)\
 								   | (uint16)((uint16)eQEP_QPOSCNT_EQ_QPSCMP << 14U)\
 								   | (uint16)((uint16)eQEP_ACTIVE_HIGH << 13U)\
-								   | (uint16)((uint16)0U)\
+								   | (uint16)((uint16)0x000U)\
 								   | (uint16)0x0000U))
 					   
 #define EQEP2_QEINT_CONFIGVALUE ((uint16)((uint16)((uint16)0U << 11U)\

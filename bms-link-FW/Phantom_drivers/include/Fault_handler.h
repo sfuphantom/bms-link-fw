@@ -32,12 +32,13 @@ enum Gio_Bits { GIO_DEGUBING_BIT1        = 2,
 //#define (sizeof(Gio_Bits)/sizeof(Gio_Bits[1]))
 typedef enum{GIO_LOW, GIO_HIGH, GIO_FALLING_EGDE, GIO_RISING_EGDE} Gio_State_t;
 //--------------------------------------------------------------------------
-struct FaultsData_t{
-        bool  IMD_Faults;
+typedef struct{
+        uint8_t  IMD_Faults;
+        uint8_t  IsolationFaults;
         uint16_t Slave_Faults;
         uint8_t  BMS_Faults;
         uint8_t Charger_Faults;
-};
+}BMSFaultsData_t;
 //--------------------------------------------------------------------------
 
 
@@ -45,7 +46,7 @@ Gio_State_t gioGetBitHelper(const uint8_t bit);
 Gio_State_t gioSetBitHelper(const uint8_t bit, const Gio_State_t NewState);
 Gio_State_t gioToggleBitHelper(const uint8_t bit);
 //--------------------------------------------------------------------------
-typedef enum {BAD_Temp_HIGH, BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL, BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND, BAD_SLAVE_CONNECTION_FLAG}Slave_Faults;
+typedef enum {BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL, BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND, BAD_SLAVE_CONNECTION_FLAG}Slave_Faults;
 typedef enum {BAD_CURRENT_FLAG}BMS_Faults;
 //----------------------------------------------------------------------------------------------------
  void SetAllSlaveFaults(const uint16_t NewSlaveFaults);
@@ -70,8 +71,10 @@ bool clearOtherBMSFaults();
 bool clear_AllFault();
 void init_BMS_Faults();
 //--------------------------------------------------------------------------
+bool AnyFaults();
+//--------------------------------------------------------------------------
 
-struct FaultsData_t FaultsData;
+BMSFaultsData_t BMSFaultsData;
 
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_Fault_HANDLER_H_ */

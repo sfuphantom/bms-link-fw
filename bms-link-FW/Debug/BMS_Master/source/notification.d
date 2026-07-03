@@ -69,6 +69,8 @@ BMS_Master/source/notification.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ U
 BMS_Master/source/notification.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/mdio.h
 BMS_Master/source/notification.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/hw_mdio.h
 BMS_Master/source/notification.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/phy_dp83640.h
+BMS_Master/source/notification.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/BatteryData.h
+BMS_Master/source/notification.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_Hardware/SlaveCommunation_Hardware.h
 
 ../BMS_Master/source/notification.c: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/esm.h: 
@@ -139,3 +141,5 @@ C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phant
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/mdio.h: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/hw_mdio.h: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/phy_dp83640.h: 
+C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/BatteryData.h: 
+C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_Hardware/SlaveCommunation_Hardware.h: 

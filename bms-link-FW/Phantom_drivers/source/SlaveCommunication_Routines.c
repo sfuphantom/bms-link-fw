@@ -2,17 +2,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "ltc6811_commands.h"
+//#include "ltc6811_commands.h"
+#include "spi_drivers.h"
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Functions.h"
 #include "SlaveCommunation_Hardware.h"
 #include "SlaveCommunication_Routines.h"
+
+#include "Phantom_Can.h"
 
 #include "PhantomHelpers.h"
 
 #include "BatteryData.h"
 #include "Charger.h"
 #include "Fault_handler.h"
+#include "Fans.h"
 
 
 //struct BatteryData_struct SlaveData;
@@ -140,7 +144,13 @@
          SetSlaveFault_bool_HIGH(BAD_REF2ND);
      }
      if(flag_Temp){
-         SetSlaveFault_bool_HIGH(BAD_Temp_HIGH);
+         const hetSIGNAL_t signal = {100,40};
+         SetAllFansSignal(signal);
+         StartAllFans();
+     }
+     else{
+         StopAllFans();
+
      }
      return true;
  }
@@ -222,7 +232,13 @@
 #if !USE_ANILOG_GPIO
      const bool flag_Temp = !ReadConfig_gpio_allZero();
      if(flag_Temp){
-         SetSlaveFault_bool_HIGH(BAD_Temp_HIGH);
+         const hetSIGNAL_t signal = {100,40};
+         SetAllFansSignal(signal);
+         StartAllFans();
+     }
+     else{
+         StopAllFans();
+
      }
  #endif
 
@@ -270,11 +286,22 @@
 //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
      MeasureCellVoltageSubRoutine();
 
+     uint16_t Avg_Volt_16 = GetAvgCellVolt();
+
+
+     bool can_vaild = transmit_BMS2VCU_BatteryVoltage(Avg_Volt_16);
+
 //     SlaveData.TotalSumVolt = array16_sum(SlaveData.CellVolt, NUMBER_OF_CELLS);
 //     SlaveData.Avg_SOC = array16_avg(SlaveData.CellVolt, NUMBER_OF_CELLS);
 
      if(GetChargingStatus()){
          BalanceCellsSubRoutine();
+
+         const float avg_SOC = GetAvgCellSOC();
+         const float max_SOC = GetMaxCellSOC();
+
+         bool vaild = CalcNewCurrentSetting(avg_SOC, max_SOC);
+
 
          // TODO: Get AVG_SOC (maybe MAX_SOC too) and use that to change charger current
      }

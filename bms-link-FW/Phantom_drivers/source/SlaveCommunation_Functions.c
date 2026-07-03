@@ -11,6 +11,7 @@
 #include "string.h"
 #include "ltc6811_commands.h"
 #include "SlaveCommunation_Hardware.h"
+#include "spi_drivers.h"
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Functions.h"
 #include "PhantomHelpers.h"

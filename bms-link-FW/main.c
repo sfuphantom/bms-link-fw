@@ -85,32 +85,44 @@
 
 #include "BatteryData.h"
 #include "BMS_Tasks.h"
+#include "Fault_handler.h"
 
 #include "rti.h"
+#include "het.h"
+#include "ecap.h"
+#include "reg_ecap.h" //for ecapREG2 in capGetSignal call
+#include "etpwm.h"
+#include "can.h"
+#include "reg_can.h"
+
 
 void main(void)
 {
-/* USER CODE BEGIN (3) */
+
     init_BMS_system();
+//    hetInit();
+//    enableAllInterrupts();
+//
+//    ecapInit();
+//    ecapStartCounter(ecapREG6);
+//    ecapEnableCapture(ecapREG6);
 
 
-    int i=0;
+
 
     float VoltCells[NUMBER_OF_CELLS];
 //    float VoltGPIO[NUMBER_OF_GPIOS];
 
     float AvgCellVolt_f, AvgCellSoC, MinCellVolt_f;
-    uint16_t AvgCellVolt_16;
+    hetSIGNAL_t signal;
+    int i=0;
 
-    SetChargingStatus(TRUE);
+//    StartAllFans();
+//    SetAllFansDuty(50);
+
+    char T[] = "12345678";
+    char R[8];
     while(1){
-
-//        delay_ms_us(1,0);
-//        ToggleCS();
-
-//        if(rtiTimerExpired(0, 1, 0)){
-//            ToggleCS();
-//        }
 
         uint32_t tic = timer_tic_tick();
         CellVoltageControlRoutine();
@@ -123,29 +135,38 @@ void main(void)
         tic = timer_tic_tick();
         SlaveFlagsRoutine();
         uint32_t toc_F = timer_toc_us(tic);
-
-
-//        CellVoltageControlTask();
-//#if USE_ANILOG_GPIO
-//        MonitorCellTempTask();
-//#endif
-//        SlaveFlagsCheckTasks();
-
-//        TaskSuperLoop(SlaveComunationSubTask, 3, keepAwake);
-
+////
+////
+//////        CellVoltageControlTask();
+//////#if USE_ANILOG_GPIO
+//////        MonitorCellTempTask();
+//////#endif
+//////        SlaveFlagsCheckTasks();
+////
+////
         Slave_ADC2Volt_arr(GetCellVoltReadPrt(), VoltCells, NUMBER_OF_CELLS);
-        AvgCellVolt_16 = GetAvgCellVolt();
         AvgCellVolt_f = GetAvgCellVolt_float();
         MinCellVolt_f = GetMinCellVolt_float();
 
         AvgCellSoC = GetAvgCellSOC();
 
-        if(i<1){
-            i=0;
-            initLink();
-            initBatteryData();
+
+
+
+        if(AnyFaults()){
+            init_BMS_system();
         }
-        else
-            i++;
+
+
+//        if(i<1){
+//            i=0;
+//            initLink();
+//            initBatteryData();
+//        }
+//        else
+//            i++;
+
+
+
     }
 }

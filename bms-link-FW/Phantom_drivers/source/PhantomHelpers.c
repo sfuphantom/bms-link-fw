@@ -238,7 +238,7 @@ boolean rtiTimerExpired(const uint32 id, const uint32 ms, const uint32 us)
 }
 
 uint32_t getNow_tick(){
-    const uint32_t now = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
+    const uint32_t now = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;;
     return now;
 }
 uint32_t getNow_us(){
@@ -257,6 +257,14 @@ uint32_t timer_toc_us(const uint32_t tic){
 }
 
 
+
+//----------------------------------------------------------------------------------------
+//uint32_t divCeil_u32(uint32_t num,  uint32_t dem){
+//    return (num-dem+1)/dem;
+//}
+//uint32_t Bit2Bytes_Ceil(uint32_t Bits){
+//    return divCeil_u32(Bits,8);
+//}
 
 //----------------------------------------------------------------------------------------
 

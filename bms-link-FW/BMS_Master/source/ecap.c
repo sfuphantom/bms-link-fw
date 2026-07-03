@@ -269,10 +269,10 @@ void ecapInit(void)
     */
     ecapREG6->ECCTL1 = ((uint16)((uint16)RISING_EDGE << 0U)        /* Capture Event 1 Polarity */
                       | (uint16)((uint16)RESET_DISABLE << 1U)   /* Counter Reset on Capture Event 1 */
-                      | (uint16)((uint16)RISING_EDGE << 2U)        /* Capture Event 2 Polarity */
+                      | (uint16)((uint16)FALLING_EDGE << 2U)        /* Capture Event 2 Polarity */
                       | (uint16)((uint16)RESET_DISABLE << 3U)   /* Counter Reset on Capture Event 2 */
                       | (uint16)((uint16)RISING_EDGE << 4U)        /* Capture Event 3 Polarity */
-                      | (uint16)((uint16)RESET_DISABLE << 5U)   /* Counter Reset on Capture Event 3 */
+                      | (uint16)((uint16)RESET_ENABLE << 5U)   /* Counter Reset on Capture Event 3 */
                       | (uint16)((uint16)RISING_EDGE << 6U)        /* Capture Event 4 Polarity */
                       | (uint16)((uint16)RESET_DISABLE << 7U)   /* Counter Reset on Capture Event 4 */
                       | (uint16)((uint16)0U << 8U)            /* Enable/Disable loading on a capture event */
@@ -283,17 +283,17 @@ void ecapInit(void)
     *     - Set operating mode
     *     - Set Stop/Wrap after capture
     */
-    ecapREG6->ECCTL2 = (uint16)((uint16)ONE_SHOT << 0U)        /* Capture Mode */
-                     | (uint16)((uint16)CAPTURE_EVENT1 << 1U)       /* Stop/Wrap value */
+    ecapREG6->ECCTL2 = (uint16)((uint16)CONTINUOUS << 0U)        /* Capture Mode */
+                     | (uint16)((uint16)CAPTURE_EVENT3 << 1U)       /* Stop/Wrap value */
                      | (uint16)((uint16)0U << 9U)      /* Enable/Disable APWM mode */
                      | (uint16)0x00000010U;      /* Start counter */
     
     
 
     /** - Set interrupt enable */
-     ecapREG6->ECEINT = 0x0000U    /* Enable/Disable Capture Event 1 Interrupt  */
-                      | 0x0000U    /* Enable/Disable Capture Event 2 Interrupt  */
-                      | 0x0000U    /* Enable/Disable Capture Event 3 Interrupt  */
+     ecapREG6->ECEINT = 0x0002U    /* Enable/Disable Capture Event 1 Interrupt  */
+                      | 0x0004U    /* Enable/Disable Capture Event 2 Interrupt  */
+                      | 0x0008U    /* Enable/Disable Capture Event 3 Interrupt  */
                       | 0x0000U    /* Enable/Disable Capture Event 4 Interrupt  */
                       | 0x0000U    /* Enable/Disable counter Overflow Interrupt */
                       | 0x0000U    /* Enable/Disable Period Equal Interrupt     */
@@ -971,6 +971,41 @@ void ecap6GetConfigValue(ecap_config_reg_t *config_reg, config_value_type_t type
 	}
 }
 
+/** @fn void ecap6Interrupt(void)
+*   @brief eCAP2 Interrupt Handler
+*
+*   Interrupt handler for eCAP2 interrupt 
+*
+*/
+#pragma CODE_STATE(ecap6Interrupt, 32)
+#pragma INTERRUPT(ecap6Interrupt, IRQ)
+
+/* SourceId : ECAP_SourceId_037 */
+/* DesignId : ECAP_DesignId_021 */
+/* Requirements : HL_ECAP_SR15 */
+void ecap6Interrupt(void)
+{
+    uint16 Int_Flag = ecapREG6->ECFLG & ecapREG6->ECEINT;
+
+/* USER CODE BEGIN (12) */
+/* USER CODE END */
+
+    /* Clear Events, */
+    /* Note : Current Implementation clears multiple all events set
+       before this point, User notification function is called with Flags and user must take care of handling */    
+    ecapREG6->ECCLR = Int_Flag;
+    
+    /* Clears the interrupt flag and enables further interrupts to be generated
+       if an event flags is set to 1. */
+    ecapREG6->ECCLR = 1U;
+    
+    /* Passing the Interrupt Flag to the user Notification Function */
+    ecapNotification(ecapREG6,Int_Flag);
+
+/* USER CODE BEGIN (13) */
+/* USER CODE END */
+
+}
 
 
 /*end of file*/

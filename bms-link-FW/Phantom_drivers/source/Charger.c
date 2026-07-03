@@ -8,155 +8,250 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <math.h>
 #include "Charger.h"
-#include "charger_can.h"
+//#include "charger_can.h"
 #include "can.h"
+#include "Phantom_Can.h"
+
 #include "PhantomHelpers.h"
 
+#include "BatteryData.h"
 
-bool isCharging(){
-    return ChargerData.ChargerState == CHARGING;
-}
-void StartCharging(){
-    ChargerData.ChargerState = CHARGING;
-}
-void DoneCharging(){
-    ChargerData.ChargerState = DONE_CHARGING;
-}
-void ResetCharging(){
-    ChargerData.ChargerState = NOT_CHARGING;
-}
 
-ChargerState_t CheckChargerState(const bool start_charging){
-    //TODO: check rising edge of gpio pin or cans
-
-    ChargerState_t NewChargerStart;
-    const ChargerState_t currentChargerState = ChargerData.ChargerState;
-
-    switch (currentChargerState){
-    case NOT_CHARGING   : NewChargerStart = start_charging ? Start_CHARGING : NOT_CHARGING; break;
-    case Start_CHARGING : NewChargerStart = start_charging ? Start_CHARGING : NOT_CHARGING; break;
-    case CHARGING       : NewChargerStart = start_charging ? CHARGING       : NOT_CHARGING; break;
-    case DONE_CHARGING  : NewChargerStart = start_charging ? DONE_CHARGING  : NOT_CHARGING; break;
-    case CHARGER_FALUT  : NewChargerStart = start_charging ? CHARGER_FALUT  : NOT_CHARGING; break;
-    default             : NewChargerStart = start_charging ? currentChargerState  : NOT_CHARGING; break;
-    }
-
-    return NewChargerStart;
-
-}
 //----------------------------------------------------------------------------------------------------
-bool sendCmd2ChargerWraper(){
-    ChargerCmd_t ChargerDateWrite;
+static uint32 Charger_SendCmd(const ChargerCmd_t *cmd){
+    uint8 data[BMS2CHARGER_DATA_MSG_LEN_BYTES] = {0};
 
+    uint16 v = swap_word_bytes(cmd->max_voltage_dV);
+    uint16 i = swap_word_bytes(cmd->max_current_dA);
 
-    if(ChargerData.ChargerState == Start_CHARGING || ChargerData.ChargerState == CHARGING){
-        ChargerDateWrite.charge_enable = ChargerData.enable;
-        ChargerDateWrite.max_voltage_dV = ChargerData.TargetChargerVoltage;
-        ChargerDateWrite.max_current_dA = ChargerData.TargetChargerCurrent;
+    memcpy(&data[0], &v, 2);
+    memcpy(&data[2], &i, 2);
+    data[4] = cmd->charge_enable ? 1 : 0;
+
+    return transmit_BMS2CHARGER_DATA(data);
+}
+static uint32 Charger_GetStatus(ChargerStatus_t *status){
+    uint8 data[BMS2CHARGER_DATA_MSG_LEN_BYTES];
+    uint16 v, i;
+
+    uint32_t return_val = receive_CHARGER2BMS_DATA(data);
+
+    if (return_val == 0U) return 0U;
+
+    memcpy(&v, &data[0], 2);
+    memcpy(&i, &data[2], 2);
+
+    status->output_voltage_dV = swap_word_bytes(v);
+    status->output_current_dA = swap_word_bytes(i);
+    status->status_flags = data[4];
+
+    return return_val;
+}
+
+static bool sendCmd2ChargerWraper(){
+//    ChargerCmd_t *ChargerDateWrite = &ChargerData.ChargerTargetData;
+
+    if(ChargerData.ChargerState == Start_CHARGING){
 
         ChargerData.ChargerState = CHARGING;
     }
-    else{
-        ChargerDateWrite.charge_enable = false;
-        ChargerDateWrite.max_voltage_dV = 0;
-        ChargerDateWrite.max_current_dA = 0;
-
-        ChargerData.TargetChargerCurrent = 0;
-        ChargerData.TargetChargerVoltage = 0;
-        ChargerData.enable = false;
+    else if (ChargerData.ChargerState != CHARGING){
+        ChargerDateWrite->charge_enable = false;
+        ChargerDateWrite->max_voltage_dV = 0;
+        ChargerDateWrite->max_current_dA = 0;
     }
 
-    (void)Charger_SendCmd(&ChargerDateWrite);
-
-
-    return true;
+    return Charger_SendCmd(ChargerDateWrite);
 }
-void GetChargerStateWraper(){
-    ChargerStatus_t ChargerDateRead;
-    (void)Charger_GetStatus(&ChargerDateRead);
-
-    ChargerData.OutputChargerVoltage = ChargerDateRead.output_voltage_dV;
-    ChargerData.OutputChargerCurrent = ChargerDateRead.output_current_dA;
-    ChargerData.status = ChargerDateRead.status_flags;
+static bool GetChargerStatusWraper(){
+//    ChargerStatus_t *ChargerDateRead = &ChargerData.ChargerStateData;
+    return Charger_GetStatus(ChargerDateRead);
 }
-//----------------------------------------------------------------------------------------------------
-
-uint16_t GetChargerFaluts();
-void SetChargerFaluts(const uint16_t Faluts);
 //----------------------------------------------------------------------------------------------------
 // TODO: use cans to talk with chager
 uint16_t GetChargerTargetVoltage(){
-    return ChargerData.TargetChargerVoltage;
+    return ChargerDateWrite->max_voltage_dV;
 }
 uint16_t GetChargerTargetCurrent(){
-    return ChargerData.TargetChargerCurrent;
+    return ChargerDateWrite->max_current_dA;
 }
 uint16_t GetChargerOutputVoltage(){
-    return ChargerData.OutputChargerVoltage;
+    return ChargerDateRead->output_voltage_dV;
 }
 uint16_t GetChargerOutputCurrent(){
-    return ChargerData.OutputChargerCurrent;
+    return ChargerDateRead->output_current_dA;
 }
-uint16_t GetChargerStatus(){
-    return ChargerData.status;
+bool isChargerEnabled(){
+    return ChargerDateWrite->charge_enable;
+}
+uint8_t GetChargerStatus(){
+    return ChargerDateRead->status_flags;
 }
 //----------------------------------------------------------------------------------------------------
-
 bool changeChargeState(const uint16_t Volt, const uint16_t current, const bool enable){
-    ChargerData.TargetChargerVoltage = Volt;
-    ChargerData.TargetChargerCurrent = current;
-    ChargerData.enable = enable;
+    ChargerDateWrite->max_voltage_dV = Volt;
+    ChargerDateWrite->max_current_dA = current;
+    ChargerDateWrite->charge_enable  = enable;
+
     return sendCmd2ChargerWraper();
 }
 bool SetChargerVoltage(const uint16_t Volt){
-    ChargerData.TargetChargerVoltage = Volt;
+    ChargerDateWrite->max_voltage_dV = Volt;
     return sendCmd2ChargerWraper();
 }
 bool SetChargerCurrent(const uint16_t current){
-    ChargerData.TargetChargerCurrent = current;
+    ChargerDateWrite->max_current_dA = current;
     return sendCmd2ChargerWraper();
 }
+bool SetChargerLimits(const uint16_t Volt, const uint16_t current){
+    ChargerDateWrite->max_voltage_dV = Volt;
+    ChargerDateWrite->max_current_dA = current;
 
-
+    return sendCmd2ChargerWraper();
+}
 bool TurnChargerOn(){
-    ChargerData.enable = true;
+    ChargerDateWrite->charge_enable = true;
     return sendCmd2ChargerWraper();
 }
 bool TurnChargerOff(){
-    ChargerData.enable = false;
+    ChargerDateWrite->charge_enable = false;
     return sendCmd2ChargerWraper();
 }
 //----------------------------------------------------------------------------------------------------
-uint16_t CalcNewCurrentSetting(const float SOC){
-    //TODO: get better equtaion
-    if(MAX_OVERSHOOT_CURRENT_PERCENTAGE > SOC){
-        return MAX_CHARGER_CURRENT_AMPS;
+bool isCharging(){
+    return ChargerData.ChargerState == CHARGING;
+}
+bool isChargingDone(){
+    return ChargerData.ChargerState == DONE_CHARGING;
+}
+ChargerState_t GetChargingState(){
+    return ChargerData.ChargerState;
+}
+bool StartCharging(){
+    ChargerData.ChargerState = Start_CHARGING;
+    return sendCmd2ChargerWraper();
+}
+bool DoneCharging(){
+    ChargerData.ChargerState = DONE_CHARGING;
+    return sendCmd2ChargerWraper();
+}
+bool StopCharging(){
+    ChargerData.ChargerState = NOT_CHARGING;
+    return sendCmd2ChargerWraper();
+}
+bool ShutDownCharger_Fault(){
+    ChargerData.ChargerState = CHARGER_FALUT;
+
+    ChargerDateWrite->max_voltage_dV = 0;
+    ChargerDateWrite->max_current_dA = 0;
+    ChargerDateWrite->charge_enable  = false;
+
+    return sendCmd2ChargerWraper();
+}
+
+ChargerState_t CheckNewChargerState(const bool start_charging){
+    //TODO: check rising edge of gpio pin or cans
+    if(ChargerData.ChargerState == CHARGER_FALUT){
+        return CHARGER_FALUT;
     }
-    if(100 - MAX_OVERSHOOT_CURRENT_PERCENTAGE < SOC){
-        return OFF_CHARGER_CURRENT_AMPS;
+    if(!start_charging){
+        ChargerData.ChargerState = NOT_CHARGING;
+        return ChargerData.ChargerState;
+    }
+    switch (ChargerData.ChargerState){
+        case NOT_CHARGING   : ChargerData.ChargerState = Start_CHARGING;  break;
+        case Start_CHARGING : ChargerData.ChargerState = Start_CHARGING;  break;
+        case CHARGING       : break;
+        case DONE_CHARGING  : break;
+        case CHARGER_FALUT  : break;
+        default             : break;
     }
 
-    float NewCurrent_f = (-SOC + 100)/100 * CHARGER_CURRENT_AMPS_RANGE + MIN_CHARGER_CURRENT_AMPS;
-    uint16_t NewCurrent_16 = (uint16_t)NewCurrent_f;
-    return NewCurrent_16;
+    return ChargerData.ChargerState;
+}
+bool ChangeNewChargerState(const bool start_charging){
+    //TODO: check rising edge of gpio pin or cans
+
+    if(ChargerData.ChargerState == CHARGER_FALUT){    }
+    else if(!start_charging){
+        ChargerData.ChargerState = NOT_CHARGING;
+    }
+    else{
+        switch (ChargerData.ChargerState){
+            case NOT_CHARGING   : ChargerData.ChargerState = Start_CHARGING;  break;
+            case Start_CHARGING : ChargerData.ChargerState = Start_CHARGING;  break;
+            case CHARGING       : break;
+            case DONE_CHARGING  : break;
+            case CHARGER_FALUT  : break;
+            default             : break;
+        }
+    }
+
+    return sendCmd2ChargerWraper();
 }
 //----------------------------------------------------------------------------------------------------
-struct ChargerData_t* GetChargerDataPrt(){
+
+bool CalcNewCurrentSetting(const float avg_SOC, const float max_SOC){
+    //TODO: get better equtaion
+    uint16_t NewCurrent_16;
+
+    if(avg_SOC < CELL_CHARGING_SOC_TARGET_TOLORENCES_PERCENTAGE){
+        NewCurrent_16 =  MAX_CHARGER_CURRENT_AMPS;
+    }
+    else if(avg_SOC > MAX_CELL_CHARGING_PERCENTAGE - CELL_CHARGING_SOC_TARGET_TOLORENCES_PERCENTAGE){
+        NewCurrent_16 =  OFF_CHARGER_CURRENT_AMPS;
+    }
+    else if(max_SOC > MAX_CELL_SOC_OVERSHOOT_PERENTAGE){
+        NewCurrent_16 =  OFF_CHARGER_CURRENT_AMPS;
+    }
+    else{
+
+        #define EQ 0
+
+        #if EQ == 0
+            const float NewCurrent_percentage = 1.0 - avg_SOC;
+        #endif
+        #if EQ == 1
+            const float scale = 1
+            const float NewCurrent_percentage = expf(-avg_SOC*scale);
+        #endif
+        #if EQ == 2
+            const float scale = 1
+            const float NewCurrent_percentage = logf(1-avg_SOC)/scale+1;
+        #endif
+        #if EQ == 3
+            const float shift = 0.5;
+            const float scale = 1
+            const float NewCurrent_percentage = 1/(1+expf(-scale*(avg_SOC-shift)));
+        #endif
+        #if EQ == 4
+            const float scale = 1
+            const float NewCurrent_percentage1 = logf(1-avg_SOC)/scale+1;
+            const float NewCurrent_percentage2 = 1-expf(scale*(avg_SOC-1));
+            const float NewCurrent_percentage = fmaxf(NewCurrent_percentage1, NewCurrent_percentage2);
+        #endif
+
+        const float NewCurrent_f = NewCurrent_percentage * CHARGER_CURRENT_AMPS_RANGE + MIN_CHARGER_CURRENT_AMPS;
+
+        NewCurrent_16 = (uint16_t)NewCurrent_f;
+    }
+
+    return SetChargerCurrent(NewCurrent_16);
+//    return NewCurrent_16;
+}
+//----------------------------------------------------------------------------------------------------
+ChargerData_t* GetChargerDataPrt(){
     return &ChargerData;
 }
 void initCharger(){
-    ChargerData.ChargerState = CHARGING;
-    ChargerData.EstimateTimeDone = 0;
-    ChargerData.OutputChargerCurrent=0;
-    ChargerData.OutputChargerVoltage=0;
-    ChargerData.TargetChargerCurrent=0;
-    ChargerData.TargetChargerVoltage=0;
-    ChargerData.enable=true;
-    ChargerData.status=0;
+    ChargerData.ChargerState = NOT_CHARGING;
+    sendCmd2ChargerWraper();
+//    GetChargerStatusWraper();
 
 }
 //----------------------------------------------------------------------------------------------------
-
-ChargerCmd_t ChargerDateWrite;
-ChargerCmd_t ChargerDateRead;
+void CHARGER2BMS_DATA_FullRoutine(){
+    GetChargerStatusWraper();
+}
