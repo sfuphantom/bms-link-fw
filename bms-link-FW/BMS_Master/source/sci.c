@@ -110,7 +110,7 @@ void sciInit(void)
                  | (uint32)((uint32)0U << 1U); /* rx pin */
 
     /** - set SCI pins output direction */
-    sciREG->PIO1 = (uint32)((uint32)0U << 2U)  /* tx pin */
+    sciREG->PIO1 = (uint32)((uint32)1U << 2U)  /* tx pin */
                  | (uint32)((uint32)0U << 1U); /* rx pin */
 
     /** - set SCI pins open drain enable */
@@ -130,7 +130,7 @@ void sciInit(void)
                       | (uint32)((uint32)0U << 25U)  /* Overrun error */
                       | (uint32)((uint32)0U << 24U)  /* Parity error */
                       | (uint32)((uint32)0U << 9U)  /* Receive */
-                      | (uint32)((uint32)0U << 8U)  /* Transmit */
+                      | (uint32)((uint32)1U << 8U)  /* Transmit */
                       | (uint32)((uint32)0U << 1U)  /* Wakeup */
                       | (uint32)((uint32)0U << 0U);  /* Break detect */
 

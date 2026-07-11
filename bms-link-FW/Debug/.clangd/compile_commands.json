@@ -1,7 +1,332 @@
 [
    {
-      "directory" : "C:/Phantom/bms-link/bms-link-fw/bms-link-FW/Debug",
-      "command"   : "clang++ -I\"C:/Phantom/bms-link/bms-link-fw/bms-link-FW\" -I\"C:/ti/ccs2020/ccs/tools/compiler/include\" -xc",
-      "file"      : "C:/Phantom/bms-link/bms-link-fw/bms-link-FW/main.c"
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/Device_TMS570LS12.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/Fapi_UserDefinedFunctions.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/adc.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\"",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ajsm.asm"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/can.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/charger_can.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/crc.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\"",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/dabort.asm"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/dcc.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ecap.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/emac.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/eqep.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/errata_SSWF021_45.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/esm.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/etpwm.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/gio.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/het.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/i2c.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/lin.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/mdio.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/mibspi.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/notification.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/phy_dp83640.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/pinmux.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/rti.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sci.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/spi.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\"",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sys_core.asm"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sys_dma.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\"",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sys_intvecs.asm"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\"",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sys_mpu.asm"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sys_pcr.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sys_phantom.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sys_pmm.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\"",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sys_pmu.asm"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sys_selftest.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sys_startup.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/sys_vim.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/system.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_Info.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_cancel.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_cfg.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_eraseimmediateblock.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_format.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_ini.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_invalidateblock.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_main.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_read.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_readSync.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_shutdown.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_util.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_writeAsync.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/ti_fee_writeSync.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source/vcu_can.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source/BMS_Tasks.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source/BatteryData.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source/Charger.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source/Fault_handler.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source/PhantomHelpers.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source/SlaveCommunation_Functions.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source/SlaveCommunication_Drivers.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source/SlaveCommunication_Routines.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source/SlaveCommunication_Services_additions.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/main.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source/UART_Comms.c"
+   },
+   {
+      "directory" : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Debug",
+      "command"   : "clang++ -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/source\" -I\"C:/ti/Hercules/F021 Flash API/02.01.01/include\" -I\"C:/ti/ti-cgt-arm_18.12.4.LTS/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/BMS_Master/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/include\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Test\" -I\"C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_Hardware\" -xc",
+      "file"      : "C:/src/TeamPhantom/bms-link-fw-merge/bms-link-fw/bms-link-FW/Phantom_drivers/source/ADC_CurntTrans.c"
    }
 ]

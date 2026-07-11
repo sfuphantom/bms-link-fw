@@ -74,7 +74,6 @@
 /* USER CODE END */
 
 /* Include Files */
-
 #include "sys_common.h"
 #include "system.h"
 
@@ -87,11 +86,15 @@
 #include "BMS_Tasks.h"
 
 #include "rti.h"
+#include "UART_Comms.h"
 
 void main(void)
 {
 /* USER CODE BEGIN (3) */
+    _enable_IRQ();
     init_BMS_system();
+    sciInit();
+    
 
 
     int i=0;
@@ -139,6 +142,8 @@ void main(void)
         MinCellVolt_f = GetMinCellVolt_float();
 
         AvgCellSoC = GetAvgCellSOC();
+        SCI_SendCellVoltages();
+        SCI_SendFaultsAndWarnings();
 
         if(i<1){
             i=0;

@@ -8,8 +8,8 @@
 #ifndef PHANTOM_DRIVERS_INCLUDE_Fault_HANDLER_H_
 #define PHANTOM_DRIVERS_INCLUDE_Fault_HANDLER_H_
 
-#include "gio.h"
 #include "reg_gio.h"
+#include "gio.h"
 
 //--------------------------------------------------------------------------
 #define GIO_PORT_A gioPORTA
