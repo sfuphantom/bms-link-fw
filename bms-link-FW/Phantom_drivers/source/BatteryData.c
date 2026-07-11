@@ -38,16 +38,16 @@ void Slave_ADC2Volt_arr(const uint16_t* ADC_Words, float* Volts, const uint16_t 
         Volts[i] = Slave_ADC2Volt(ADC_Words[i]);
 }
 
-inline uint16_t BatteryCurrent2Voltage_16(const uint16_t current){
-    const uint16_t voltage = current;
-    return voltage;
-}
-inline uint16_t BatteryCurrent2Voltage_f(const uint16_t current){
-    const uint16_t voltage_16 = BatteryCurrent2Voltage_16(current);
-    const uint16_t voltage_f = voltage_16;
-
-    return voltage_f;
-}
+//inline uint16_t BatteryCurrent2Voltage_16(const uint16_t current){
+//    const uint16_t voltage = current;
+//    return voltage;
+//}
+//inline uint16_t BatteryCurrent2Voltage_f(const uint16_t current){
+//    const uint16_t voltage_16 = BatteryCurrent2Voltage_16(current);
+//    const uint16_t voltage_f = voltage_16;
+//
+//    return voltage_f;
+//}
 inline float CellVolts2SoC(const uint16_t CellVolt){
     const uint16_t CellVolt_offset = CellVolt - CELL_VOLT_0_FULL;
     const float CellSOC = CellVolt_offset /(CELL_SOC_RANGE) * 100;
@@ -83,21 +83,21 @@ inline bool GetChargingStatus(){
      return BatteryData.RefVolt2nd;
  }
  //----------------------------------------------------------------------------------------------------
-  inline void SetBatteryCurrentVal(const uint16_t ADC_Val){
-      BatteryData.current = ADC_Val;
-  }
-  inline uint16_t GetBatteryCurrentVal(){
-      return BatteryData.current ;
-  }
-  inline uint16_t GetBatteryCurrentVal_f(){
-      return GetBatteryCurrentVal();
-  }
-  inline uint16_t GetBatteryVoltVal_16(){
-      return BatteryCurrent2Voltage_16(BatteryData.current);
-  }
-  inline float GetBatteryVoltVal_f(){
-      return BatteryCurrent2Voltage_f(BatteryData.current);
-  }
+//  inline void SetBatteryCurrentVal(const uint16_t ADC_Val){
+//      BatteryData.current = ADC_Val;
+//  }
+//  inline uint16_t GetBatteryCurrentVal(){
+//      return BatteryData.current ;
+//  }
+//  inline uint16_t GetBatteryCurrentVal_f(){
+//      return GetBatteryCurrentVal();
+//  }
+//  inline uint16_t GetBatteryVoltVal_16(){
+//      return BatteryCurrent2Voltage_16(BatteryData.current);
+//  }
+//  inline float GetBatteryVoltVal_f(){
+//      return BatteryCurrent2Voltage_f(BatteryData.current);
+//  }
 //----------------------------------------------------------------------------------------------------
 //void getCellResistance(float* Resistance){
 //    int i;
@@ -150,7 +150,16 @@ inline bool GetChargingStatus(){
       const float minSOC        = CellVolts2SoC(minVolts);
       return minSOC;
   }
-
+  //----------------------------------------------------------------------------------------------------
+uint16_t Get_HV_Voltage(){
+    return BatteryData.HV_Voltage;
+}
+void Set_HV_Voltage(const uint16_t Volt){
+    BatteryData.HV_Voltage = Volt;
+}
+float GetBatterySOC(){
+    return (float)((Get_HV_Voltage()-200)/200);
+}
   //----------------------------------------------------------------------------------------------------
   bool GetCellsUnbalanceState(const uint16_t avg, const uint16_t min){
       static bool Balance_Hysteresis = FALSE;
@@ -286,5 +295,7 @@ BMSState_t getBMS_State(){
       memset(BatteryData.CellVolt     , 0, NUMBER_OF_CELLS  *sizeof (uint16_t));
       memset(BatteryData.RefVolt2nd   , 0, NUMBER_OF_REF_2ND*sizeof (uint16_t));
 
-      BatteryData.current = 0;
+      BatteryData.HV_Voltage = 0;
+
+//      BatteryData.HV_Voltage = 0;
   }

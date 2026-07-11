@@ -63,7 +63,6 @@ void init_PEC15_Table(){
      }
      return remainder<<1;//The CRC15 has a 0 in the LSB so the final value must be multiplied by 2
  }
-
  uint16_t calc_cmd_pec15(const uint16_t cmd){
 //     uint8_t cmd8[2] = {cmd>>8,cmd};
      return pec15_calc(1, &cmd);
@@ -300,6 +299,8 @@ void init_PEC15_Table(){
      uint16 *data_Rx = NULL;
 
      uint16_t ReadOneReg[WORDS_PER_REG_GROUP];
+     uint16_t ReadOneReg_Swap[WORDS_PER_REG_GROUP];
+
 
 
      setCS(LOW, CS_PIN_ID);
@@ -319,15 +320,17 @@ void init_PEC15_Table(){
              data_Rx[j] = ReadOneReg[j];
 #endif
 
-         Rx_Pec_Calc = pec15_calc(WORDS_PER_REG_GROUP, ReadOneReg);
+         swap_word_bytes_arr(ReadOneReg, ReadOneReg_Swap, WORDS_PER_REG_GROUP);
+
+         Rx_Pec_Calc = pec15_calc(WORDS_PER_REG_GROUP, ReadOneReg_Swap);
          Pec_Equal &= (Rx_Pec_Mesg == Rx_Pec_Calc);
-         if(false){//TODO: should be if(!Pec_Equal), however PEC_Equal is alway false idk
-             break;
+         if(false /*!Pec_Equal*/){//TODO: should be if(!Pec_Equal), however PEC_Equal is alway false idk
+             break;//return TRUE;
          }
      }
 
      setCS(HIGH, CS_PIN_ID);
-     return TRUE;//TODO should return Pec_Equal, however PEC_Equal is alway false idk
+     return TRUE; //TODO should return Pec_Equal, however PEC_Equal is alway false idk
  }
  bool ReadRegGroup(const uint16_t cmd, uint16_t *data){
      bool Pec_Eq;

@@ -39,6 +39,7 @@ main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/
 main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_etpwm.h
 main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/can.h
 main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_can.h
+main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/Fans.h
 
 ../main.c: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/sys_common.h: 
@@ -79,3 +80,4 @@ C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phant
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_etpwm.h: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/can.h: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_can.h: 
+C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/Fans.h: 

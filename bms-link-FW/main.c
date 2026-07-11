@@ -89,11 +89,13 @@
 
 #include "rti.h"
 #include "het.h"
+#include "reg_het.h"
 #include "ecap.h"
 #include "reg_ecap.h" //for ecapREG2 in capGetSignal call
 #include "etpwm.h"
 #include "can.h"
 #include "reg_can.h"
+#include "Fans.h"
 
 
 void main(void)
@@ -101,28 +103,163 @@ void main(void)
 
     init_BMS_system();
 //    hetInit();
+//    gioSetDirection(hetPORT1, 1U<<GIO_START_CHARGING_BIT);
+
+    hetREG1->DIR &= ~(1 << GIO_START_CHARGING_BIT);
+    hetREG1->DIR &= ~(1 << GIO_DEGUBING_BIT1);
+    hetREG1->DIR |=  (1 << GIO_BMS_FAULT_BIT);
+
+    hetREG1->PULDIS &= ~(1 << GIO_START_CHARGING_BIT);  // enable pull
+    hetREG1->PULDIS &= ~(1 << GIO_DEGUBING_BIT1);  // enable pull
+    hetREG1->PULDIS &= ~(1 << GIO_BMS_FAULT_BIT);  // enable pull
+
+    hetREG1->PSL    &= ~(1 << GIO_START_CHARGING_BIT);  // pull-down (0), pick based on your circuit
+    hetREG1->PSL    &= ~(1 << GIO_DEGUBING_BIT1);  // pull-down (0), pick based on your circuit
+    hetREG1->PSL    |=  (1 << GIO_BMS_FAULT_BIT);  // pull-up (1) or
+
+    gioSetBitHelper(GIO_BMS_FAULT_BIT, GIO_HIGH);
+    init_BMS_Faults();
+
+
+    const hetSIGNAL_t signal = {0, 40};
+    pwmSetSignal(FAN_HET_RAM, 0, signal);
+    pwmSetSignal(FAN_HET_RAM, 3, signal);
+    pwmStart(FAN_HET_RAM, 0);
+    pwmStart(FAN_HET_RAM, 3);
+
+
+
+//    hetREG1->PSL    &= ~(1 << GIO_BMS_FAULT_BIT);  // pull-down (0), pick based on your circuit
+
+
+
+//    gioSetDirection(hetPORT1, 1U<<GIO_START_CHARGING_BIT);
+//    gioSetDirection(hetPORT1, 1U<<GIO_START_CHARGING_BIT);
+//    gioSetDirection(hetPORT1, 1U<<GIO_START_CHARGING_BIT);
+
 //    enableAllInterrupts();
-//
+////
 //    ecapInit();
 //    ecapStartCounter(ecapREG6);
 //    ecapEnableCapture(ecapREG6);
-
-
+//    ecapREG6->ECCTL1 |=1<<8U;
+//    ecapREG6->ECCTL1 |=3<<14U;
 
 
     float VoltCells[NUMBER_OF_CELLS];
-//    float VoltGPIO[NUMBER_OF_GPIOS];
+    float VoltGPIO[NUMBER_OF_GPIOS];
 
     float AvgCellVolt_f, AvgCellSoC, MinCellVolt_f;
-    hetSIGNAL_t signal;
-    int i=0;
+//    hetSIGNAL_t signal;
+//    int i=0;
 
 //    StartAllFans();
 //    SetAllFansDuty(50);
 
-    char T[] = "12345678";
-    char R[8];
+//    char T[] = "12345678";
+//    char R[8];
+//    Gio_State_t T1, G1 , G2, G3;
+
+    #define S_ARRAY_SIZE 20
+    uint32_t Start_Array = 0;
+    uint32_t Start_Array_Mask = (1U<<S_ARRAY_SIZE)-1;
+    bool FansOn = FALSE;
+    bool ChangeFanStatue = FALSE;
+    Gio_State_t GIO_Start_Level = GIO_HIGH;
+    Gio_State_t DEBUG_FAULT_LEVEL = GIO_HIGH;
+
+
+//    hetSIGNAL_t signal = {100, 40};
+//    SetAllFansSignal(signal);
+
+//    StartAllFans();
+//    int x=0;
+//    int jump = 10;
+//    while(1){
+//        for(x=0; x<100; x+=jump){
+//            SetAllFansDuty(x);
+//        }
+//    }
+//    int i=0;
     while(1){
+
+
+//        DEBUG_FAULT_LEVEL = (Gio_State_t)((hetREG1->DIN >> GIO_DEGUBING_BIT1) & 1);//gioGetBitHelper(GIO_START_CHARGING_BIT);
+//        if(DEBUG_FAULT_LEVEL == GIO_LOW){
+//            SetBMSFault_bool_HIGH(DEBUG_FLAG);
+//
+//        }
+//
+////        if(i&1){
+////            gioSetBitHelper(GIO_BMS_FAULT_BIT, GIO_HIGH);
+////        }
+////        else {
+////            gioSetBitHelper(GIO_BMS_FAULT_BIT, GIO_LOW);
+////        }
+////        i++;
+//
+//        if(!rtiTimerExpired(0, 50, 0)){
+//            continue;
+//        }
+//        GIO_Start_Level = (Gio_State_t)((hetREG1->DIN >> GIO_START_CHARGING_BIT) & 1);//gioGetBitHelper(GIO_START_CHARGING_BIT);
+//
+//        Start_Array <<= 1;
+//        Start_Array |= (uint32_t)(GIO_Start_Level == GIO_HIGH);
+//        Start_Array &= Start_Array_Mask;
+//
+//        if(ChangeFanStatue && Start_Array == Start_Array_Mask && !AnyFaults()){
+////            StartAllFans();
+//
+//            ChangeFanStatue = FALSE;
+//
+//            FansOn = !FansOn;
+//            if(FansOn){
+//                pwmSetDuty(FAN_HET_RAM, 0, 95);
+//                pwmSetDuty(FAN_HET_RAM, 3, 95);
+//            }
+//            else {
+//                pwmSetDuty(FAN_HET_RAM, 0, 5);
+//                pwmSetDuty(FAN_HET_RAM, 3, 5);
+//            }
+//
+////            SetAllFansDuty(50);
+//        }
+//        else if(!ChangeFanStatue && Start_Array == 0 && !AnyFaults()){
+////            StopAllFans();
+//
+//            ChangeFanStatue = TRUE;
+//
+////            SetAllFansDuty(0);
+//        }
+//
+//
+//        if(AnyFaults()){
+//            pwmSetDuty(FAN_HET_RAM, 0, 5);
+//            pwmSetDuty(FAN_HET_RAM, 3, 5);
+////            init_BMS_Faults();
+//        }
+
+
+
+
+//                        GIO_DEGUBING_BIT1        = 2,
+//
+//                        GIO_IMD_FAULT_BIT        = 6,
+//                        GIO_BMS_FAULT_BIT        = 7,
+//
+//                        GIO_START_CHARGING_BIT   = 8,
+
+//        gioToggleBitHelper(GIO_BMS_FAULT_BIT);
+//
+//        G1 = gioGetBitHelper(GIO_DEGUBING_BIT1);
+//        G2 = gioGetBitHelper(GIO_IMD_FAULT_BIT);
+
+
+
+
+
+
+//        HV_Data_Routine();
 
         uint32_t tic = timer_tic_tick();
         CellVoltageControlRoutine();

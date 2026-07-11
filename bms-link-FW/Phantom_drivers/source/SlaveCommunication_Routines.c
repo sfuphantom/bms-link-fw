@@ -289,7 +289,6 @@
      uint16_t Avg_Volt_16 = GetAvgCellVolt();
 
 
-     bool can_vaild = transmit_BMS2VCU_BatteryVoltage(Avg_Volt_16);
 
 //     SlaveData.TotalSumVolt = array16_sum(SlaveData.CellVolt, NUMBER_OF_CELLS);
 //     SlaveData.Avg_SOC = array16_avg(SlaveData.CellVolt, NUMBER_OF_CELLS);

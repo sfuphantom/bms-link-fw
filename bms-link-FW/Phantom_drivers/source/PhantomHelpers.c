@@ -207,7 +207,7 @@ void rtiTimerStart(const uint8_t id)
     rti_timer_valid[id] = true;
 }
 
-boolean rtiTimerExpired(const uint32 id, const uint32 ms, const uint32 us)
+bool rtiTimerExpired(const uint32_t id, const uint32_t ms, const uint32_t us)
 {
     if (id >= RTI_MAX_TIMERS) return false;
 
@@ -268,7 +268,7 @@ uint32_t timer_toc_us(const uint32_t tic){
 
 //----------------------------------------------------------------------------------------
 
-uint16 round16(uint16_t input, uint8_t bit2Round){
+uint16_t round16(uint16_t input, uint8_t bit2Round){
     if (bit2Round == 0) return input;
 
     uint16_t half = (uint16_t)(1 << (bit2Round - 1));
@@ -442,3 +442,4 @@ void initArray8(uint8_t* arr, const uint8_t val, uint8_t len){
         arr[i] = val;
     }
 }
+

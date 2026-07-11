@@ -25,8 +25,8 @@
 // IMD State Enum
 // message names are taken from IMD Datasheet
 typedef enum{
-    Short_Circuit,
     Normal_Condition,
+    Short_Circuit,
     Undervoltage_Condition,
     Speed_Start_Measurement_Good, // related to start-up
     Speed_Start_Measurement_Bad, // related to start-up
@@ -54,9 +54,9 @@ typedef struct{
 }IMDData_t;
 
 typedef struct {
-    float duty;
-    float freq;
-    uint32_t resistance;
+    uint8_t duty;
+    uint8_t freq;
+//    uint32_t resistance;
 }ecapIMDData_t;
 /*
 -------------------------------------------------------
@@ -113,7 +113,7 @@ IMDData_t getIMDData();
 * to calculate the resistance in Ohms
 * Returns: IMD Resistance in Ohms
 * */
-float getIMDResistance();
+uint32_t getIMDResistance();
 
 //To be tested: to record PWM(edgeNotificatin currently doesn't work)
 //void readPWMValues(hetRAMBASE_t *hetRAM, uint32 pwm);

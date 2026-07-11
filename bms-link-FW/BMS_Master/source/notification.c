@@ -267,18 +267,6 @@ void edgeNotification(hetBASE_t * hetREG,uint32 edge)
 /*  enter user code between the USER CODE BEGIN and USER CODE END. */
 /* USER CODE BEGIN (37) */
 
-    hetSIGNAL_t signal;
-
-    capGetSignal(hetRAM1, cap0, &signal);
-
-    const uint32_t period_us = signal.period;
-    const float freq = 1.0f/signal.period * 1000000;
-    const uint32_t duty = signal.duty;
-
-
-//        printf("Duty = %fns\n", duty);
-//        printf("Period = %fns\n\n", period);
-
     //see what is wrong in helcogen, I should not need these functions
 /* USER CODE END */
 }

@@ -3,6 +3,8 @@
 *   @date 21-May-2020
 * */
 #include "IMD.h"
+#include "Fault_handler.h"
+
 #define SERIAL_SEND
 
 // Global Variables
@@ -34,7 +36,7 @@ void initalizeIMD(){
 
     ecapIMDData.duty        = 0;
     ecapIMDData.freq        = 0;
-    ecapIMDData.resistance  = 0;
+//    ecapIMDData.resistance  = 0;
   /*  
     hetInit();    //Initialized in phantomSystemInit()
 //    gioInit();    //Initialized in phantomSystemInit()
@@ -241,7 +243,7 @@ IMDData_t getIMDData(){
 //   return IMD_resistance;
 //}
 
-uint32 getIMDResistanceLocal_uint(float64 duty_val){//same as above, just without global variable, outputs uint
+uint32 CalcIMDResistance(float64 duty_val){//same as above, just without global variable, outputs uint
     // Equation from data sheet correlating duty cycle with resistance
    float IMD_resistance = 90.0*1200.0/(duty_val*100.0 - 5.0)-1200.0;
    uint32 IMD_R_Uint;
@@ -254,11 +256,11 @@ uint32 getIMDResistanceLocal_uint(float64 duty_val){//same as above, just withou
 }
 //---------------------------------------------------------------------------------------------------------
 
-void ecapResetCAP(ecapBASE_t * ecap){
-    ecap->CAP1=0;
-    ecap->CAP2=0;
-    ecap->CAP3=0;
-    ecap->CAP4=0;
+//uint32_t getIMDResistance(){
+//    return ecapIMDData.resistance;
+//}
+void Sendfault_IMD(){
+    SetIMDFaults(IMDData.IMDState, IMDData.IsolationState);
 }
 
 //---------------------------------------------------------------------------------------------------------
@@ -280,14 +282,20 @@ void ecapNotification(ecapBASE_t *ecap, uint16 flags)
     //leave the function, the reading are invaded and it would cause the program to go to dabort if you don't
 
     const uint32_t period_scale = (C3 - C1);
-    const float freq_scale      = 1/period_scale;
-    ecapIMDData.duty            = freq_scale * (C2 - C1);
-    ecapIMDData.freq            = freq_scale * ecap_sec2counts;
+    const float freq_scale      = 1.0f/period_scale;
+    const float duty            = freq_scale * (C2 - C1);
+    const float freq            = freq_scale * ecap_sec2counts;
 
-    updateIMDDataLocal(ecapIMDData.freq, ecapIMDData.duty);
+    updateIMDDataLocal(freq, duty);
 //    updateIMDData()
 
-    ecapIMDData.resistance  = getIMDResistanceLocal_uint(ecapIMDData.duty);
+//    ecapIMDData.resistance  = CalcIMDResistance(duty);
+
+    ecapIMDData.duty = (duty * 2);
+    ecapIMDData.freq = (freq);
+
+    Sendfault_IMD();
+
 
     //see what is wrong in helcogen, I should not need these functions
 //    ecapResetCAP(ecap);

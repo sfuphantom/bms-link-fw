@@ -81,7 +81,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="BMS_Master/source/charger_can.c|BMS_Master/source/vcu_can.c|BMS_Master/source/sys_main.c|BMS_Master/source/sys_link.cmd" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Phantom_drivers/source/BMS_VCU_Communication.c|Phantom_drivers/source/HV_Data.c|BMS_Master/source/charger_can.c|BMS_Master/source/vcu_can.c|BMS_Master/source/sys_main.c|BMS_Master/source/sys_link.cmd" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

@@ -22,16 +22,16 @@ typedef enum {  nibble  = 4 ,
                 dWord   = 32,
                 qWord   = 64 } dataType;
 // -----------------------------------------
-#define MINUS1(Bits) ((1U<<(Bits))-1)
+#define MINUS1(Bits)         ((1U<<(Bits))-1)
 
-#define Bit2Bytes_Ceil(Bits) (((Bits-7)/8)+1)
+#define Bit2Bytes_Ceil(Bits) (((Bits-1)>>3)+1)
 
 #define sizeof_arr(arr) (sizeof(arr)/sizeof(arr[0]))
 // -----------------------------------------
 
 void delay_ms_us(const uint32_t ms, const uint32_t us);
-boolean rtiTimerExpired(const uint32 id, const uint32 ms, const uint32 us);
-uint32_t getNow_tick();
+bool rtiTimerExpired(const uint32_t id, const uint32_t ms, const uint32_t us);
+uint32 getNow_tick();
 uint32_t getNow_us();
 uint32_t getNow_ms();
 uint32_t timer_tic_tick();
@@ -47,7 +47,7 @@ void words2bytes_arr(const uint16_t *words, uint8_t *bytes, uint16_t NumberOfWor
 uint16_t swap_word_bytes(const uint16_t input);
 void     swap_word_bytes_arr(const uint16_t *input, uint16_t *output, uint16_t len);
 // -----------------------------------------
-uint16 round16(const uint16_t word, uint8_t bit2Round);
+uint16_t round16(const uint16_t word, uint8_t bit2Round);
 
 //uint32_t divCeil_u32(uint32_t num,  uint32_t dem);
 //uint32_t Bit2Bytes_Ceil(uint32_t Bits);
@@ -58,6 +58,7 @@ uint16_t array16_min(const uint16_t* arr, uint8_t len);
 uint16_t array16_max(const uint16_t* arr, uint8_t len);
 uint32_t array16_sum(const uint16_t* arr, uint8_t len);
 uint32_t array16_avg(const uint16_t* arr, uint8_t len);
+// -----------------------------------------
 
 bool array8_eq_all(const uint8_t* arr1, const uint8_t* arr2, uint8_t len);
 bool array16_eq_all(const uint16_t* arr1, const uint16_t* arr2, uint8_t len);

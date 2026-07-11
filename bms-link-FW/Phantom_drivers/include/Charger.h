@@ -35,11 +35,11 @@
 //----------------------------------------------------------------------------------------------------
 typedef enum {NOT_CHARGING, Start_CHARGING, CHARGING, DONE_CHARGING, CHARGER_FALUT} ChargerState_t;
 //----------------------------------------------------------------------------------------------------
-typedef struct {
-    uint16 max_voltage_dV;
-    uint16 max_current_dA;
-    bool charge_enable;
-} ChargerCmd_t;
+//typedef struct {
+//    uint16 max_voltage_dV;
+//    uint16 max_current_dA;
+//    bool charge_enable;
+//} ChargerCmd_t;
 
 typedef struct {
     uint16 output_voltage_dV;
@@ -51,7 +51,7 @@ typedef struct  {
   ChargerState_t ChargerState;
 
   ChargerStatus_t ChargerStatusData;
-  ChargerCmd_t   ChargerTargetData;
+  ChargerStatus_t ChargerTargetData;
 
 //  uint16_t TargetChargerCurrent;
 //  uint16_t TargetChargerVoltage;
@@ -74,6 +74,7 @@ bool ResetCharging();
 
 ChargerState_t CheckChargerState(const bool start_charging);
 //----------------------------------------------------------------------------------------------------
+
 bool sendCmd2ChargerWraper();
 bool GetChargerStatusWraper();
 //----------------------------------------------------------------------------------------------------
@@ -103,6 +104,6 @@ void initCharger();
 //----------------------------------------------------------------------------------------------------
 ChargerData_t ChargerData;
 static ChargerStatus_t* ChargerDateRead = &ChargerData.ChargerStatusData;
-static ChargerCmd_t*   ChargerDateWrite = &ChargerData.ChargerTargetData;
+static ChargerStatus_t*   ChargerDateWrite = &ChargerData.ChargerTargetData;
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_CHARGER_H_ */

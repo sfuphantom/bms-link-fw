@@ -61,6 +61,19 @@
      uint8_t Rx = REG_FOR_SPI->BUF;
      return Rx;
  }
+ uint16_t SPI_SR2Link_14Bit(const uint16_t Tx){
+//     const uint8_t waitCount = 0xFF;
+
+     REG_FOR_SPI->DAT1 =   SPI_CONFIG2_WORD | (uint32)(Tx);
+
+     int i=0;
+     while((REG_FOR_SPI->FLG & 0x00000100U) != 0x00000100U && i < SPI_WAIT_BYTE_FINISH_COUNT ){
+         i++;
+     } /* Wait */
+
+     uint16_t Rx = REG_FOR_SPI->BUF;
+     return Rx;
+ }
  uint64_t SPI_SR2Link_MultiBYTE(const uint64_t Tx_Full, const uint8_t Bytes){
       const uint8_t Bits = Bytes<<3;
 

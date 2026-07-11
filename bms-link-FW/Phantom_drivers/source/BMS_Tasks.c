@@ -40,8 +40,9 @@ void init_BMS_system(){
     spiInit();
     rtiInit();
     canInit();
+    gioInit();
     hetInit();
-//    ecapInit();
+    ecapInit();
 
     init_fans();
 

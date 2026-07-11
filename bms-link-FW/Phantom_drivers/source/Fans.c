@@ -17,7 +17,7 @@ void StopAllFans(){
 void StartAllFans(){
     int i;
     for(i=0;i<NUMBER_OF_FANS;i++){
-        pwmStop(FAN_HET_RAM, i);
+        pwmStart(FAN_HET_RAM, i);
     }
 }
 void SetAllFansDuty(const uint32_t duty){
@@ -34,9 +34,8 @@ void SetAllFansSignal(const hetSIGNAL_t signal){
 }
 
 void init_fans(){
-    hetInit();
     const hetSIGNAL_t signal = {0,0};
     SetAllFansSignal(signal);
-    StopAllFans();
+//    StopAllFans();
 }
 

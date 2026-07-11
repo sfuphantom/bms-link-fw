@@ -60,7 +60,8 @@
 //   uint16_t ReadCellVolt[NUMBER_OF_CELLS];
 
    uint16_t RefVolt2nd[NUMBER_OF_REF_2ND];
-   uint16_t current;
+//   uint16_t current;
+   uint16_t HV_Voltage;
  };
  //----------------------------------------------------------------------------------------------------
  inline uint16_t Slave_Volt2ADC(const float ADC_Volt);
@@ -77,7 +78,10 @@
   inline uint16_t* GetCellVoltWritePrt();
   inline uint16_t* GetCellTempWritePrt();
   inline uint16_t* GetRefVolt2ndWritePrt();
-
+  //----------------------------------------------------------------------------------------------------
+  uint16_t Get_HV_Voltage();
+  void Set_HV_Voltage(const uint16_t Volt);
+  float GetBatterySOC();
 //----------------------------------------------------------------------------------------------------
   void SetBatteryCurrentVal(const uint16_t ADC_Val);
   uint16_t GetBatteryCurrentVal();
