@@ -31,7 +31,7 @@
 //#define SPI_WAIT_BYTE_FINISH_COUNT 0xFF
 //
 //#define REG_FOR_SPI     spiREG3
-#define CS_PIN_ID       0x00U
+//#define CS_PIN_ID       0x00U
 //#define CS_PIN_MASK     (1U << CS_PIN_ID)//0xFEU//0b11111110 << Active low
 //#define CS_HOLD_MASK    0x10000000U
 //#define SPI_WDEL        FALSE
@@ -39,8 +39,6 @@
 //#define SPI_CONFIG0_WORD (((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_0 << 24U) | (uint32)CS_PIN_MASK<<16)
 //#define SPI_CONFIG1_WORD (((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_1 << 24U) | (uint32)CS_PIN_MASK<<16)
 /////////////////////////////////////////////////////////////////
-
-
 #define CELLS_PER_SLAVE_BOARD          12
 #define AUCILIARY_PER_SLAVE_BOARD       6
 #define CELL_IN_PARALLEL                5
@@ -65,7 +63,7 @@
 #define NUMBER_OF_STAT_WORDS        (NUMBER_OF_REG_WORDS_PER_CMD * NUMBER_OF_STAT_REG_GROUPS_PER_BOARD)
 ////////////////////////////////////////////////////////////////////
 #define ADC_MEASURE_MODE 2 //0=Fast, 1=Normal, 2=Filtered
-#define ADC_MEASURE_DISCHARGE_PERMITED TRUE
+#define ADC_MEASURE_DISCHARGE_PERMITED FALSE
 //////////////////////////////////////////////////////////////////
 // ADC specs
 #define ADC2MICRO_VOLTS                 100

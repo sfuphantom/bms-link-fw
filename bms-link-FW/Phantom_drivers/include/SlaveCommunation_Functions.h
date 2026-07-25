@@ -136,7 +136,9 @@ void initConfig();
 //---------------------------------------------------------------------------------------------------------
 void SendDummyCMD();
 void waitDummyCMD(const uint32_t WaitPeriod_ms, const uint32_t WaitPeriod_us, uint16_t WaitSends);
-
+//---------------------------------------------------------------------------------------------------------
+void initLink();
+void keepAwake();
 //---------------------------------------------------------------------------------------------------------
 struct ConfigReg ConfigRegWriteData[NUMBER_OF_SLAVE_BOARDS];
 //struct ConfigReg ConfigRegReadData[NUMBER_OF_SLAVE_BOARDS];

@@ -114,5 +114,4 @@ SUBDIRS := \
 . \
 BMS_Master/source \
 Phantom_drivers/source \
-Test \
 

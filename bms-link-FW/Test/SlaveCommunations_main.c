@@ -81,7 +81,7 @@
 /* USER CODE BEGIN (1) */
 //#include "spi.h"
 //#include "SlaveCommunication_Drivers.h"
-#include "SlaveCommunication_Routines.h"
+#include "BMS_Routines.h"
 #include "PhantomHelpers.h"
 
 #include "BatteryData.h"

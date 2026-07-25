@@ -27,15 +27,7 @@ typedef enum {  nibble  = 4 ,
 #define Bit2Bytes_Ceil(Bits) (((Bits-1)>>3)+1)
 
 #define sizeof_arr(arr) (sizeof(arr)/sizeof(arr[0]))
-// -----------------------------------------
 
-void delay_ms_us(const uint32_t ms, const uint32_t us);
-bool rtiTimerExpired(const uint32_t id, const uint32_t ms, const uint32_t us);
-uint32 getNow_tick();
-uint32_t getNow_us();
-uint32_t getNow_ms();
-uint32_t timer_tic_tick();
-uint32_t timer_toc_us(const uint32_t tic);
 // -----------------------------------------
 void word2byte(const uint16_t word, uint8_t *byteLow, uint8_t *byteHigh);
 uint16_t word2byte_BigEndian(const uint8_t byteLow, const uint8_t byteHigh);

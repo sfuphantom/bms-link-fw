@@ -7,12 +7,14 @@ Author: Tanjosh Sidhu
 #include <stdbool.h>
 #include <stdio.h>
 #include "string.h"
-#include "spi_drivers.h"
+#include "spi_helpers.h"
 
 //#include "spi.h"
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Hardware.h"
 #include "PhantomHelpers.h"
+#include "PhantomTimers.h"
+
 
 //spiDAT1_t *SPI_LinkConfigData;
 //spiBASE_t* REG_FOR_SPI = REG_FOR_SPI;
@@ -70,7 +72,7 @@ void init_PEC15_Table(){
 //---------------------------------------------------------------------------------------------------------
 //
 // void setCS(const CS_Level level){
-////     const uint32 CS_MaskPin = (1U << CS_PIN_ID);
+////     const uint32 CS_MaskPin = (1U << SLAVE_CS_PIN_ID);
 //     Current_CS_Level = level;
 //     if(level == LOW)
 //         REG_FOR_SPI->PC3 &= ~(uint32_t)CS_PIN_MASK;
@@ -161,18 +163,18 @@ void init_PEC15_Table(){
  void wakeup_idle(){ //Number of ICs in the system
      int i;
      for (i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
-         setCS(LOW, CS_PIN_ID);
+         setCS(LOW, SLAVE_CS_PIN_ID);
          SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE);
-         setCS(HIGH, CS_PIN_ID);
+         setCS(HIGH, SLAVE_CS_PIN_ID);
      }
  }
  void wakeup_sleep() {
-     setCS(LOW, CS_PIN_ID);
+     setCS(LOW, SLAVE_CS_PIN_ID);
      int i;
      for (i = 0; i < NUMBER_OF_SLAVE_BOARDS; i++) {
-         setCS(LOW, CS_PIN_ID);
+         setCS(LOW, SLAVE_CS_PIN_ID);
          delay_ms_us(0, 2*tWAKE_us);
-         setCS(HIGH, CS_PIN_ID);
+         setCS(HIGH, SLAVE_CS_PIN_ID);
          delay_ms_us(0, 10);
      }
  }
@@ -207,13 +209,15 @@ void init_PEC15_Table(){
       return Rx_pec;
   }
 
- uint32 SendCmdAndPec2Slave(uint16_t cmd){
+ void SendCmdAndPec2Slave(const uint16_t cmd){
      uint16_t cmd_pec = calc_cmd_pec15(cmd);
 
-     uint16_t Rx_cmd = SPI_SR2Link_WORD(cmd);
-     uint16_t Rx_pec = SPI_SR2Link_WORD(cmd_pec);
-     uint32_t FullCmdRx = (uint32_t)Rx_cmd<<16 | (uint32_t)Rx_pec;
-     return FullCmdRx;
+     (void)SPI_SR2Link_WORD(cmd);
+     (void)SPI_SR2Link_WORD(cmd_pec);
+//     uint16_t Rx_cmd = SPI_SR2Link_WORD(cmd);
+//     uint16_t Rx_pec = SPI_SR2Link_WORD(cmd_pec);
+//     uint32_t FullCmdRx = (uint32_t)Rx_cmd<<16 | (uint32_t)Rx_pec;
+//     return FullCmdRx;
  }
 #if CUSTOM_POLL_WAIT
 // uint32_t pollAndWait(const uint32_t wait_periods_us){
@@ -241,7 +245,7 @@ void init_PEC15_Table(){
       SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
 
       for(PollsWaited=1; PollsWaited < MAX_POLLS_TIMEOUT; PollsWaited++){
-          status = SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE) & 0x0001;
+          status = SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE) & 0x0001;
           if(status){
               return PollsWaited;
           }
@@ -253,29 +257,29 @@ void init_PEC15_Table(){
 #endif
  //---------------------------------------------------------------------------------------------------------
  void SendCMD2Slave_alone(const uint16_t cmd){
-     setCS(LOW, CS_PIN_ID);
+     setCS(LOW, SLAVE_CS_PIN_ID);
      SendCmdAndPec2Slave(cmd);
-     setCS(HIGH, CS_PIN_ID);
+     setCS(HIGH, SLAVE_CS_PIN_ID);
  }
 #if CUSTOM_POLL_WAIT
  uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd, const uint32_t wait_periods_us){
-      setCS(LOW, CS_PIN_ID);
+      setCS(LOW, SLAVE_CS_PIN_ID);
 
       SendCmdAndPec2Slave(cmd);
       uint32_t PollsWaited = pollAndWait(wait_periods_us);
 
-      setCS(HIGH, CS_PIN_ID);
+      setCS(HIGH, SLAVE_CS_PIN_ID);
 
       return PollsWaited;
   }
 #else
  uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd){
-     setCS(LOW, CS_PIN_ID);
+     setCS(LOW, SLAVE_CS_PIN_ID);
 
      SendCmdAndPec2Slave(cmd);
      uint32_t PollsWaited = pollAndWait();
 
-     setCS(HIGH, CS_PIN_ID);
+     setCS(HIGH, SLAVE_CS_PIN_ID);
 
      return PollsWaited;
  }
@@ -303,9 +307,9 @@ void init_PEC15_Table(){
 
 
 
-     setCS(LOW, CS_PIN_ID);
+     setCS(LOW, SLAVE_CS_PIN_ID);
 
-     (void)SendCmdAndPec2Slave(cmd);
+     SendCmdAndPec2Slave(cmd);
 
      for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
          data_Rx = data + i*WORDS_PER_REG_GROUP;
@@ -325,12 +329,12 @@ void init_PEC15_Table(){
          Rx_Pec_Calc = pec15_calc(WORDS_PER_REG_GROUP, ReadOneReg_Swap);
          Pec_Equal &= (Rx_Pec_Mesg == Rx_Pec_Calc);
          if(false /*!Pec_Equal*/){//TODO: should be if(!Pec_Equal), however PEC_Equal is alway false idk
-             break;//return TRUE;
+             break;
          }
      }
 
-     setCS(HIGH, CS_PIN_ID);
-     return TRUE; //TODO should return Pec_Equal, however PEC_Equal is alway false idk
+     setCS(HIGH, SLAVE_CS_PIN_ID);
+     return TRUE; //Pec_Equal; //TODO should return Pec_Equal, however PEC_Equal is alway false idk
  }
  bool ReadRegGroup(const uint16_t cmd, uint16_t *data){
      bool Pec_Eq;
@@ -347,15 +351,15 @@ void init_PEC15_Table(){
  void WriteRegGroup(const uint16_t cmd, const uint16_t *data){
       int i;
       uint8_t idx;
-      setCS(LOW, CS_PIN_ID);
-      uint32_t cmdRx = SendCmdAndPec2Slave(cmd);
+      setCS(LOW, SLAVE_CS_PIN_ID);
+      SendCmdAndPec2Slave(cmd);
 
       for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
           idx = NUMBER_OF_REG_WORDS_PER_CMD - (i+1)*WORDS_PER_REG_GROUP;
 
           Write_Data(&data[idx], WORDS_PER_REG_GROUP);
       }
-          setCS(HIGH, CS_PIN_ID);
+          setCS(HIGH, SLAVE_CS_PIN_ID);
  }
  bool WriteThenReadRegGroup(const uint16_t W_cmd, const uint16_t R_cmd, const uint16_t *W_data){
       bool RW_EQ;

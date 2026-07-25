@@ -16,14 +16,23 @@
 
 //#include "sys_common.h"
 #include "system.h"
-
-#include "SlaveCommunication_Routines.h"
+#include "SlaveCommunation_Functions.h"
+#include "BMS_Routines.h"
 #include "BatteryData.h"
 #include "Charger.h"
+
 #include "PhantomHelpers.h"
+#include "PhantomTimers.h"
+
 #include "Fault_handler.h"
 #include "BMS_Tasks.h"
 #include "Fans.h"
+#include "spi_helpers.h"
+#include "HV_data.h"
+#include "sci.h"
+#include "gio.h"
+
+
 
 //----------------------------------------------------------------------------------------------------
 void enableAllInterrupts(){
@@ -38,11 +47,15 @@ void init_BMS_system(){
     enableAllInterrupts();
 
     spiInit();
-    rtiInit();
     canInit();
     gioInit();
     hetInit();
     ecapInit();
+    sciInit();
+
+
+    rtiInit();
+    rtiStartCounter(rtiCOUNTER_BLOCK0);
 
     init_fans();
 
@@ -55,38 +68,68 @@ void init_BMS_system(){
 }
 //----------------------------------------------------------------------------------------------------
 void DoNothing(){
-
+    //Nothing
+}
+bool returnTrue(){
+    return TRUE;
 }
 //----------------------------------------------------------------------------------------------------
-void TaskSuperLoop(struct Task_t AllTasks[], uint8_t NumOfTasks, void (*ElseFunction)(void)){
+//void TaskSuperLoop(struct Task_t AllTasks[], uint8_t NumOfTasks, void (*ElseFunction)(void)){
+//    int i;
+//    uint32_t now = getNow_us();
+//    struct Task_t currentTask;
+//
+//    for(i=0; i<NumOfTasks; i++){
+//        currentTask = AllTasks[i];
+//        if(now - currentTask.LastDone > currentTask.Period){
+//            currentTask.RoutineFunction();
+//            currentTask.LastDone = now;
+//        }
+//        else{
+//            ElseFunction();
+//        }
+//    }
+//}
+
+void TaskSuperLoop(Task_t AllTasks[], uint8_t NumOfTasks){
     int i;
-    uint32_t now = getNow_us();
-    struct Task_t currentTask;
+    uint32_t now = 0;
+    Task_t currentTask;
 
     for(i=0; i<NumOfTasks; i++){
         currentTask = AllTasks[i];
+
+        if(currentTask.AllowFunction()){
+            continue;
+        }
+
+        now = getNow_us();
         if(now - currentTask.LastDone > currentTask.Period){
-            currentTask.RoutineFunction();
             currentTask.LastDone = now;
+            currentTask.RoutineFunction();
         }
         else{
-            ElseFunction();
+            currentTask.TimeFailFunction();
         }
     }
 }
 //----------------------------------------------------------------------------------------------------
-struct Task_t SlaveComunationSubTask[] =    {
-                                             {CellVoltageControlRoutine,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0},
-                                             {MonitorCellTempRoutine,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0},
-                                             {SlaveFlagsRoutine,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0},
-                                            };
-void SlaveComunation_Task(){
-    TaskSuperLoop(SlaveComunationSubTask, 3, keepAwake);
+Task_t SlaveComunationSubTask[] =   {
+//                                     {CellVoltageControlRoutine ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0, keepAwake, SPI_busy},
+//                                     {MonitorCellTempRoutine    ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0, keepAwake, SPI_busy},
+//                                     {SlaveFlagsRoutine         ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0, keepAwake, SPI_busy},
+                                     {HV_DataRoutine            ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0, DoNothing, SPI_busy}
+                                    };
+
+const uint8_t NUMBER_OF_TASKS = sizeof(SlaveComunationSubTask)/sizeof(Task_t);
+
+void Do_BMS_Tasks(){
+    TaskSuperLoop(SlaveComunationSubTask, NUMBER_OF_TASKS);
 }
 
-struct Task_t AllTask[] =   {
-                               {SlaveComunation_Task,0,0},
-                            };
+//struct Task_t AllTask[] =   {
+//                               {SlaveComunation_Task,0,0},
+//                            };
 
 //----------------------------------------------------------------------------------------------------
 

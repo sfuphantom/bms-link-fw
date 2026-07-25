@@ -5,16 +5,19 @@
  *      Author: tanjo
  */
 
-#include "spi.h"
+
 #include <stdint.h>
 #include <stdbool.h>
 #include "string.h"
 #include "ltc6811_commands.h"
 #include "SlaveCommunation_Hardware.h"
-#include "spi_drivers.h"
+#include "spi.h"
+#include "spi_helpers.h"
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Functions.h"
 #include "PhantomHelpers.h"
+#include "PhantomTimers.h"
+
 //---------------------------------------------------------------------------------------------------------
 struct StatusReg* GetStatusRegData(){
     return StatusRegData;
@@ -529,7 +532,7 @@ bool SetAllPWM_Regs(uint8_t nibble){
 //---------------------------------------------------------------------------------------------------------
 
  void initConfig(){
-     const bool     adcopt  = TRUE;
+     const bool     adcopt  = FALSE;
      const bool     DTEN    = TRUE;
      const bool     refon   = TRUE;
      const uint8_t  gpio    = 0b00000;
@@ -562,4 +565,19 @@ void waitDummyCMD(const uint32_t WaitPeriod_ms, const uint32_t WaitPeriod_us, ui
         SendCMD2Slave_alone(DUMMY_CMD);
         delay_ms_us(WaitPeriod_ms,WaitPeriod_us);
     }
+}
+//---------------------------------------------------------------------------------------------------------
+void initLink(){
+    init_PEC15_Table();
+    //------------------------------------------------
+    wakeup_sleep();
+
+    ClearSlaveRegs();
+
+    SetAllPWM_Regs(0xF);
+    initConfig();
+}
+
+void keepAwake(){
+    SendDummyCMD();
 }

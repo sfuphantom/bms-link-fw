@@ -13,6 +13,9 @@
 #include "sys_common.h"
 #include "ecap.h"
 #include "system.h"
+
+#include "Fault_handler.h"
+
 //---------------------------------------------------------------------------------------------------------
 #define IMD_ECAP_REG ecapREG6
 #define ecap_sec2counts  VCLK4_FREQ*(1000000);
@@ -20,44 +23,44 @@
 #define VALID_FLAG_VAL  0x000E
 
 //---------------------------------------------------------------------------------------------------------
-
-// ENUMS FOR IMD MESSAGE MAPPING
-// IMD State Enum
-// message names are taken from IMD Datasheet
-typedef enum{
-    Normal_Condition,
-    Short_Circuit,
-    Undervoltage_Condition,
-    Speed_Start_Measurement_Good, // related to start-up
-    Speed_Start_Measurement_Bad, // related to start-up
-    Device_Error,
-    Connection_Fault_Earth,
-    Bad_Info,
-    Undefined_Fault
-}IMDStateEnum;
-
-// Isolation State Enum
-typedef enum{
-    Normal, // When Duty Cycle 5-10%
-    Normal_75, // Usually when Duty Cycle 10-30%
-    Normal_50, // Usually when Duty Cycle 30-60%
-    Normal_25, // Usually when Duty Cycle 60-90%
-    Isolation_Failure, //When Duty Cycle is 90-95%
-    Unknown // Duty Cycle is outside of range (5-95%)
-}IsolationStateEnum;
+//
+//// ENUMS FOR IMD MESSAGE MAPPING
+//// IMD State Enum
+//// message names are taken from IMD Datasheet
+//typedef enum{
+//    Normal_Condition,
+//    Short_Circuit,
+//    Undervoltage_Condition,
+//    Speed_Start_Measurement_Good, // related to start-up
+//    Speed_Start_Measurement_Bad, // related to start-up
+//    Device_Error,
+//    Connection_Fault_Earth,
+//    Bad_Info,
+//    Undefined_Fault
+//}IMDStateEnum;
+//
+//// Isolation State Enum
+//typedef enum{
+//    Normal, // When Duty Cycle 5-10%
+//    Normal_75, // Usually when Duty Cycle 10-30%
+//    Normal_50, // Usually when Duty Cycle 30-60%
+//    Normal_25, // Usually when Duty Cycle 60-90%
+//    Isolation_Failure, //When Duty Cycle is 90-95%
+//    Unknown // Duty Cycle is outside of range (5-95%)
+//}IsolationStateEnum;
 
 
 // IMDData Struct which contains the status of the IMD and Isolation
-typedef struct{
-    IMDStateEnum IMDState;
-    IsolationStateEnum IsolationState;
-}IMDData_t;
+//typedef struct{
+//    IMDStateEnum IMDState;
+//    IsolationStateEnum IsolationState;
+//}IMDData_t;
 
-typedef struct {
-    uint8_t duty;
-    uint8_t freq;
-//    uint32_t resistance;
-}ecapIMDData_t;
+//typedef struct {
+//    uint8_t duty;
+//    uint8_t freq;
+////    uint32_t resistance;
+//}ecapIMDData_t;
 /*
 -------------------------------------------------------
                        FUNCTIONS
@@ -104,7 +107,7 @@ void serialSendData();
 * Purpose: Getter function for reading IMDData
 * Returns: IMDData Struct
 * */
-IMDData_t getIMDData();
+//IMDData_t getIMDData();
 
 
 /* Fn: getIMDResistance

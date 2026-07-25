@@ -13,7 +13,7 @@
 //#include "SlaveCommunation_Functions.h"
 
 
-#define CELL_VOLT_100_FULL  41000
+#define CELL_VOLT_100_FULL  43000
 #define CELL_VOLT_0_FULL    33000
 #define CELL_SOC_RANGE      (CELL_VOLT_100_FULL - CELL_VOLT_0_FULL)
 
@@ -22,7 +22,7 @@
 #define CELL_VOLT_UNDER     (CELL_VOLT_0_FULL   - CELL_VOLT_SAFETY_RANGE)
 
 //////////////////////////////////////////////////////////////
-#define MAX_CELL_CHARGING_PERCENTAGE                        (70.0f / 100)
+#define MAX_CELL_CHARGING_PERCENTAGE                        (30.0f / 100)
 #define MAX_CELL_CHARGING_VOLTAGE_TARGET                    ((MAX_CELL_CHARGING_PERCENTAGE * CELL_SOC_RANGE) + CELL_VOLT_0_FULL)//38000
 #define CELL_CHARGING_SOC_TARGET_TOLORENCES_PERCENTAGE      (01.0f / 100)
 #define MAX_CELL_SOC_PERENTAGE                              (01.0f / 100)
@@ -45,6 +45,11 @@
 
  typedef enum { BMS_RUNNING, BMS_CHARGING, BMS_DONE_CHARGING, BMS_DISCHARGING, BMS_SLEEPING, BMS_IDLE, BMS_FAULT } BMSState_t;
 //----------------------------------------------------------------------------------------------------
+ typedef struct {
+     uint8_t duty;
+     uint8_t freq;
+ //    uint32_t resistance;
+ }ecapIMDData_t;
 
  struct BatteryData_t {
 
@@ -62,6 +67,7 @@
    uint16_t RefVolt2nd[NUMBER_OF_REF_2ND];
 //   uint16_t current;
    uint16_t HV_Voltage;
+   ecapIMDData_t ecapIMDData;
  };
  //----------------------------------------------------------------------------------------------------
  inline uint16_t Slave_Volt2ADC(const float ADC_Volt);

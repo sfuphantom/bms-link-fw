@@ -80,12 +80,20 @@
 
 /* USER CODE BEGIN (1) */
 //#include "SlaveCommunication_Drivers.h"
-#include "SlaveCommunication_Routines.h"
+#include "BMS_Routines.h"
+#include "BMS_Tasks.h"
+
+
 #include "PhantomHelpers.h"
+#include "PhantomTimers.h"
+
 
 #include "BatteryData.h"
-#include "BMS_Tasks.h"
 #include "Fault_handler.h"
+
+
+#include "SlaveCommunation_Functions.h"
+
 
 #include "rti.h"
 #include "het.h"
@@ -96,36 +104,40 @@
 #include "can.h"
 #include "reg_can.h"
 #include "Fans.h"
+#include "sci.h"
 
+const bool CH = TRUE;
+int in=0;
+
+void Send_CV_and_SlaveTemp();
 
 void main(void)
 {
-
     init_BMS_system();
 //    hetInit();
 //    gioSetDirection(hetPORT1, 1U<<GIO_START_CHARGING_BIT);
 
-    hetREG1->DIR &= ~(1 << GIO_START_CHARGING_BIT);
-    hetREG1->DIR &= ~(1 << GIO_DEGUBING_BIT1);
-    hetREG1->DIR |=  (1 << GIO_BMS_FAULT_BIT);
-
-    hetREG1->PULDIS &= ~(1 << GIO_START_CHARGING_BIT);  // enable pull
-    hetREG1->PULDIS &= ~(1 << GIO_DEGUBING_BIT1);  // enable pull
-    hetREG1->PULDIS &= ~(1 << GIO_BMS_FAULT_BIT);  // enable pull
-
-    hetREG1->PSL    &= ~(1 << GIO_START_CHARGING_BIT);  // pull-down (0), pick based on your circuit
-    hetREG1->PSL    &= ~(1 << GIO_DEGUBING_BIT1);  // pull-down (0), pick based on your circuit
-    hetREG1->PSL    |=  (1 << GIO_BMS_FAULT_BIT);  // pull-up (1) or
-
-    gioSetBitHelper(GIO_BMS_FAULT_BIT, GIO_HIGH);
-    init_BMS_Faults();
-
-
-    const hetSIGNAL_t signal = {0, 40};
-    pwmSetSignal(FAN_HET_RAM, 0, signal);
-    pwmSetSignal(FAN_HET_RAM, 3, signal);
-    pwmStart(FAN_HET_RAM, 0);
-    pwmStart(FAN_HET_RAM, 3);
+//    hetREG1->DIR &= ~(1 << GIO_START_CHARGING_BIT);
+//    hetREG1->DIR &= ~(1 << GIO_DEGUBING_BIT1);
+//    hetREG1->DIR |=  (1 << GIO_BMS_FAULT_BIT);
+//
+//    hetREG1->PULDIS &= ~(1 << GIO_START_CHARGING_BIT);  // enable pull
+//    hetREG1->PULDIS &= ~(1 << GIO_DEGUBING_BIT1);  // enable pull
+//    hetREG1->PULDIS &= ~(1 << GIO_BMS_FAULT_BIT);  // enable pull
+//
+//    hetREG1->PSL    &= ~(1 << GIO_START_CHARGING_BIT);  // pull-down (0), pick based on your circuit
+//    hetREG1->PSL    &= ~(1 << GIO_DEGUBING_BIT1);  // pull-down (0), pick based on your circuit
+//    hetREG1->PSL    |=  (1 << GIO_BMS_FAULT_BIT);  // pull-up (1) or
+//
+//    gioSetBitHelper(GIO_BMS_FAULT_BIT, GIO_HIGH);
+//    init_BMS_Faults();
+//
+//
+//    const hetSIGNAL_t signal = {0, 40};
+//    pwmSetSignal(FAN_HET_RAM, 0, signal);
+//    pwmSetSignal(FAN_HET_RAM, 3, signal);
+//    pwmStart(FAN_HET_RAM, 0);
+//    pwmStart(FAN_HET_RAM, 3);
 
 
 
@@ -146,10 +158,10 @@ void main(void)
 //    ecapREG6->ECCTL1 |=3<<14U;
 
 
-    float VoltCells[NUMBER_OF_CELLS];
-    float VoltGPIO[NUMBER_OF_GPIOS];
-
-    float AvgCellVolt_f, AvgCellSoC, MinCellVolt_f;
+    volatile float VoltCells[NUMBER_OF_CELLS];
+//    float VoltGPIO[NUMBER_OF_GPIOS];
+//
+    volatile float AvgCellVolt_f, AvgCellSoC, MinCellVolt_f, tempChip1, tempChip2, MaxCellVolt_f;
 //    hetSIGNAL_t signal;
 //    int i=0;
 
@@ -160,13 +172,13 @@ void main(void)
 //    char R[8];
 //    Gio_State_t T1, G1 , G2, G3;
 
-    #define S_ARRAY_SIZE 20
-    uint32_t Start_Array = 0;
-    uint32_t Start_Array_Mask = (1U<<S_ARRAY_SIZE)-1;
-    bool FansOn = FALSE;
-    bool ChangeFanStatue = FALSE;
-    Gio_State_t GIO_Start_Level = GIO_HIGH;
-    Gio_State_t DEBUG_FAULT_LEVEL = GIO_HIGH;
+//    #define S_ARRAY_SIZE 20
+//    uint32_t Start_Array = 0;
+//    uint32_t Start_Array_Mask = (1U<<S_ARRAY_SIZE)-1;
+//    bool FansOn = FALSE;
+//    bool ChangeFanStatue = FALSE;
+//    Gio_State_t GIO_Start_Level = GIO_HIGH;
+//    Gio_State_t DEBUG_FAULT_LEVEL = GIO_HIGH;
 
 
 //    hetSIGNAL_t signal = {100, 40};
@@ -180,9 +192,26 @@ void main(void)
 //            SetAllFansDuty(x);
 //        }
 //    }
-//    int i=0;
+    SetChargingStatus(CH);
+
+//    const sciBASE_t * UARTReg = sciREG;
+    volatile uint32_t tic, toc;
+
+    volatile int i;
+    volatile uint8_t data[8];
     while(1){
 
+
+//        for(i=1;i<64;i++){
+//            uint32_t out = canIsRxMessageArrived(canREG1, i);
+//            if(out){
+//                i=i;
+//                canGetData(canREG1, i, data);
+//
+//                continue;
+//            }
+//
+//        }
 
 //        DEBUG_FAULT_LEVEL = (Gio_State_t)((hetREG1->DIN >> GIO_DEGUBING_BIT1) & 1);//gioGetBitHelper(GIO_START_CHARGING_BIT);
 //        if(DEBUG_FAULT_LEVEL == GIO_LOW){
@@ -240,59 +269,59 @@ void main(void)
 //        }
 
 
+        HV_DataRoutine();
 
-
-//                        GIO_DEGUBING_BIT1        = 2,
-//
-//                        GIO_IMD_FAULT_BIT        = 6,
-//                        GIO_BMS_FAULT_BIT        = 7,
-//
-//                        GIO_START_CHARGING_BIT   = 8,
-
-//        gioToggleBitHelper(GIO_BMS_FAULT_BIT);
-//
-//        G1 = gioGetBitHelper(GIO_DEGUBING_BIT1);
-//        G2 = gioGetBitHelper(GIO_IMD_FAULT_BIT);
-
-
-
-
-
-
-//        HV_Data_Routine();
-
-        uint32_t tic = timer_tic_tick();
-        CellVoltageControlRoutine();
-        uint32_t toc_V = timer_toc_us(tic);
+//        volatile uint32_t tic = timer_tic_tick();
+//        CellVoltageControlRoutine();
+//        volatile uint32_t toc_V = timer_toc_us(tic);
 
 //        tic = timer_tic_tick();
 //        MonitorCellTempRoutine();
 //        uint32_t toc_T = timer_toc_us(tic);
 
-        tic = timer_tic_tick();
-        SlaveFlagsRoutine();
-        uint32_t toc_F = timer_toc_us(tic);
+//        tic = timer_tic_tick();
+//        SlaveFlagsRoutine();
+//        volatile uint32_t toc_F = timer_toc_us(tic);
 ////
 ////
-//////        CellVoltageControlTask();
+//        CellVoltageControlTask();
 //////#if USE_ANILOG_GPIO
 //////        MonitorCellTempTask();
 //////#endif
-//////        SlaveFlagsCheckTasks();
+//        SlaveFlagsCheckTasks();
 ////
 ////
-        Slave_ADC2Volt_arr(GetCellVoltReadPrt(), VoltCells, NUMBER_OF_CELLS);
-        AvgCellVolt_f = GetAvgCellVolt_float();
-        MinCellVolt_f = GetMinCellVolt_float();
 
-        AvgCellSoC = GetAvgCellSOC();
+//        Do_BMS_Tasks();
+//        AvgCellVolt_f = GetAvgCellVolt_float();
+//        MinCellVolt_f = GetMinCellVolt_float();
+//        MaxCellVolt_f = GetMaxCellVolt_float();
+////
+//        tempChip1 = Slave_ADC2Celcius(GetStatusRegData()->ITMP);
 
+//        tempChip2 = Slave_ADC2Celcius((GetStatusRegData()+1)->ITMP);
 
+//        AvgCellSoC = GetAvgCellSOC();
 
 
         if(AnyFaults()){
-            init_BMS_system();
+//            init_BMS_system();
+            ClearAllFaults();
+            SetChargingStatus(CH);
+            SetAllPWM_Regs(0xF);
         }
+//
+//        if(rtiTimerExpired(4, 50, 0)){
+////            tic = timer_tic_tick();
+//
+//            Send_CV_and_SlaveTemp();
+////            toc = timer_toc_us(tic);
+//        }
+
+//        if(rtiTimerExpired(5, 500, 0)){
+//
+//            in=0;
+//        }
 
 
 //        if(i<1){
@@ -305,5 +334,57 @@ void main(void)
 
 
 
+
     }
+}
+
+
+
+
+void SCI_PrintArray_16(uint16_t *data, uint16_t count){
+    uint8_t buf[2];  // 2 data bytes + null terminator for SCI_Print's strlen()
+    uint16_t i;
+
+    for (i = 0; i < count; i++)
+    {
+        buf[0] = (uint8_t)((data[i] >> 8) & 0xFF);  // high byte first (big-endian)
+        buf[1] = (uint8_t)(data[i] & 0xFF);         // low byte
+
+
+        sciSendByte(scilinREG, buf[0]);
+        sciSendByte(scilinREG, buf[1]);
+    }
+}
+
+void Send_CV_and_SlaveTemp(){
+    sciSendByte(scilinREG, 0);
+
+    SCI_PrintArray_16(GetCellVoltReadPrt(), NUMBER_OF_CELLS);
+
+    const struct ConfigReg* ConfigReg_prt = &ConfigRegWriteData[0];
+    const struct StatusReg* StatusReg_prt = GetStatusRegData();
+
+    float tempChip;
+    uint16_t tempChip_16, DCC;
+
+    int i;
+
+    for (i = 0; i < NUMBER_OF_SLAVE_BOARDS; i++)
+    {
+        tempChip = Slave_ADC2Celcius(StatusReg_prt -> ITMP);
+        tempChip_16 = (uint16_t)(tempChip*1000);
+
+        SCI_PrintArray_16(&tempChip_16, 1);
+
+        StatusReg_prt++;
+    }
+    for (i = 0; i < NUMBER_OF_SLAVE_BOARDS; i++)
+    {
+        DCC = ConfigReg_prt->DCC;
+
+        SCI_PrintArray_16(&DCC, 1);
+
+        ConfigReg_prt++;
+    }
+
 }

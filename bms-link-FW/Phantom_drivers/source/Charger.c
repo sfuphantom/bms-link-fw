@@ -59,14 +59,19 @@
 //    return return_val;
 //}
 
+#define CHARGER_BIG_ENDINEN TRUE
 bool Charger_SendCmd(const ChargerStatus_t* const data){
 
+#if CHARGER_BIG_ENDINEN
+    const uint32_t return_val =  can_transmit_data(BMS2CHARGER_DATA, &data, sizeof(data));
+#else
     ChargerStatus_t data_swap;
     data_swap.status_flags      = data->status_flags;
     data_swap.output_voltage_dV = swap_word_bytes(data->output_voltage_dV);
     data_swap.output_current_dA = swap_word_bytes(data->output_current_dA);
 
     const uint32_t return_val =  can_transmit_data(BMS2CHARGER_DATA, &data_swap, sizeof(data_swap));
+#endif
     return return_val;
 }
 bool Charger_GetStatus(ChargerStatus_t* const data){
@@ -75,9 +80,11 @@ bool Charger_GetStatus(ChargerStatus_t* const data){
 
     if (return_val == 0U) return 0U;
 
+#if !CHARGER_BIG_ENDINEN
+
     data->output_voltage_dV = swap_word_bytes(data->output_voltage_dV);
     data->output_current_dA = swap_word_bytes(data->output_current_dA);
-
+#endif
     return return_val;
 }
 

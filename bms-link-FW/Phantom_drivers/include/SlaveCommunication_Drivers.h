@@ -35,7 +35,7 @@ void init_PEC15_Table();
 // uint32 SPI_Recevie_Links(uint16_t* Rx, uint32 MsgSize);
 // uint32 SPI_Send2Links(uint16_t* Tx, uint32 MsgSize);
 
- uint32 SendCmdAndPec2Slave(const uint16_t cmd);
+ void SendCmdAndPec2Slave(const uint16_t cmd);
  void SendCMD2Slave_alone(const uint16_t cmd);
 #define CUSTOM_POLL_WAIT FALSE
 #if CUSTOM_POLL_WAIT

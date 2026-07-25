@@ -6,7 +6,7 @@
  */
 
 #include "spi.h"
-#include "spi_drivers.h"
+#include "spi_helpers.h"
 
 
 //---------------------------------------------------------------------------------------------------------
@@ -16,38 +16,44 @@
  void setCS(const CS_Level level, const uint8_t CS){
 //     const uint32 CS_MaskPin = (1U << CS_PIN_ID);
      Current_CS_Level = level;
+     const uint32_t CS_pinMask = CS_PIN_MASK(CS);
      if(level == LOW)
-         REG_FOR_SPI->PC3 &= ~(uint32_t)CS_PIN_MASK(CS);
+         REG_FOR_SPI->PC3 &= ~CS_pinMask;
      else if(level == HIGH)
-         REG_FOR_SPI->PC3 |=  (uint32_t)CS_PIN_MASK(CS);
+         REG_FOR_SPI->PC3 |=  CS_pinMask;
  }
  CS_Level GetCS(const uint8_t CS){
      return Current_CS_Level;
  }
  CS_Level ToggleCS(const uint8_t CS){
+     const uint32_t CS_pinMask = CS_PIN_MASK(CS);
      if(Current_CS_Level == HIGH){
-         REG_FOR_SPI->PC3 &= ~(uint32_t)CS_PIN_MASK(CS);
+         REG_FOR_SPI->PC3 &= ~CS_pinMask;
          Current_CS_Level = LOW;
      }
      else if(Current_CS_Level == LOW){
-         REG_FOR_SPI->PC3 |=  (uint32_t)CS_PIN_MASK(CS);
+         REG_FOR_SPI->PC3 |=  CS_pinMask;
          Current_CS_Level = HIGH;
      }
      return Current_CS_Level;
  }
- uint8_t SPI_SR2Link_2Bits(const uint8_t Tx){
-//     const uint8_t waitCount = 0xFF;
 
-     REG_FOR_SPI->DAT1 =   SPI_CONFIG1_WORD | (uint32)(Tx);
-
-     int i=0;
-     while((REG_FOR_SPI->FLG & 0x00000100U) != 0x00000100U && i < SPI_WAIT_BYTE_FINISH_COUNT ){
-         i++;
-     } /* Wait */
-
-     uint8_t Rx = REG_FOR_SPI->BUF;
-     return Rx;
+ bool SPI_busy(){
+     return Current_CS_Level == LOW;
  }
+// uint8_t SPI_SR2Link_2Bits(const uint8_t Tx){
+////     const uint8_t waitCount = 0xFF;
+//
+//     REG_FOR_SPI->DAT1 =   SPI_CONFIG1_WORD | (uint32)(Tx);
+//
+//     int i=0;
+//     while((REG_FOR_SPI->FLG & 0x00000100U) != 0x00000100U && i < SPI_WAIT_BYTE_FINISH_COUNT ){
+//         i++;
+//     } /* Wait */
+//
+//     uint8_t Rx = REG_FOR_SPI->BUF;
+//     return Rx;
+// }
  uint8_t SPI_SR2Link_BYTE(const uint8_t Tx){
 //     const uint8_t waitCount = 0xFF;
 
@@ -61,19 +67,19 @@
      uint8_t Rx = REG_FOR_SPI->BUF;
      return Rx;
  }
- uint16_t SPI_SR2Link_14Bit(const uint16_t Tx){
-//     const uint8_t waitCount = 0xFF;
-
-     REG_FOR_SPI->DAT1 =   SPI_CONFIG2_WORD | (uint32)(Tx);
-
-     int i=0;
-     while((REG_FOR_SPI->FLG & 0x00000100U) != 0x00000100U && i < SPI_WAIT_BYTE_FINISH_COUNT ){
-         i++;
-     } /* Wait */
-
-     uint16_t Rx = REG_FOR_SPI->BUF;
-     return Rx;
- }
+// uint16_t SPI_SR2Link_14Bit(const uint16_t Tx){
+////     const uint8_t waitCount = 0xFF;
+//
+//     REG_FOR_SPI->DAT1 =   SPI_CONFIG2_WORD | (uint32)(Tx);
+//
+//     int i=0;
+//     while((REG_FOR_SPI->FLG & 0x00000100U) != 0x00000100U && i < SPI_WAIT_BYTE_FINISH_COUNT ){
+//         i++;
+//     } /* Wait */
+//
+//     uint16_t Rx = REG_FOR_SPI->BUF;
+//     return Rx;
+// }
  uint64_t SPI_SR2Link_MultiBYTE(const uint64_t Tx_Full, const uint8_t Bytes){
       const uint8_t Bits = Bytes<<3;
 
@@ -115,3 +121,11 @@
  }
 
  //---------------------------------------------------------------------------------------------------------
+ uint16_t SPI_SR2Link_WORD_FAST(const uint16_t Tx){
+     REG_FOR_SPI->DAT1 =   SPI_CONFIG1_WORD | (uint32)(Tx);
+
+     while((REG_FOR_SPI->FLG & 0x00000100U) != 0x00000100U){} /* Wait */
+
+     uint16_t Rx = REG_FOR_SPI->BUF;
+     return Rx;
+ }

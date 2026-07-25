@@ -14,9 +14,6 @@
  //---------------------------------------------------------------------------------------------------------
  #define USE_ANILOG_GPIO    FALSE
  //---------------------------------------------------------------------------------------------------------
- void initLink();
- void keepAwake();
- //---------------------------------------------------------------------------------------------------------
  void MeasureCellVoltageSubRoutine();
  void MeasureGPIOVoltageSubRoutine();
  void BalanceCellsSubRoutine();
@@ -25,5 +22,7 @@
  void CellVoltageControlRoutine();
  void SlaveFlagsRoutine();
  void MonitorCellTempRoutine();
+ void HV_DataRoutine();
+ //---------------------------------------------------------------------------------------------------------
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_TASKANDROUTINES_H_ */

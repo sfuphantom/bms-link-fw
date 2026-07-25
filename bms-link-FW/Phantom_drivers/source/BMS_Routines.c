@@ -3,11 +3,11 @@
 #include <stdbool.h>
 
 //#include "ltc6811_commands.h"
-#include "spi_drivers.h"
+#include "spi_helpers.h"
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Functions.h"
 #include "SlaveCommunation_Hardware.h"
-#include "SlaveCommunication_Routines.h"
+#include "BMS_Routines.h"
 
 #include "Phantom_Can.h"
 
@@ -15,26 +15,10 @@
 
 #include "BatteryData.h"
 #include "Charger.h"
-#include "Fault_handler.h"
 #include "Fans.h"
+#include "HV_data.h"
+#include "Fault_handler.h"
 
-
-//struct BatteryData_struct SlaveData;
-//---------------------------------------------------------------------------------------------------------
- void initLink(){
-     init_PEC15_Table();
-     //------------------------------------------------
-     wakeup_sleep();
-
-     ClearSlaveRegs();
-
-     SetAllPWM_Regs(0xF);
-     initConfig();
- }
-
- void keepAwake(){
-     SendDummyCMD();
- }
  //---------------------------------------------------------------------------------------------------------
  uint32_t checkStatFlags(){
       bool flag;
@@ -156,7 +140,14 @@
  }
 
  bool MeasureCellVoltageSubRoutine_NoErrorHandling(){
+     wakeup_sleep();
+
      uint16_t* VoltDataOut = GetCellVoltWritePrt();
+
+//     uint16_t DCC[NUMBER_OF_CELLS];
+//     memset(DCC,0,NUMBER_OF_CELLS * sizeof(uint16_t));
+//     SetConfig_DCC(DCC);
+//     Write_CFGR();
 
      uint32_t cmdDone = MeasureCellsCmd(ADC_MEASURE_MODE, ADC_MEASURE_DISCHARGE_PERMITED, 0);
 
@@ -168,6 +159,8 @@
      return (cmdDone != 0) && AllValid;
  }
  bool BalanceCellsSubRoutine_NoErrorHandling(){
+     wakeup_sleep();
+
     const uint16_t* VoltInData = GetCellVoltReadPrt();
 
     #define Bal_IMP 1
@@ -212,6 +205,8 @@
  }
 
  bool ReadStatAndGetFlagsSubRoutine_NoErrorHandling(){
+     wakeup_sleep();
+
      const uint32_t cmdDone = MeasureSTATCmd(ADC_MEASURE_MODE,0x0);
 
      const bool Stat_Valid = Read_STAT();
@@ -246,6 +241,29 @@
     return true;
  }
  //---------------------------------------------------------------------------------------------------------
+ bool HV_DataSubRoutine_NoErrorHandling(){
+     const uint16_t HV_DataRaw = Get_HV_Data_Raw();
+
+     if(HV_DataRaw == SPI_DUMMY_DATA_WORD){return false;}
+
+     const uint16_t HV_DataShifted = HV_DataRaw>>ADS7044_CODE_SHIFT;
+
+     const float HV_Volts = HV_ADC2VOLTS(HV_DataShifted);
+
+ //    Set_HV_Voltage(HV_Volts);
+
+
+     BatteryData.HV_Voltage = HV_DataShifted;
+
+//     bool can_vaild = transmit_BMS2VCU_Data(HV_DataShifted, getIMDResistance());
+
+ //    if(HV_Volts > 410.0f || HV_Volts < 260.0f){
+ //        SetBMSFault_bool_HIGH(BAD_HV_VOLT_FLAG);
+ //    }
+
+     return true;
+ }
+ //---------------------------------------------------------------------------------------------------------
  void SubRoutine_ErrorHandler(bool (*SubRoutine_prt)(void)){
      int repeat_idx;
      bool Valid;
@@ -255,7 +273,7 @@
 //            return;
 //         }
 
-         wakeup_sleep();
+//         wakeup_sleep();
          Valid = SubRoutine_prt();
 
          if(Valid){return;}
@@ -280,6 +298,9 @@
 
  void ReadStatAndGetFlagsSubRoutine(){
      SubRoutine_ErrorHandler(ReadStatAndGetFlagsSubRoutine_NoErrorHandling);
+ }
+ void HV_DataSubRoutine(){
+     SubRoutine_ErrorHandler(HV_DataSubRoutine_NoErrorHandling);
  }
 //----------------------------------------------------------------------------------------------------
  void CellVoltageControlRoutine(){
@@ -320,3 +341,6 @@
 #endif
 
   }
+ void HV_DataRoutine(){
+     HV_DataSubRoutine();
+ }

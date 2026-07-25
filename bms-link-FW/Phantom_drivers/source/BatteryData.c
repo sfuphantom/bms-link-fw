@@ -263,7 +263,8 @@ float GetBatterySOC(){
                    nibble = 0;
                }
                else{
-                   nibble = BalanceCellNibbleVaule(cellVolt, min);
+//                   nibble = BalanceCellNibbleVaule(cellVolt, min);
+                   nibble = 0;
                }
 
                if(nibble){

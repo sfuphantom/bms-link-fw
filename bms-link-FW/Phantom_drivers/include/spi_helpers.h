@@ -31,21 +31,28 @@
 #define SPI_DUMMY_DATA_QWORD 0xFFFFFFFFFFFFFFFFU
 //---------------------------------------------------------------------------------------------------------
 typedef enum  {LOW, HIGH} CS_Level;
+enum {
+    SLAVE_CS_PIN_ID = 0U,
+    HV_CS_PIN_ID    = 5U,
+}CS_PIN_ID;
 //---------------------------------------------------------------------------------------------------------
 
 void setCS(const CS_Level level, const uint8_t CS);
  CS_Level GetCS(const uint8_t CS);
  CS_Level ToggleCS(const uint8_t CS);
 
- uint8_t SPI_SR2Link_2Bits(const uint8_t Tx);
+// uint8_t SPI_SR2Link_2Bits(const uint8_t Tx);
  uint8_t SPI_SR2Link_BYTE(const uint8_t Tx);
- uint16_t SPI_SR2Link_14Bit(const uint16_t Tx);
+// uint16_t SPI_SR2Link_14Bit(const uint16_t Tx);
  uint64_t SPI_SR2Link_MultiBYTE(const uint64_t Tx_Full, const uint8_t Bytes);
  uint16_t SPI_SR2Link_WORD(const uint16_t Tx);
  uint32_t SPI_SR2Link_DWORD(const uint32_t Tx);
  uint64_t SPI_SR2Link_QWORD(const uint64_t Tx);
  void SPI_Clock_BYTES(const uint8_t Bytes2Clock);
- //---------------------------------------------------------------------------------------------------------
 
+ uint16_t SPI_SR2Link_WORD_FAST(const uint16_t Tx);
+
+ //---------------------------------------------------------------------------------------------------------
+bool SPI_busy();
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_SPI_DRIVERS_H_ */
