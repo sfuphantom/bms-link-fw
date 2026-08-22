@@ -153,7 +153,7 @@ def SlaveStateData_handler(data: Sequence) -> list:
     NUMBER_OF_UNIQUE_ELEMENTS_IN_MESSAGE = 3
     for i in range(0, len(data), NUMBER_OF_UNIQUE_ELEMENTS_IN_MESSAGE):
         # data_fmt[i]
-        data_fmt[i+1]  = (data_fmt[i+1] / 0.007_5) - 273.0
+        data_fmt[i+1]  = (data_fmt[i+1] * 0.007_5) - 273.0
         data_fmt[i+2] *= 20
 
     return list(data)
@@ -168,8 +168,8 @@ def DCCData_handler(data: Sequence) -> list:
     DCC: list[int] = []
     for d in data:
         for i in range(8):
-            DCC.append(100 if bool((d>>i) | 0x1) else 0)
-    return list(data)
+            DCC.append(1 if bool((d>>i) | 0x1) else 0)
+    return list(DCC)
 
 
 def DebugData_handler(data: Sequence) -> list:
@@ -213,7 +213,7 @@ def on_message_Log(name, msg_id, formatted_data, timestamp):
 def on_message_CellVoltages(name, msg_id, formatted_data, timestamp):
     maxCellVolt = max(formatted_data)
     maxCellIdx = formatted_data.index(maxCellVolt)
-    minCellVolt = min(formatted_data)
+    minCellVolt = min([d for d in formatted_data if d !=0 and d != 0xFF])
     minCellIdx = formatted_data.index(minCellVolt)
     SumVolt = sum(formatted_data)
     log_str: str= f"{maxCellVolt=}, {maxCellIdx=}, {minCellVolt=}, {minCellIdx=}, {SumVolt=}"
@@ -592,7 +592,8 @@ if __name__ == "__main__":
         uart_kw_args=UART_KW_ARGS,
         MsgTypeConfigFile=r"UART_Data_Config.csv",
         frame_timeout=0.5,
-        RootDesFolder = "data_0"
+        RootDesFolder = "data_1",
+        # clearIfExist = False
     )
 
     receiver.start()
