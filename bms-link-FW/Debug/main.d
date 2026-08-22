@@ -22,8 +22,8 @@ main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/
 main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/spi.h
 main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_spi.h
 main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/BMS_Tasks.h
-main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/PhantomHelpers.h
 main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/PhantomTimers.h
+main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/PhantomHelpers.h
 main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/BatteryData.h
 main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/Fault_handler.h
 main.obj: C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/SlaveCommunation_Functions.h
@@ -67,8 +67,8 @@ C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phant
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/spi.h: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/BMS_Master/include/reg_spi.h: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/BMS_Tasks.h: 
-C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/PhantomHelpers.h: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/PhantomTimers.h: 
+C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/PhantomHelpers.h: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/BatteryData.h: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/Fault_handler.h: 
 C:/Users/tanjo/OneDrive\ -\ Simon\ Fraser\ University\ (1sfu)/Desktop/ENSC/Phantom/bms-link-fw/bms-link-FW/Phantom_drivers/include/SlaveCommunation_Functions.h: 

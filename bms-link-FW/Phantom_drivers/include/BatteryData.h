@@ -12,18 +12,25 @@
 #include "SlaveCommunation_Hardware.h"
 //#include "SlaveCommunation_Functions.h"
 
-
-#define CELL_VOLT_100_FULL  43000
-#define CELL_VOLT_0_FULL    33000
-#define CELL_SOC_RANGE      (CELL_VOLT_100_FULL - CELL_VOLT_0_FULL)
-
-#define CELL_VOLT_SAFETY_RANGE 50
-#define CELL_VOLT_OVER      (CELL_VOLT_100_FULL + CELL_VOLT_SAFETY_RANGE)
-#define CELL_VOLT_UNDER     (CELL_VOLT_0_FULL   - CELL_VOLT_SAFETY_RANGE)
-
 //////////////////////////////////////////////////////////////
+#define KILL_DRIVER FALSE
+//////////////////////////////////////////////////////////////
+#define CELL_VOLT_SAFETY_RANGE  50
+#define CELL_VOLT_OVER          42000//(CELL_VOLT_100_FULL + CELL_VOLT_SAFETY_RANGE)
+#define CELL_VOLT_UNDER         26000//(CELL_VOLT_0_FULL   - CELL_VOLT_SAFETY_RANGE)
+
+#define CELL_VOLT_100_FULL      (CELL_VOLT_OVER - CELL_VOLT_SAFETY_RANGE)
+#define CELL_VOLT_0_FULL        (CELL_VOLT_UNDER - CELL_VOLT_SAFETY_RANGE)
+#define CELL_SOC_RANGE          (CELL_VOLT_100_FULL - CELL_VOLT_0_FULL)
+//////////////////////////////////////////////////////////////
+#define DEFINE_MAX_CELL_CHARGING_PERCENTAGE_N_VOLTAGE_TARGET FALSE
+#if DEFINE_MAX_CELL_CHARGING_PERCENTAGE_N_VOLTAGE_TARGET
 #define MAX_CELL_CHARGING_PERCENTAGE                        (30.0f / 100)
 #define MAX_CELL_CHARGING_VOLTAGE_TARGET                    ((MAX_CELL_CHARGING_PERCENTAGE * CELL_SOC_RANGE) + CELL_VOLT_0_FULL)//38000
+#else
+#define MAX_CELL_CHARGING_VOLTAGE_TARGET                    36000
+#define MAX_CELL_CHARGING_PERCENTAGE                        ((MAX_CELL_CHARGING_VOLTAGE_TARGET - CELL_VOLT_0_FULL) / CELL_SOC_RANGE)
+#endif
 #define CELL_CHARGING_SOC_TARGET_TOLORENCES_PERCENTAGE      (01.0f / 100)
 #define MAX_CELL_SOC_PERENTAGE                              (01.0f / 100)
 #define MAX_CELL_SOC_OVERSHOOT_PERENTAGE                    (MAX_CELL_CHARGING_PERCENTAGE + MAX_CELL_SOC_PERENTAGE)
@@ -60,14 +67,17 @@
 
    uint16_t CellTemp[NUMBER_OF_GPIOS];
    uint16_t CellVolt[NUMBER_OF_CELLS];
+   uint16_t CellRes[NUMBER_OF_CELLS];
+   uint16_t CellDCC[NUMBER_OF_SLAVE_BOARDS];
 
 //   uint16_t CellVolt[NUMBER_OF_VOLT_SAMPLES_SAVED][NUMBER_OF_CELLS];
 //   uint16_t ReadCellVolt[NUMBER_OF_CELLS];
 
-   uint16_t RefVolt2nd[NUMBER_OF_REF_2ND];
+//   uint16_t RefVolt2nd[NUMBER_OF_REF_2ND];
 //   uint16_t current;
    uint16_t HV_Voltage;
    ecapIMDData_t ecapIMDData;
+
  };
  //----------------------------------------------------------------------------------------------------
  inline uint16_t Slave_Volt2ADC(const float ADC_Volt);
@@ -77,6 +87,9 @@
 //----------------------------------------------------------------------------------------------------
   void SetChargingStatus(const bool NewStat);
   bool GetChargingStatus();
+  //----------------------------------------------------------------------------------------------------
+  inline void SetEcapIMDData(const ecapIMDData_t ecapIMDData);
+  inline ecapIMDData_t GetEcapIMDData();
  //----------------------------------------------------------------------------------------------------
   inline uint16_t* GetCellVoltReadPrt();
   inline uint16_t* GetCellTempReadPrt();
@@ -84,6 +97,11 @@
   inline uint16_t* GetCellVoltWritePrt();
   inline uint16_t* GetCellTempWritePrt();
   inline uint16_t* GetRefVolt2ndWritePrt();
+  //----------------------------------------------------------------------------------------------------
+  void writeCellRes(const uint16_t *CellRes);
+  //----------------------------------------------------------------------------------------------------
+  inline uint16_t* GetCellDCCReadPrt();
+  inline uint16_t* GetCellDCCWritePrt();
   //----------------------------------------------------------------------------------------------------
   uint16_t Get_HV_Voltage();
   void Set_HV_Voltage(const uint16_t Volt);

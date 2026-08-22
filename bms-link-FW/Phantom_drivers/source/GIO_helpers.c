@@ -11,19 +11,20 @@
 
 
 
-static uint8_t gio_past_level;
+//static uint8_t gio_past_level;
 //--------------------------------------------------------------------------
 Gio_State_t gioGetBitHelper(const uint8_t bit){
 //     const typeof(gio_past_level) bitMask = 1U << bit;
 
      const bool NewLevel = (bool)gioGetBit(GIO_PORT_A, bit);
 
-     bool LastLevel;
-     gio_past_level = GetAndInsertBit(gio_past_level, bit, NewLevel, &LastLevel);
-
-     const uint8_t NewState = (uint8_t)NewLevel | ((uint8_t)(NewLevel ^ LastLevel)<<1U);
-
-     return (Gio_State_t)NewState;
+     return NewLevel;
+//     bool LastLevel;
+//     gio_past_level = GetAndInsertBit(gio_past_level, bit, NewLevel, &LastLevel);
+//
+//     const uint8_t NewState = (uint8_t)NewLevel | ((uint8_t)(NewLevel ^ LastLevel)<<1U);
+//
+//     return (Gio_State_t)NewState;
 }
 
 Gio_State_t gioSetBitHelper(const uint8_t bit, const Gio_State_t NewState){
@@ -31,6 +32,7 @@ Gio_State_t gioSetBitHelper(const uint8_t bit, const Gio_State_t NewState){
 
      const bool NewLevel = (bool)NewState & 1U;
      gioSetBit(GIO_PORT_A, bit, NewLevel);
+     return NewLevel;
 //     if(NewLevel){
 //         hetREG1->DOUT |= (1 << bit);   // set high
 //     }
@@ -39,13 +41,13 @@ Gio_State_t gioSetBitHelper(const uint8_t bit, const Gio_State_t NewState){
 //
 //     }
 
-     bool LastLevel;
+//     bool LastLevel;
 
-     gio_past_level = GetAndInsertBit(gio_past_level, bit, NewLevel, &LastLevel);
+//     gio_past_level = GetAndInsertBit(gio_past_level, bit, NewLevel, &LastLevel);
 
-     const uint8_t State = (uint8_t)NewLevel | ((uint8_t)(NewLevel ^ LastLevel)<<1U);
+//     const uint8_t State = (uint8_t)NewLevel | ((uint8_t)(NewLevel ^ LastLevel)<<1U);
 
-     return (Gio_State_t)State;
+//     return (Gio_State_t)State;
 }
 Gio_State_t gioToggleBitHelper(const uint8_t bit){
 //     const typeof(gio_past_level) bitMask = 1U << bit;
@@ -53,11 +55,12 @@ Gio_State_t gioToggleBitHelper(const uint8_t bit){
     gioToggleBit(GIO_PORT_A, bit);
 
     bool NewLevel;
-    gio_past_level = InvertAndInsertBit(gio_past_level, bit, &NewLevel);
+    return NewLevel;
+//    gio_past_level = InvertAndInsertBit(gio_past_level, bit, &NewLevel);
+//
+//     const uint8_t State = (uint8_t)NewLevel | (1U)<<1U;
 
-     const uint8_t State = (uint8_t)NewLevel | (1U)<<1U;
-
-     return (Gio_State_t)State;
+//     return (Gio_State_t)State;
 }
 
 #pragma WEAK(Debug_GIO_Notification)

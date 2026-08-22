@@ -22,16 +22,21 @@ bool wasCanVaild(uint32 returnVal){
 uint32_t can_transmit_data(const phantomCanMsgBox msgbox, const void * const data, const uint8_t len){
     uint8_t buf[DEFULT_CAN_MSG_SIZE_BYTE];
 //    const uint8_t arr_len = sizeof_arr(data);
-    memset(buf, 0, sizeof(buf));
-    memcpy(buf, data, len*sizeof(uint8_t));
+    memset(buf, 0, DEFULT_CAN_MSG_SIZE_BYTE);
+
+    const uint32_t d_len = len < DEFULT_CAN_MSG_SIZE_BYTE?len:DEFULT_CAN_MSG_SIZE_BYTE;
+
+    memcpy(buf, data, d_len*sizeof(uint8_t));
 
     return canTransmit(CAN_NODE_REG, msgbox, buf);
 }
 uint32_t can_receive_data(const phantomCanMsgBox msgbox, void * const data, const uint8_t len){
     uint8_t buf[DEFULT_CAN_MSG_SIZE_BYTE];
-    uint32_t return_val = canGetData(CAN_NODE_REG, msgbox, buf);
+    const uint32_t return_val = canGetData(CAN_NODE_REG, msgbox, buf);
 
-    memcpy(data, buf, len*sizeof(uint8_t));
+    const uint32_t d_len = len < DEFULT_CAN_MSG_SIZE_BYTE?len:DEFULT_CAN_MSG_SIZE_BYTE;
+
+    memcpy(data, buf, d_len*sizeof(uint8_t));
     return return_val;
 }
 

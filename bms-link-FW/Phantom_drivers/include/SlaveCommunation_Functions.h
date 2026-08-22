@@ -41,7 +41,7 @@
 #define POLL_PERIOD_CELL_BAL_US 1000
 
 //------------------------------------------------------------------------
-struct ConfigReg{
+typedef struct {
     bool     adcopt; // ADC Mode Option Bit
     bool     DTEN;   // The Discharge Timer Enable (READ ONLY)
     bool     refon;  // References Powered Up
@@ -50,8 +50,8 @@ struct ConfigReg{
     uint16_t VOV;    // Overvoltage Comparison Voltage
     uint16_t DCC;    //  Discharge Cell x
     uint8_t  dcto;   //  Discharge Time Out Value
-};
-struct StatusReg {
+}ConfigReg;
+typedef struct {
     uint16_t SC;    /* Sum of All Cells raw ADC value  */
     uint16_t ITMP;  /* Internal die temperature raw    */
     uint16_t VA;    /* Analog supply (VREG) raw ADC    */
@@ -62,7 +62,9 @@ struct StatusReg {
     bool     THSD;      /* Thermal shutdown occurred        */
     bool     MUXFAIL;   /* MUX self-test failed             */
     uint8_t  REV;       /* Device revision code             */
-};
+
+    uint16_t RefVolt2nd;
+}StatusReg;
 
 //////////////////////////////////////////////////////////////////
 
@@ -75,11 +77,12 @@ struct StatusReg {
 // void SetAllConfigReg(bool* adcopt, bool* DTEN, bool* refon, uint8_t* gpio,  uint16_t* VUV, uint16_t* VOV, uint16_t* DCC, uint8_t* dcto);
 //void GetValueStatusReg(uint16_t* data, StatusReg_Values Value2Get);
  //---------------------------------------------------------------------------------------------------------
-struct StatusReg* GetStatusRegData();
+StatusReg* GetStatusRegData();
 
 void Write_CFGR();
 bool Read_CFGR();
 bool Read_STAT();
+void checkStatFlags();
 //--------------------------------------------------------------------------------------------------------
 void ClearCellsCMD();
 void ClearAUXCMD();
@@ -88,17 +91,24 @@ void ClearSCtrlCMD();
 void ClearSlaveRegs();
 
 //---------------------------------------------------------------------------------------------------------
- bool MeasureCellsCmd(const uint8_t MD, //ADC Mode
-                        const bool DCP,   //Discharge Permit
-                        const uint8_t CHG //  GPIO Selection for ADC Conversion
+ void MeasureCellsCmd(const uint8_t MD,     //ADC Mode
+                        const bool DCP,     //Discharge Permit
+                        const uint8_t CHG   //Cell Selection for ADC Conversion
                         );
+ bool MeasureCellsCmd_All_NoDis(const uint8_t MD);    //ADC Mode
+ void MeasureCellsCmd_Dis(const uint8_t MD,   //ADC Mode
+                          const uint8_t CHG   //GPIO Selection for ADC Conversion
+                          );
 
- bool MeasureAUXCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
-                    const uint8_t CHG    //  GPIO Selection for ADC Conversion
+ void MeasureAUXCmd(const uint8_t MD,       // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                    const uint8_t CHG       // Cell Selection for ADC Conversion
                     );
- bool MeasureSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
-                     const uint8_t CHST    //  Status Group Selection
+ bool MeasureAUXCmd_All(const uint8_t MD);  // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+
+ void MeasureSTATCmd(const uint8_t MD,      // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+                     const uint8_t CHST     //  Status Group Selection
                      );
+ bool MeasureSTATCmd_All(const uint8_t MD); // ADC mode: 0=Fast, 1=Normal, 2=Filtered
  //---------------------------------------------------------------------------------------------------------
 
  bool isConvComplete();
@@ -128,8 +138,11 @@ bool SetAllPWM_Regs(uint8_t nibble);
 //---------------------------------------------------------------------------------------------------------
 void ReadConfig_DCC(uint16_t* DCC);
 void SetConfig_DCC(const uint16_t* DCC);
+void SetAllConfig_DCC(const uint16_t DCC);
 void ReadConfig_gpio(uint8_t* gpio);
 bool ReadConfig_gpio_allZero();
+void SetAllConfig_DCC(const uint16_t DCC);
+void SetAllHigh_DCC(const uint16_t DCC);
 void SetConfig_gpio(const uint8_t* gpio);
 //---------------------------------------------------------------------------------------------------------
 void initConfig();
@@ -138,9 +151,8 @@ void SendDummyCMD();
 void waitDummyCMD(const uint32_t WaitPeriod_ms, const uint32_t WaitPeriod_us, uint16_t WaitSends);
 //---------------------------------------------------------------------------------------------------------
 void initLink();
-void keepAwake();
 //---------------------------------------------------------------------------------------------------------
-struct ConfigReg ConfigRegWriteData[NUMBER_OF_SLAVE_BOARDS];
-//struct ConfigReg ConfigRegReadData[NUMBER_OF_SLAVE_BOARDS];
-struct StatusReg StatusRegData[NUMBER_OF_SLAVE_BOARDS];
+ConfigReg ConfigRegWriteData[NUMBER_OF_SLAVE_BOARDS];
+//ConfigReg ConfigRegReadData[NUMBER_OF_SLAVE_BOARDS];
+StatusReg StatusRegData[NUMBER_OF_SLAVE_BOARDS];
 #endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_FUNCTIONS_H_ */

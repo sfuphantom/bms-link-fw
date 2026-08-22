@@ -18,6 +18,7 @@
 
 #include "BatteryData.h"
 
+//----------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------
 //bool SendFault_Cans(const BMSFaultsData_t* const data){
@@ -63,7 +64,7 @@
 bool Charger_SendCmd(const ChargerStatus_t* const data){
 
 #if CHARGER_BIG_ENDINEN
-    const uint32_t return_val =  can_transmit_data(BMS2CHARGER_DATA, &data, sizeof(data));
+    const uint32_t return_val =  can_transmit_data(BMS2CHARGER_DATA, data, sizeof(ChargerStatus_t));
 #else
     ChargerStatus_t data_swap;
     data_swap.status_flags      = data->status_flags;
@@ -158,9 +159,6 @@ bool isCharging(){
     return ChargerData.ChargerState == CHARGING;
 }
 bool isChargingDone(){
-    return ChargerData.ChargerState == DONE_CHARGING;
-}
-ChargerState_t GetChargingState(){
     return ChargerData.ChargerState;
 }
 bool StartCharging(){

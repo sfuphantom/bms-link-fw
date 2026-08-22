@@ -73,6 +73,10 @@ void DoNothing(){
 bool returnTrue(){
     return TRUE;
 }
+bool returnFalse(){
+    return FALSE;
+}
+
 //----------------------------------------------------------------------------------------------------
 //void TaskSuperLoop(struct Task_t AllTasks[], uint8_t NumOfTasks, void (*ElseFunction)(void)){
 //    int i;
@@ -97,34 +101,38 @@ void TaskSuperLoop(Task_t AllTasks[], uint8_t NumOfTasks){
     Task_t currentTask;
 
     for(i=0; i<NumOfTasks; i++){
+        //if(AnyFaults()){
+//                break;
+//        }
+
         currentTask = AllTasks[i];
 
         if(currentTask.AllowFunction()){
             continue;
         }
 
-        now = getNow_us();
-        if(now - currentTask.LastDone > currentTask.Period){
-            currentTask.LastDone = now;
-            currentTask.RoutineFunction();
+        now = getNow_tick();
+        if(now - currentTask.LastDone < currentTask.Period){
+            continue;
         }
-        else{
-            currentTask.TimeFailFunction();
-        }
+        currentTask.LastDone = now;
+        currentTask.RoutineFunction();
     }
 }
 //----------------------------------------------------------------------------------------------------
-Task_t SlaveComunationSubTask[] =   {
-//                                     {CellVoltageControlRoutine ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0, keepAwake, SPI_busy},
-//                                     {MonitorCellTempRoutine    ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0, keepAwake, SPI_busy},
-//                                     {SlaveFlagsRoutine         ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0, keepAwake, SPI_busy},
-                                     {HV_DataRoutine            ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS,0, DoNothing, SPI_busy}
+Task_t BMSTask[] =   {
+                                     {CellVoltageControlRoutine     ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK, 0, is_SPI_busy},
+//                                     {MonitorCellTempRoutine    ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_US, 0, SPI_busy},
+                                     {SlaveFlagsRoutine             ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK, 0, is_SPI_busy},
+                                     {MeasureCellResistanceRoutine  ,CELL_RESISTANCE_MONITOR_TASK_PERIOD_TICK, 0, is_SPI_busy},
+                                     {MonitorFullBatteryDataRoutine ,FULL_BATTERY_MONITOR_TASK_PERIOD_TICK, 0, is_SPI_busy},
+                                     {keepSlavesAwakeRoutine        ,KEEP_SLAVES_AWAKE_TASK_PERIOD_TICK, 0, is_SPI_busy},
                                     };
 
-const uint8_t NUMBER_OF_TASKS = sizeof(SlaveComunationSubTask)/sizeof(Task_t);
+const uint8_t NUMBER_OF_TASKS = sizeof(BMSTask)/sizeof(Task_t);
 
 void Do_BMS_Tasks(){
-    TaskSuperLoop(SlaveComunationSubTask, NUMBER_OF_TASKS);
+    TaskSuperLoop(BMSTask, NUMBER_OF_TASKS);
 }
 
 //struct Task_t AllTask[] =   {
@@ -133,34 +141,34 @@ void Do_BMS_Tasks(){
 
 //----------------------------------------------------------------------------------------------------
 
- bool CellVoltageControlTask(){
-//     const uint32_t CS_pollWaitings = waitSPIFree(1000);
-     if(!rtiTimerExpired(CellVoltageControl_ID, CELL_VOLTAGE_CONTROL_TASK_PERIOD_MS, 0)){
-         keepAwake();
-         return false;
-     }
-
-     CellVoltageControlRoutine();
-     return true;
- }
- bool MonitorCellTempTask(){
-//     const uint32_t CS_pollWaitings = waitSPIFree(1000);
-     if(!rtiTimerExpired(MonitorCellTemp_ID, CELL_TEMP_MONITOR_TASK_PERIOD_MS, 0)){
-         keepAwake();
-         return false;
-     }
-
-     MonitorCellTempRoutine();
-     return true;
- }
- bool SlaveFlagsCheckTasks(){
- //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
-      if(!rtiTimerExpired(SlaveFlagsCheck_ID, SLAVE_FLAG_CHECK_TASK_PERIOD_MS, 0)){
-          keepAwake();
-          return false;
-      }
-      SlaveFlagsRoutine();
-      return true;
-  }
- //----------------------------------------------------------------------------------------------------
-
+// bool CellVoltageControlTask(){
+////     const uint32_t CS_pollWaitings = waitSPIFree(1000);
+//     if(!rtiTimerExpired(CellVoltageControl_ID, CELL_VOLTAGE_CONTROL_TASK_PERIOD_US, 0)){
+//         keepAwake();
+//         return false;
+//     }
+//
+//     CellVoltageControlRoutine();
+//     return true;
+// }
+// bool MonitorCellTempTask(){
+////     const uint32_t CS_pollWaitings = waitSPIFree(1000);
+//     if(!rtiTimerExpired(MonitorCellTemp_ID, CELL_TEMP_MONITOR_TASK_PERIOD_US, 0)){
+//         keepAwake();
+//         return false;
+//     }
+//
+//     MonitorCellTempRoutine();
+//     return true;
+// }
+// bool SlaveFlagsCheckTasks(){
+// //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
+//      if(!rtiTimerExpired(SlaveFlagsCheck_ID, SLAVE_FLAG_CHECK_TASK_PERIOD_US, 0)){
+//          keepAwake();
+//          return false;
+//      }
+//      SlaveFlagsRoutine();
+//      return true;
+//  }
+// //----------------------------------------------------------------------------------------------------
+//

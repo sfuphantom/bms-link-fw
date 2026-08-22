@@ -1,0 +1,243 @@
+{
+  "Phantom_Hardware": {
+    "SlaveCommunation_Hardware.h": {
+      "NUMBER_OF_SLAVE_BOARDS": 1,
+      "tWAKE_us": 400,
+      "tCYCLE_us": 3325,
+      "tSLEEP_ms": 2200,
+      "tREFUP_us": 4400,
+      "tIDEL_us": 4300,
+      "fADC_kHz": 3300,
+      "CELLS_PER_SLAVE_BOARD": 12,
+      "AUCILIARY_PER_SLAVE_BOARD": 6,
+      "CELL_IN_PARALLEL": 5,
+      "GPIOS_PER_SLAVE_BOARD": 5,
+      "REF_2ND_PER_SLAVE_BOARD": 1,
+      "NUMBER_OF_CLEAR_CMDS": 3,
+      "NUMBER_OF_CELLS": 12,
+      "NUMBER_OF_AUCILIARY": 6,
+      "NUMBER_OF_GPIOS": 5,
+      "NUMBER_OF_REF_2ND": 1,
+      "NUMBER_OF_CONFIG_WORDS": "(NUMBER_OF_REG_WORDS_PER_CMD * NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD)",
+      "NUMBER_OF_STAT_WORDS": "(NUMBER_OF_REG_WORDS_PER_CMD * NUMBER_OF_STAT_REG_GROUPS_PER_BOARD)",
+      "ADC_MEASURE_MODE": 2,
+      "ADC_MEASURE_DISCHARGE_PERMITED": "FALSE",
+      "ADC2MICRO_VOLTS": 100,
+      "ADC2VOLTS": "((float)(ADC2MICRO_VOLTS) * 1e-6f)",
+      "ADC_OFFSET_VOLTS": "(ADC2VOLTS * 0.00f)",
+      "ADC_RESOLUTION_BIT": 14,
+      "ADC_MRCRO_VOLT_NOISE": 250,
+      "ADC_MAX_VOLT": "0.0f",
+      "ADC_MIN_VOLT": "5.0f",
+      "ITMP_MILLI_VOLTS_2_CELCIUS": "7.5f",
+      "ITMP_KELVIN_2_CELCIUS": 273,
+      "RES_ON_OHMS": 33
+    },
+    "Battery_Hardware.h": {
+      "NUMBER_OF_CELLS_SERIES": 96,
+      "NUMBER_OF_CELLS_PARALLEL": 5,
+      "CELL_VOLT_100_FULL": 41000,
+      "CELL_VOLT_0_FULL": 33000,
+      "CELL_SOC_RANGE": 8000,
+      "CELL_VOLT_SAFETY_RANGE": 50,
+      "CELL_VOLT_OVER": 41050,
+      "CELL_VOLT_UNDER": 32950,
+      "MAX_CELL_CHARGING_PERCENTAGE": "(70.0f / 100)",
+      "MAX_CELL_CHARGING_VOLTAGE_TARGET": 38025.0,
+      "CELL_CHARGING_SOC_TARGET_TOLORENCES_PERCENTAGE": "(02.0f / 100)"
+    }
+  },
+  "Phantom_drivers": {
+    "include": {
+      "BatteryData.h": {
+        "KILL_DRIVER": "FALSE",
+        "CELL_VOLT_SAFETY_RANGE": 50,
+        "CELL_VOLT_OVER": 42000,
+        "CELL_VOLT_UNDER": 26000,
+        "CELL_VOLT_100_FULL": 41950,
+        "CELL_VOLT_0_FULL": 25950,
+        "CELL_SOC_RANGE": 16000,
+        "DEFINE_MAX_CELL_CHARGING_PERCENTAGE_N_VOLTAGE_TARGET": "FALSE",
+        "MAX_CELL_CHARGING_VOLTAGE_TARGET": 36000,
+        "MAX_CELL_CHARGING_PERCENTAGE": 0.628125,
+        "CELL_CHARGING_SOC_TARGET_TOLORENCES_PERCENTAGE": "(01.0f / 100)",
+        "MAX_CELL_SOC_PERENTAGE": "(01.0f / 100)",
+        "MAX_CELL_SOC_OVERSHOOT_PERENTAGE": "(MAX_CELL_CHARGING_PERCENTAGE + MAX_CELL_SOC_PERENTAGE)",
+        "CELL_BALANCE_THESHOLD_VOLTS_ADC": 1000,
+        "CELL_BALANCE_HYSTERSIS_BAND_VOLTS_ADC": 200,
+        "CELL_BALANCE_TRIGGER_HIGH_VOLTS_ADC": 1200,
+        "CELL_BALANCE_TRIGGER_LOW_VOLTS_ADC": 800,
+        "VOLTS_Per_10000_DRAINED_PER_PULSE": 100,
+        "NUMBER_OF_VOLT_SAMPLES_SAVED": 3
+      },
+      "BMS_Routines.h": {
+        "USE_ANILOG_GPIO": "FALSE"
+      },
+      "PhantomTimers.h": {
+        "RTI_CLOCK_MEG_HZ": 10,
+        "RTI_CLOCK_HZ": 10000000,
+        "RTI_US_2_TICKS": 10,
+        "RTI_MS_2_TICKS": 10000,
+        "RTI_SEC_2_TICKS": 10000000,
+        "RTI_MAX_TIMERS": 8,
+        "USE_RTI_DELAY": "TRUE"
+      },
+      "BMS_Tasks.h": {
+        "CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK": "SEC_MS_US_2_TICK(0,50,0,0)",
+        "CELL_TEMP_MONITOR_TASK_PERIOD_TICK": "SEC_MS_US_2_TICK(0,50,0,0)",
+        "SLAVE_FLAG_CHECK_TASK_PERIOD_TICK": "SEC_MS_US_2_TICK(0,100,0,0)",
+        "FULL_BATTERY_MONITOR_TASK_PERIOD_TICK": "SEC_MS_US_2_TICK(0,200,0,0)",
+        "CELL_RESISTANCE_MONITOR_TASK_PERIOD_TICK": "SEC_MS_US_2_TICK(5,0,0,0)",
+        "KEEP_SLAVES_AWAKE_TASK_PERIOD_TICK": "SEC_MS_US_2_TICK(0,10,0,0)"
+      },
+      "Phantom_Can.h": {
+        "DEFULT_CAN_MSG_SIZE_BYTE": 8
+      },
+      "Charger.h": {
+        "MAX_CHARGER_CURRENT_AMPS": 400,
+        "MIN_CHARGER_CURRENT_AMPS": 1,
+        "OFF_CHARGER_CURRENT_AMPS": 0,
+        "MAX_OVERSHOOT_CURRENT_PERCENTAGE": "01.0f"
+      },
+      "Fans.h": {
+        "USEING_HET": 1,
+        "FAN_HET_RAM": "hetRAM1",
+        "FAN_HET_PORT": "hetPORT1",
+        "NUMBER_OF_FANS": 5
+      },
+      "Fault_handler.h": {
+        "SLAVE_NO_FAULT_VAL": 0,
+        "ISOLATION_MIN_NO_FAULT_VAL": 75,
+        "ISOLATION_MAX_NO_FAULT_VAL": 100,
+        "IMD_NO_FAULT_VAL": "Normal_Condition",
+        "BMS_NO_FALUT_VAL": 0,
+        "CHARGER_NO_FALUT_VAL": 0
+      },
+      "GIO_helpers.h": {
+        "GIO_PORT_A": "gioPORTA",
+        "GIO_PORT_B": "gioPORTB",
+        "GIO_MAX_PERIOD_US": 3
+      },
+      "spi_helpers.h": {
+        "SPI_WAIT_BYTE_FINISH_COUNT": 255,
+        "REG_FOR_SPI": "spiREG3",
+        "SPI_WDEL": "FALSE",
+        "SPI_CONFIG0_WORD": "(((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_0 << 24U) | (uint32)1U<<16)",
+        "SPI_CONFIG1_WORD": "(((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_1 << 24U) | (uint32)1U<<16)",
+        "SPI_CONFIG2_WORD": "(((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_2 << 24U) | (uint32)0<<16)",
+        "SPI_CONFIG3_WORD": "(((uint32)SPI_WDEL<<26U) | ((uint32)SPI_FMT_3 << 24U) | (uint32)0<<16)",
+        "SPI_DUMMY_DATA_BYTE": 255,
+        "SPI_DUMMY_DATA_WORD": 65535,
+        "SPI_DUMMY_DATA_DWORD": 4294967295,
+        "SPI_DUMMY_DATA_QWORD": 18446744073709551615
+      },
+      "HV_Data.h": {
+        "HV_ADQ_TIME_ns": 200,
+        "ADS7044_CODE_SHIFT": 2,
+        "HV_ADC2VOLTS_OFFSET": "3.3f",
+        "HV_ADC2VOLTS_SCALE": "3.3f",
+        "HV_OVER_VOLT_FLAG": 41000,
+        "HV_UNDER_VOLT_FLAG": 26000
+      },
+      "IMD.h": {
+        "ecap_sec2counts": "VCLK4_FREQ * 1E6;/"
+      },
+      "ltc6811_commands.h": {
+        "LTC6811_WRCFGA": 1,
+        "LTC6811_RDCFGA": 2,
+        "LTC6811_WRCFGB": 36,
+        "LTC6811_RDCFGB": 38,
+        "LTC6811_RDCVA": 4,
+        "LTC6811_RDCVB": 6,
+        "LTC6811_RDCVC": 8,
+        "LTC6811_RDCVD": 10,
+        "LTC6811_RDAUXA": 12,
+        "LTC6811_RDAUXB": 14,
+        "LTC6811_RDSTATA": 16,
+        "LTC6811_RDSTATB": 18,
+        "LTC6811_CLRCELL": 1809,
+        "LTC6811_CLRAUX": 1810,
+        "LTC6811_CLRSTAT": 1811,
+        "LTC6811_WRSCTRL": 20,
+        "LTC6811_RDSCTRL": 22,
+        "LTC6811_WRPWM": 32,
+        "LTC6811_RDPWM": 34,
+        "LTC6811_STSCTRL": 20,
+        "LTC6811_CLRSCTRL": 22,
+        "LTC6811_WRCOMM": 112,
+        "LTC6811_RDCOMM": 114,
+        "LTC6811_STCOMM": 115,
+        "LTC6811_ADCV": 608,
+        "LTC6811_CVST": 519,
+        "LTC6811_ADAX": 1120,
+        "LTC6811_AXST": 1127,
+        "LTC6811_ADSTAT": 1128,
+        "LTC6811_STATST": 1129,
+        "LTC6811_ADCVAX": 1135,
+        "LTC6811_ADOW": 552,
+        "LTC6811_PLADC": 1812
+      },
+      "PhantomHelpers.h": {
+        "NIBBLE2BYTES": 2,
+        "WORDS2BYTES": 2,
+        "DWORDS2BYTES": 4,
+        "QWORDS2BYTES": 8,
+        "NUM_E": "2.718281828f"
+      },
+      "sci_helpers.h": {
+        "UART_DEFAULT_END_CHAR": "((uint8)'\\n')",
+        "UART_DEFAULT_START_CHAR": "((uint8)0x02U)"
+      },
+      "SendDataSerial.h": {
+        "USE_UART_N_SPI": "TRUE",
+        "SOH_BYTE": 1,
+        "EOT_BYTE": 4,
+        "MAX_BUF_SIZE": 1024,
+        "CELL_VOLTAGE_MSG_LEN": "(sizeof(uint16_t) * NUMBER_OF_CELLS)",
+        "CELL_TEMP_MSG_LEN": "(sizeof(uint16_t) * NUMBER_OF_THERMISTORS)",
+        "CELL_DCC_MSG_LEN": 2.0,
+        "IMD_ECAP_DATA_MSG_LEN": "(sizeof(ecapIMDData_t))",
+        "SLAVE_STATUE_MSG_LEN": "(sizeof(uint16_t)*NUMBER_OF_SLAVE_BOARDS)",
+        "PERIODIC_MSG_ID_START_IDX": 2,
+        "PERIODIC_MSG_ID_END_IDX": 13,
+        "NUMBER_OF_PERIODIC_MSG": 12,
+        "CELL_VOLTAGE_MSG_PERIOD_TICK": "SEC_MS_US_2_TICK(5,0,0,0)",
+        "CELL_TEMP_MSG_PERIOD_TICK": "SEC_MS_US_2_TICK(5,0,0,0)",
+        "CELL_DCC_MSG_PERIOD_TICK": "SEC_MS_US_2_TICK(5,0,0,0)",
+        "IMD_ECAP_DATA_MSG_PERIOD_TICK": "SEC_MS_US_2_TICK(5,0,0,0)",
+        "CHARGER_DATA_MSG_PERIOD_TICK": "SEC_MS_US_2_TICK(5,0,0,0)",
+        "CELL_RESISTANCE_MSG_PERIOD_TICK": "SEC_MS_US_2_TICK(5,0,0,0)",
+        "SLAVE_STATUS_DATA_PERIOD_TICK": "SEC_MS_US_2_TICK(5,0,0,0)",
+        "FAN_DATA_MSG_PERIOD_TICK": "SEC_MS_US_2_TICK(5,0,0,0)"
+      },
+      "SlaveCommunation_Functions.h": {
+        "DUMMY_CMD": 1812,
+        "MAX_INTERNAL_DIE_TEMPERATURE_FLAG": 50000,
+        "MIN_INTERNAL_DIE_TEMPERATURE_FLAG": "01000",
+        "MAX_CELL_TEMPERATURE_FLAG": "01000",
+        "MAX_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG": 55000,
+        "MIN_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG": 45000,
+        "MAX_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG": 36000,
+        "MIN_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG": 27000,
+        "MAX_2ND_REFERENCE_VOLTAGE_FLAG": 29900,
+        "MIN_2ND_REFERENCE_VOLTAGE_FLAG": 30100,
+        "OVER_VOLTAGE_FLAG": 42000,
+        "UNDER_VOLTAGE_FLAG": 26000,
+        "OVER_VOLTAGE_CONFIG": 2625,
+        "UNDER_VOLTAGE_CONFIG": 1624,
+        "POLL_PERIOD_STAT_US": 1000,
+        "POLL_PERIOD_AUX_US": 1000,
+        "POLL_PERIOD_CELL_VOLTS_US": 1000,
+        "POLL_PERIOD_CELL_BAL_US": 1000
+      },
+      "SlaveCommunication_Drivers.h": {
+        "NUMBER_OF_FAILS_ALLOWED": 2,
+        "MAX_POLLS_TIMEOUT": 2000,
+        "NUMBER_OF_GARBAGE_BYTES": "(Bit2Bytes_Ceil(NUMBER_OF_SLAVE_BOARDS))",
+        "PEC_INIT_VALUE": 16,
+        "PEC_CHARACTERISTIC_POLYNOMIAL": 17817,
+        "CUSTOM_POLL_WAIT": "FALSE"
+      }
+    }
+  }
+}

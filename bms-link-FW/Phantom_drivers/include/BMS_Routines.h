@@ -12,7 +12,8 @@
 #include "SlaveCommunation_Hardware.h"
 
  //---------------------------------------------------------------------------------------------------------
- #define USE_ANILOG_GPIO    FALSE
+ #define USE_ANILOG_GPIO        FALSE
+
  //---------------------------------------------------------------------------------------------------------
  void MeasureCellVoltageSubRoutine();
  void MeasureGPIOVoltageSubRoutine();
@@ -22,7 +23,9 @@
  void CellVoltageControlRoutine();
  void SlaveFlagsRoutine();
  void MonitorCellTempRoutine();
- void HV_DataRoutine();
+ void MonitorFullBatteryDataRoutine();
+ void MeasureCellResistanceRoutine();
+ void keepSlavesAwakeRoutine();
  //---------------------------------------------------------------------------------------------------------
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_TASKANDROUTINES_H_ */

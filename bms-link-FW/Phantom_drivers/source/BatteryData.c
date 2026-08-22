@@ -63,6 +63,13 @@ inline bool GetChargingStatus(){
 // void CheckChargingSatusTask(){
 //     SetChargingStatus(TRUE);
 // }
+//----------------------------------------------------------------------------------------------------
+inline void SetEcapIMDData(const ecapIMDData_t ecapIMDData){
+    BatteryData.ecapIMDData = ecapIMDData;
+}
+inline ecapIMDData_t GetEcapIMDData(){
+    return BatteryData.ecapIMDData;
+}
  //----------------------------------------------------------------------------------------------------
  inline uint16_t* GetCellVoltReadPrt(){
      return BatteryData.CellVolt;
@@ -70,18 +77,24 @@ inline bool GetChargingStatus(){
  inline uint16_t* GetCellTempReadPrt(){
      return BatteryData.CellTemp;
  }
- inline uint16_t* GetRefVolt2ndReadPrt(){
-     return BatteryData.RefVolt2nd;
- }
  inline uint16_t* GetCellVoltWritePrt(){
      return BatteryData.CellVolt;
  }
  inline uint16_t* GetCellTempWritePrt(){
      return BatteryData.CellTemp;
  }
- inline uint16_t* GetRefVolt2ndWritePrt(){
-     return BatteryData.RefVolt2nd;
- }
+ //----------------------------------------------------------------------------------------------------
+void writeCellRes(const uint16_t *CellRes){
+    memcpy(BatteryData.CellRes, CellRes, sizeof(BatteryData.CellRes));
+}
+//----------------------------------------------------------------------------------------------------
+inline uint16_t* GetCellDCCReadPrt(){
+    return BatteryData.CellDCC;
+}
+inline uint16_t* GetCellDCCWritePrt(){
+    return BatteryData.CellDCC;
+}
+
  //----------------------------------------------------------------------------------------------------
 //  inline void SetBatteryCurrentVal(const uint16_t ADC_Val){
 //      BatteryData.current = ADC_Val;
@@ -294,7 +307,6 @@ BMSState_t getBMS_State(){
 
       memset(BatteryData.CellTemp     , 0, NUMBER_OF_GPIOS  *sizeof (uint16_t));
       memset(BatteryData.CellVolt     , 0, NUMBER_OF_CELLS  *sizeof (uint16_t));
-      memset(BatteryData.RefVolt2nd   , 0, NUMBER_OF_REF_2ND*sizeof (uint16_t));
 
       BatteryData.HV_Voltage = 0;
 

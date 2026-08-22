@@ -18,10 +18,9 @@ C_SRCS += \
 ../Phantom_drivers/source/PhantomHelpers.c \
 ../Phantom_drivers/source/PhantomTimers.c \
 ../Phantom_drivers/source/Phantom_Can.c \
+../Phantom_drivers/source/SendDataSerial.c \
 ../Phantom_drivers/source/SlaveCommunation_Functions.c \
 ../Phantom_drivers/source/SlaveCommunication_Drivers.c \
-../Phantom_drivers/source/SlaveCommunication_Services_additions.c \
-../Phantom_drivers/source/sci_helpers.c \
 ../Phantom_drivers/source/spi_helpers.c 
 
 C_DEPS += \
@@ -37,10 +36,9 @@ C_DEPS += \
 ./Phantom_drivers/source/PhantomHelpers.d \
 ./Phantom_drivers/source/PhantomTimers.d \
 ./Phantom_drivers/source/Phantom_Can.d \
+./Phantom_drivers/source/SendDataSerial.d \
 ./Phantom_drivers/source/SlaveCommunation_Functions.d \
 ./Phantom_drivers/source/SlaveCommunication_Drivers.d \
-./Phantom_drivers/source/SlaveCommunication_Services_additions.d \
-./Phantom_drivers/source/sci_helpers.d \
 ./Phantom_drivers/source/spi_helpers.d 
 
 OBJS += \
@@ -56,10 +54,9 @@ OBJS += \
 ./Phantom_drivers/source/PhantomHelpers.obj \
 ./Phantom_drivers/source/PhantomTimers.obj \
 ./Phantom_drivers/source/Phantom_Can.obj \
+./Phantom_drivers/source/SendDataSerial.obj \
 ./Phantom_drivers/source/SlaveCommunation_Functions.obj \
 ./Phantom_drivers/source/SlaveCommunication_Drivers.obj \
-./Phantom_drivers/source/SlaveCommunication_Services_additions.obj \
-./Phantom_drivers/source/sci_helpers.obj \
 ./Phantom_drivers/source/spi_helpers.obj 
 
 OBJS__QUOTED += \
@@ -75,10 +72,9 @@ OBJS__QUOTED += \
 "Phantom_drivers\source\PhantomHelpers.obj" \
 "Phantom_drivers\source\PhantomTimers.obj" \
 "Phantom_drivers\source\Phantom_Can.obj" \
+"Phantom_drivers\source\SendDataSerial.obj" \
 "Phantom_drivers\source\SlaveCommunation_Functions.obj" \
 "Phantom_drivers\source\SlaveCommunication_Drivers.obj" \
-"Phantom_drivers\source\SlaveCommunication_Services_additions.obj" \
-"Phantom_drivers\source\sci_helpers.obj" \
 "Phantom_drivers\source\spi_helpers.obj" 
 
 C_DEPS__QUOTED += \
@@ -94,10 +90,9 @@ C_DEPS__QUOTED += \
 "Phantom_drivers\source\PhantomHelpers.d" \
 "Phantom_drivers\source\PhantomTimers.d" \
 "Phantom_drivers\source\Phantom_Can.d" \
+"Phantom_drivers\source\SendDataSerial.d" \
 "Phantom_drivers\source\SlaveCommunation_Functions.d" \
 "Phantom_drivers\source\SlaveCommunication_Drivers.d" \
-"Phantom_drivers\source\SlaveCommunication_Services_additions.d" \
-"Phantom_drivers\source\sci_helpers.d" \
 "Phantom_drivers\source\spi_helpers.d" 
 
 C_SRCS__QUOTED += \
@@ -113,10 +108,9 @@ C_SRCS__QUOTED += \
 "../Phantom_drivers/source/PhantomHelpers.c" \
 "../Phantom_drivers/source/PhantomTimers.c" \
 "../Phantom_drivers/source/Phantom_Can.c" \
+"../Phantom_drivers/source/SendDataSerial.c" \
 "../Phantom_drivers/source/SlaveCommunation_Functions.c" \
 "../Phantom_drivers/source/SlaveCommunication_Drivers.c" \
-"../Phantom_drivers/source/SlaveCommunication_Services_additions.c" \
-"../Phantom_drivers/source/sci_helpers.c" \
 "../Phantom_drivers/source/spi_helpers.c" 
 
 

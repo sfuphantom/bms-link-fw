@@ -51,44 +51,46 @@ typedef enum{
     Undefined_Fault
 }IMDStateEnum;
 
-// Isolation State Enum
-typedef enum{
-    Normal, // When Duty Cycle 5-10%
-    Normal_75, // Usually when Duty Cycle 10-30%
-    Normal_50, // Usually when Duty Cycle 30-60%
-    Normal_25, // Usually when Duty Cycle 60-90%
-    Isolation_Failure, //When Duty Cycle is 90-95%
-    Unknown // Duty Cycle is outside of range (5-95%)
-}IsolationStateEnum;
+//// Isolation State Enum
+//typedef enum{
+//    Normal, // When Duty Cycle 5-10%
+//    Normal_75, // Usually when Duty Cycle 10-30%
+//    Normal_50, // Usually when Duty Cycle 30-60%
+//    Normal_25, // Usually when Duty Cycle 60-90%
+//    Isolation_Failure, //When Duty Cycle is 90-95%
+//    Unknown // Duty Cycle is outside of range (5-95%)
+//}IsolationStateEnum;
 // IMDData Struct which contains the status of the IMD and Isolation
 typedef struct{
     IMDStateEnum IMDState;
-    IsolationStateEnum IsolationState;
+//    IsolationStateEnum IsolationState;
+    uint8_t IsolationState;
 }IMDData_t;
 
 
 //--------------------------------------------------------------------------
 #define SLAVE_NO_FAULT_VAL      0
-#define ISOLATION_NO_FAULT_VAL  Normal
+//#define ISOLATION_NO_FAULT_VAL  Normal
+#define ISOLATION_MIN_NO_FAULT_VAL  75
+#define ISOLATION_MAX_NO_FAULT_VAL  100
+
 #define IMD_NO_FAULT_VAL        Normal_Condition
 #define BMS_NO_FALUT_VAL        0
 #define CHARGER_NO_FALUT_VAL    0
 //--------------------------------------------------------------------------
 typedef struct{
         IMDData_t IMD_Faults;
-//        uint8_t  IMD_Faults;
-//        uint8_t  Isolation_Faults;
         uint16_t Slave_Faults;
         uint8_t  BMS_Faults;
-        uint8_t  Charger_Faults;
+//        uint8_t  Charger_Faults;
 }BMSFaultsData_t;
 //--------------------------------------------------------------------------
 //Gio_State_t gioGetBitHelper(const uint8_t bit);
 //Gio_State_t gioSetBitHelper(const uint8_t bit, const Gio_State_t NewState);
 //Gio_State_t gioToggleBitHelper(const uint8_t bit);
 //--------------------------------------------------------------------------
-typedef enum {BAD_TEMP_flags, BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL, BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND, BAD_SLAVE_CONNECTION_FLAG}Slave_Faults;
-typedef enum {DEBUG_FLAG, BAD_HV_VOLT_FLAG, CHARGER_COMMS_FAULT}BMS_Faults;
+typedef enum {BAD_TEMP_flags, BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL, BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND}Slave_Faults;
+typedef enum {DEBUG_FLAG, BAD_HV_VOLT_FLAG, CHARGER_COMMS_FAULT, BAD_SLAVE_CONNECTION_FLAG}BMS_Faults;
 //----------------------------------------------------------------------------------------------------
  void SetAllSlaveFaults(const uint16_t NewSlaveFaults);
  void AddSlaveFaults(const uint16_t NewSlaveFaults);
@@ -110,7 +112,7 @@ typedef enum {DEBUG_FLAG, BAD_HV_VOLT_FLAG, CHARGER_COMMS_FAULT}BMS_Faults;
  void ClearIMDFaults();
  bool AnyIMDFaults();
 //--------------------------------------------------------------------------
-bool clearIMDFaults();
+//bool clearIMDFaults();
 bool clearSlaveFaults();
 bool clearOtherBMSFaults();
 //bool clear_AllFault();
@@ -121,7 +123,8 @@ bool AnyFaults();
 //--------------------------------------------------------------------------
 void Fault_Handler();
 //--------------------------------------------------------------------------
-
+BMSFaultsData_t* GetBMSFaultsData();
+//--------------------------------------------------------------------------
 BMSFaultsData_t BMSFaultsData;
 
 

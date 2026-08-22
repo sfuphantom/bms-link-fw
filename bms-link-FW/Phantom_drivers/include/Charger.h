@@ -100,9 +100,7 @@ bool CalcNewCurrentSetting(const float avg_SOC, const float max_SOC);
 ChargerData_t* GetChargerDataPrt();
 void initCharger();
 //----------------------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------------------
-ChargerData_t ChargerData;
+static ChargerData_t ChargerData;
 static ChargerStatus_t* ChargerDateRead = &ChargerData.ChargerStatusData;
 static ChargerStatus_t*   ChargerDateWrite = &ChargerData.ChargerTargetData;
 

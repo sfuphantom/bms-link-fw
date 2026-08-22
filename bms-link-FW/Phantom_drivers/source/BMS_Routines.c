@@ -18,97 +18,78 @@
 #include "Fans.h"
 #include "HV_data.h"
 #include "Fault_handler.h"
+#include "SendDataSerial.h"
 
- //---------------------------------------------------------------------------------------------------------
- uint32_t checkStatFlags(){
-      bool flag;
-      uint32_t Flags = 0;
 
-      struct StatusReg* current_Slave = GetStatusRegData();
-      int i;
-      for(i=0;i<NUMBER_OF_SLAVE_BOARDS; i++, current_Slave++){
 
-          flag = current_Slave->OV_flags == 0;
-          Flags |= (uint32_t)flag<<BAD_OV_flags;
-          flag = current_Slave->UV_flags == 0;
-          Flags |= (uint32_t)flag<<BAD_UV_flags;
-          flag = !current_Slave->THSD;
-          Flags |= (uint32_t)flag<<BAD_THSD;
-          flag = !current_Slave->MUXFAIL;
-          Flags |= (uint32_t)flag<<BAD_MUXFAIL;
+//void SendCellDCC_PWM_Serial(){
+//
+//}
 
-          flag = current_Slave->ITMP > MAX_INTERNAL_DIE_TEMPERATURE_FLAG;
-          Flags |= (uint32_t)flag<<BAD_ITMP;
-          flag = current_Slave->ITMP < MIN_INTERNAL_DIE_TEMPERATURE_FLAG;
-          Flags |= (uint32_t)flag<<BAD_ITMP;
-          flag = current_Slave->VA > MAX_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG;
-          Flags |= (uint32_t)flag<<BAD_VA;
-          flag = current_Slave->VA < MIN_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG;
-          Flags |= (uint32_t)flag<<BAD_VA;
-          flag = current_Slave->VD > MAX_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG;
-          Flags |= (uint32_t)flag<<BAD_VD;
-          flag = current_Slave->VD < MIN_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG;
-          Flags |= (uint32_t)flag<<BAD_VD;
-      }
-
-      AddSlaveFaults(Flags);
-
-      return Flags;
- }
  //---------------------------------------------------------------------------------------------------------
 
  bool MeasureRef2ndVoltageSubRoutine_NoErrorHandling() {
-       uint32_t cmdDone = MeasureAUXCmd(ADC_MEASURE_MODE, 6);
+       ClearAUXCMD();
+       MeasureAUXCmd(ADC_MEASURE_MODE, 6);
 
        uint16_t AUXDataOut[NUMBER_OF_AUCILIARY];
        GetGPIOReadings_Analog(AUXDataOut);
 
-       uint16_t* Ref2nd_DataOut = GetRefVolt2ndWritePrt();
+      int i, idx;
+      bool AllValid = TRUE;
+      StatusReg* current_Slave = GetStatusRegData();
+      for(i=0, idx=0;i<NUMBER_OF_SLAVE_BOARDS; i++){
+          idx+=GPIOS_PER_SLAVE_BOARD;
 
-       int i,j;
-       int idx = 0;
-       bool flag_2ndRef;
-       for(i=0;i<NUMBER_OF_SLAVE_BOARDS; i++){
-           idx+=GPIOS_PER_SLAVE_BOARD;
-           for(j=0;j<REF_2ND_PER_SLAVE_BOARD; j++){
-               flag_2ndRef |= (MAX_2ND_REFERENCE_VOLTAGE_FLAG < AUXDataOut[idx]) | (MIN_2ND_REFERENCE_VOLTAGE_FLAG > AUXDataOut[idx]);
-               *Ref2nd_DataOut = AUXDataOut[idx++];
-                Ref2nd_DataOut++;
-           }
+          AllValid = SPI_DUMMY_DATA_WORD != AUXDataOut[idx];
+
+          current_Slave->RefVolt2nd = AUXDataOut[idx++];
+          current_Slave++;
        }
 
-       bool AllValid = !array16_eq_any(Ref2nd_DataOut, SPI_DUMMY_DATA_WORD, NUMBER_OF_REF_2ND);
+//       uint16_t* Ref2nd_DataOut = GetRefVolt2ndWritePrt();
 
-       if(!((cmdDone != 0) && AllValid)){
+//       int i,j;
+//       int idx = 0;
+//       bool flag_2ndRef;
+//       for(i=0;i<NUMBER_OF_SLAVE_BOARDS; i++){
+//           idx+=GPIOS_PER_SLAVE_BOARD;
+//           for(j=0;j<REF_2ND_PER_SLAVE_BOARD; j++){
+//               flag_2ndRef |= (MAX_2ND_REFERENCE_VOLTAGE_FLAG < AUXDataOut[idx]) | (MIN_2ND_REFERENCE_VOLTAGE_FLAG > AUXDataOut[idx]);
+//               *Ref2nd_DataOut = AUXDataOut[idx++];
+//                Ref2nd_DataOut++;
+//           }
+//       }
+
+//       bool AllValid = !array16_eq_any(Ref2nd_DataOut, SPI_DUMMY_DATA_WORD, NUMBER_OF_REF_2ND);
+
+       if(!AllValid){
            return false;
        }
 
-       if(flag_2ndRef){
-           GetSlaveFault_bool(BAD_REF2ND);
-       }
 
        return true;
  }
 
  bool MeasureAUXVoltageSubRoutine_NoErrorHandling(){
 //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
-     uint32_t cmdDone = MeasureAUXCmd(ADC_MEASURE_MODE, 0);
+     uint32_t cmdDone = MeasureAUXCmd_All(ADC_MEASURE_MODE);
 
      uint16_t AUXDataOut[NUMBER_OF_AUCILIARY];
-     GetGPIOReadings_Analog(AUXDataOut);
+     bool PecEq = GetGPIOReadings_Analog(AUXDataOut);
 
      bool AllValid = !array16_eq_any(AUXDataOut, SPI_DUMMY_DATA_WORD, NUMBER_OF_AUCILIARY);
 
-     if(!((cmdDone != 0) && AllValid)){
+     if(!((cmdDone != 0) && AllValid && PecEq)){
          return false;
      }
      ///////////////////////////////////////////////////////////
      uint16_t* GPIO_DataOut = GetCellTempWritePrt();
-     uint16_t* Ref2nd_DataOut = GetRefVolt2ndWritePrt();
+//     uint16_t* Ref2nd_DataOut = GetRefVolt2ndWritePrt();
+     StatusReg* current_Slave = GetStatusRegData();
 
      int i,j;
      int idx = 0;
-     bool flag_2ndRef = FALSE;
      bool flag_Temp = FALSE;
      for(i=0;i<NUMBER_OF_SLAVE_BOARDS; i++){
          for(j=0;j<GPIOS_PER_SLAVE_BOARD; j++){
@@ -117,15 +98,15 @@
               GPIO_DataOut++;
          }
 
-         for(j=0;j<REF_2ND_PER_SLAVE_BOARD; j++){
-             flag_2ndRef |= (MAX_2ND_REFERENCE_VOLTAGE_FLAG < AUXDataOut[idx]) | (MIN_2ND_REFERENCE_VOLTAGE_FLAG > AUXDataOut[idx]);
-             *Ref2nd_DataOut = AUXDataOut[idx++];
+         current_Slave->RefVolt2nd = AUXDataOut[idx++];
+         current_Slave++;
 
-              Ref2nd_DataOut++;
-         }
-     }
-     if(flag_2ndRef){
-         SetSlaveFault_bool_HIGH(BAD_REF2ND);
+//         for(j=0;j<REF_2ND_PER_SLAVE_BOARD; j++){
+//             flag_2ndRef |= (MAX_2ND_REFERENCE_VOLTAGE_FLAG < AUXDataOut[idx]) | (MIN_2ND_REFERENCE_VOLTAGE_FLAG > AUXDataOut[idx]);
+//             *Ref2nd_DataOut = AUXDataOut[idx++];
+//
+//              Ref2nd_DataOut++;
+//         }
      }
      if(flag_Temp){
          const hetSIGNAL_t signal = {100,40};
@@ -140,26 +121,34 @@
  }
 
  bool MeasureCellVoltageSubRoutine_NoErrorHandling(){
+#if USE_WAKEUP_SLEEP
      wakeup_sleep();
-
+#else
+     wakeup_idle();
+#endif
      uint16_t* VoltDataOut = GetCellVoltWritePrt();
 
-//     uint16_t DCC[NUMBER_OF_CELLS];
-//     memset(DCC,0,NUMBER_OF_CELLS * sizeof(uint16_t));
-//     SetConfig_DCC(DCC);
-//     Write_CFGR();
+     bool cmdDone = MeasureCellsCmd_All_NoDis(ADC_MEASURE_MODE);
+//     uint32_t cmdDone = MeasureCellsCmd(ADC_MEASURE_MODE, ADC_MEASURE_DISCHARGE_PERMITED, 0);
 
-     uint32_t cmdDone = MeasureCellsCmd(ADC_MEASURE_MODE, ADC_MEASURE_DISCHARGE_PERMITED, 0);
-
+#if USE_WAKEUP_SLEEP
      wakeup_sleep();
-     GetVoltageReadings(VoltDataOut);
+#else
+     wakeup_idle();
+#endif
+     bool PecEQ = GetVoltageReadings(VoltDataOut);
 
-     bool AllValid = !array16_eq_any(VoltDataOut, SPI_DUMMY_DATA_WORD, NUMBER_OF_CELLS);;
+     bool AllValid = !array16_eq_any(VoltDataOut, SPI_DUMMY_DATA_WORD, NUMBER_OF_CELLS);
 
-     return (cmdDone != 0) && AllValid;
+     return cmdDone && AllValid && PecEQ;
  }
+
  bool BalanceCellsSubRoutine_NoErrorHandling(){
+#if USE_WAKEUP_SLEEP
      wakeup_sleep();
+#else
+     wakeup_idle();
+#endif
 
     const uint16_t* VoltInData = GetCellVoltReadPrt();
 
@@ -177,8 +166,8 @@
 //         Start_S_CTRL_Pulsing();
          return cmdDone;
     #elif Bal_IMP == 1
-         uint16_t DCC_Val[NUMBER_OF_SLAVE_BOARDS]={0};
-
+//         uint16_t DCC_Val[NUMBER_OF_SLAVE_BOARDS]={0};
+         uint16_t* DCC_Val = GetCellDCCWritePrt();
          const uint8_t NumCellsFull = GetBalanceDCC(DCC_Val);
 
          SetConfig_DCC(DCC_Val);
@@ -203,16 +192,78 @@
     #endif
 
  }
-
- bool ReadStatAndGetFlagsSubRoutine_NoErrorHandling(){
+ bool MeasureCellResistanceSubRoutine_NoErrorHandling(){
+#if USE_WAKEUP_SLEEP
      wakeup_sleep();
+#else
+     wakeup_idle();
+#endif
 
-     const uint32_t cmdDone = MeasureSTATCmd(ADC_MEASURE_MODE,0x0);
+     int i;
+     bool PecEQ = TRUE;
+     const uint16_t* OpenCellVolts= GetCellVoltReadPrt();
+     uint16_t disCellVolts[NUMBER_OF_CELLS];
+
+//     uint16_t DCC[NUMBER_OF_SLAVE_BOARDS];
+//     ReadConfig_DCC(DCC);
+     const uint16_t* DCC = GetCellDCCReadPrt();
+
+//     SetAllConfig_DCC(0xFFFF);
+//     Write_CFGR();
+//     bool cmdDone = MeasureCellsCmd(ADC_MEASURE_MODE, TRUE, 0);
+//     SetConfig_DCC(DCC);
+
+     const uint16_t Cell_71_bits = 1<<6 + 1<<0;
+     ClearCellsCMD();
+     for(i=0; i<CELLS_PER_SLAVE_BOARD/2; ){
+
+         SetAllHigh_DCC(Cell_71_bits<<i);
+         Write_CFGR();
+
+         MeasureCellsCmd_Dis(ADC_MEASURE_MODE, ++i);
+
+         SetConfig_DCC(DCC);
+     }
+
+     Write_CFGR();
+
+#if USE_WAKEUP_SLEEP
+     wakeup_sleep();
+#else
+     wakeup_idle();
+#endif
+
+     PecEQ &= GetVoltageReadings(disCellVolts);
+
+     uint16_t Vdiff;
+     uint16_t res_mOhm;
+     uint16_t CellRes_mOhm[NUMBER_OF_CELLS];
+
+     for(i=0; i<NUMBER_OF_CELLS; i++){
+         Vdiff = OpenCellVolts[i] - disCellVolts[i];
+         res_mOhm = (1000*res_mOhm) * ((float)Vdiff/disCellVolts[i]);
+         CellRes_mOhm[i] = res_mOhm;
+     }
+     writeCellRes(CellRes_mOhm);
+
+     bool AllValid = !array16_eq_any(disCellVolts, SPI_DUMMY_DATA_WORD, NUMBER_OF_CELLS);;
+
+
+     return (AllValid && PecEQ);
+ }
+ bool ReadStatAndGetFlagsSubRoutine_NoErrorHandling(){
+#if USE_WAKEUP_SLEEP
+     wakeup_sleep();
+#else
+     wakeup_idle();
+#endif
+     const uint32_t cmdDone = MeasureSTATCmd_All(ADC_MEASURE_MODE);
 
      const bool Stat_Valid = Read_STAT();
 
 #if !USE_ANILOG_GPIO
-     const bool Config_Valid = Read_CFGR();
+//     const bool Config_Valid = Read_CFGR();
+     const bool Config_Valid = TRUE;
 #else
      const bool Config_Valid = TRUE;
 #endif
@@ -221,8 +272,6 @@
      if(!Valid){
          return false;
      }
-
-     uint32_t Flags = checkStatFlags()<<1;
 
 #if !USE_ANILOG_GPIO
      const bool flag_Temp = !ReadConfig_gpio_allZero();
@@ -237,7 +286,6 @@
      }
  #endif
 
-    AddSlaveFaults(Flags);
     return true;
  }
  //---------------------------------------------------------------------------------------------------------
@@ -253,7 +301,11 @@
  //    Set_HV_Voltage(HV_Volts);
 
 
-     BatteryData.HV_Voltage = HV_DataShifted;
+     Set_HV_Voltage(HV_DataShifted);
+
+//     BatteryData.HV_Voltage = HV_DataShifted;
+
+
 
 //     bool can_vaild = transmit_BMS2VCU_Data(HV_DataShifted, getIMDResistance());
 
@@ -264,52 +316,55 @@
      return true;
  }
  //---------------------------------------------------------------------------------------------------------
- void SubRoutine_ErrorHandler(bool (*SubRoutine_prt)(void)){
+ void SubRoutine_ErrorHandler_Decorator(bool (*SubRoutine_prt)(void), const BMS_Faults ErrorFault){
      int repeat_idx;
      bool Valid;
 
      for(repeat_idx=0; repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
-//         if(GetSlaveFault_bool(BAD_SLAVE_CONNECTION_FLAG)){
+//         if(anyFaluts()){
 //            return;
 //         }
 
-//         wakeup_sleep();
          Valid = SubRoutine_prt();
 
          if(Valid){return;}
      }
 
-     SetSlaveFault_bool_HIGH(BAD_SLAVE_CONNECTION_FLAG);
+     SetBMSFault_bool_HIGH(ErrorFault);
  }
  //---------------------------------------------------------------------------------------------------------
- void MeasureGPIOVoltageSubRoutine(){
-     SubRoutine_ErrorHandler(MeasureAUXVoltageSubRoutine_NoErrorHandling);
+ inline void MeasureGPIOVoltageSubRoutine(){
+     SubRoutine_ErrorHandler_Decorator(MeasureAUXVoltageSubRoutine_NoErrorHandling, BAD_SLAVE_CONNECTION_FLAG);
  }
- void MeasureRef2ndVoltageSubRoutine(){
-     SubRoutine_ErrorHandler(MeasureRef2ndVoltageSubRoutine_NoErrorHandling);
- }
-
- void MeasureCellVoltageSubRoutine(){
-     SubRoutine_ErrorHandler(MeasureCellVoltageSubRoutine_NoErrorHandling);
- }
- void BalanceCellsSubRoutine(){
-     SubRoutine_ErrorHandler(BalanceCellsSubRoutine_NoErrorHandling);
+ inline void MeasureRef2ndVoltageSubRoutine(){
+     SubRoutine_ErrorHandler_Decorator(MeasureRef2ndVoltageSubRoutine_NoErrorHandling, BAD_SLAVE_CONNECTION_FLAG);
  }
 
- void ReadStatAndGetFlagsSubRoutine(){
-     SubRoutine_ErrorHandler(ReadStatAndGetFlagsSubRoutine_NoErrorHandling);
+ inline void MeasureCellVoltageSubRoutine(){
+     SubRoutine_ErrorHandler_Decorator(MeasureCellVoltageSubRoutine_NoErrorHandling, BAD_SLAVE_CONNECTION_FLAG);
+     SendPeriodic(SEND_CELL_VOLT);
  }
- void HV_DataSubRoutine(){
-     SubRoutine_ErrorHandler(HV_DataSubRoutine_NoErrorHandling);
+ inline void BalanceCellsSubRoutine(){
+     SubRoutine_ErrorHandler_Decorator(BalanceCellsSubRoutine_NoErrorHandling, BAD_SLAVE_CONNECTION_FLAG);
+     SendPeriodic(SEND_DCC_DATA);
+ }
+
+ inline void ReadStatAndGetFlagsSubRoutine(){
+     SubRoutine_ErrorHandler_Decorator(ReadStatAndGetFlagsSubRoutine_NoErrorHandling, BAD_SLAVE_CONNECTION_FLAG);
+ }
+ inline void HV_DataSubRoutine(){
+     SubRoutine_ErrorHandler_Decorator(HV_DataSubRoutine_NoErrorHandling, BAD_HV_VOLT_FLAG);
+ }
+ inline void MeasureCellResistanceSubRoutine(){
+     SubRoutine_ErrorHandler_Decorator(MeasureCellResistanceSubRoutine_NoErrorHandling, BAD_SLAVE_CONNECTION_FLAG);
+     SendPeriodic(SEND_CELL_RES);
  }
 //----------------------------------------------------------------------------------------------------
  void CellVoltageControlRoutine(){
 //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
      MeasureCellVoltageSubRoutine();
 
-     uint16_t Avg_Volt_16 = GetAvgCellVolt();
-
-
+     const uint16_t Avg_Volt_16 = GetAvgCellVolt();
 
 //     SlaveData.TotalSumVolt = array16_sum(SlaveData.CellVolt, NUMBER_OF_CELLS);
 //     SlaveData.Avg_SOC = array16_avg(SlaveData.CellVolt, NUMBER_OF_CELLS);
@@ -334,13 +389,23 @@
 
  void SlaveFlagsRoutine(){
  //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
-
-      ReadStatAndGetFlagsSubRoutine();
 #if !USE_ANILOG_GPIO
       MeasureRef2ndVoltageSubRoutine();
 #endif
+      ReadStatAndGetFlagsSubRoutine();
+
+      checkStatFlags();
+      SendPeriodic(SEND_SLAVE_STATE);
 
   }
- void HV_DataRoutine(){
+ void MonitorFullBatteryDataRoutine(){
      HV_DataSubRoutine();
+//     getCurrentSubRoutine();
+//     CalcSOC();
  }
+void MeasureCellResistanceRoutine(){
+    MeasureCellResistanceSubRoutine();
+}
+void keepSlavesAwakeRoutine(){
+    SendDummyCMD();
+}

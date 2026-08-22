@@ -28,9 +28,6 @@ bool ADC_is_Free = TRUE;
 
 //----------------------------------------------------------------------------------------
 uint16_t pec15Table[256];
-//#define PEC_INIT_VALUE 0x0010
-//#define PEC_CHARACTERISTIC_POLYNOMIAL 0x4599
-
 void init_PEC15_Table(){
     int i, bit;
     uint16_t remainder;
@@ -69,96 +66,6 @@ void init_PEC15_Table(){
 //     uint8_t cmd8[2] = {cmd>>8,cmd};
      return pec15_calc(1, &cmd);
  }
-//---------------------------------------------------------------------------------------------------------
-//
-// void setCS(const CS_Level level){
-////     const uint32 CS_MaskPin = (1U << SLAVE_CS_PIN_ID);
-//     Current_CS_Level = level;
-//     if(level == LOW)
-//         REG_FOR_SPI->PC3 &= ~(uint32_t)CS_PIN_MASK;
-//     else if(level == HIGH)
-//         REG_FOR_SPI->PC3 |=  (uint32_t)CS_PIN_MASK;
-// }
-// CS_Level GetCS(){
-//     return Current_CS_Level;
-// }
-// CS_Level ToggleCS(){
-//     if(Current_CS_Level == HIGH){
-//         REG_FOR_SPI->PC3 &= ~(uint32_t)CS_PIN_MASK;
-//         Current_CS_Level = LOW;
-//     }
-//     else if(Current_CS_Level == LOW){
-//         REG_FOR_SPI->PC3 |=  (uint32_t)CS_PIN_MASK;
-//         Current_CS_Level = HIGH;
-//     }
-//     return Current_CS_Level;
-// }
-// uint8_t SPI_SR2Link_2Bits(const uint8_t Tx){
-////     const uint8_t waitCount = 0xFF;
-//
-//     REG_FOR_SPI->DAT1 =   SPI_CONFIG1_WORD | (uint32)(Tx);
-//
-//     int i=0;
-//     while((REG_FOR_SPI->FLG & 0x00000100U) != 0x00000100U && i < SPI_WAIT_BYTE_FINISH_COUNT ){
-//         i++;
-//     } /* Wait */
-//
-//     uint8_t Rx = REG_FOR_SPI->BUF;
-//     return Rx;
-// }
-// uint8_t SPI_SR2Link_BYTE(const uint8_t Tx){
-////     const uint8_t waitCount = 0xFF;
-//
-//     REG_FOR_SPI->DAT1 =   SPI_CONFIG0_WORD | (uint32)(Tx);
-//
-//     int i=0;
-//     while((REG_FOR_SPI->FLG & 0x00000100U) != 0x00000100U && i < SPI_WAIT_BYTE_FINISH_COUNT ){
-//         i++;
-//     } /* Wait */
-//
-//     uint8_t Rx = REG_FOR_SPI->BUF;
-//     return Rx;
-// }
-// uint64_t SPI_SR2Link_MultiBYTE(const uint64_t Tx_Full, const uint8_t Bytes){
-//      const uint8_t Bits = Bytes<<3;
-//
-//      uint8_t Tx = 0;
-//      uint8_t Rx = 0;
-//      uint64_t Rx_Full = 0;
-//
-//      int i;
-//
-//      for (i=0;i<Bits;i+=8){
-//          Tx = Tx_Full >> (Bits - i-8);
-//          Rx = SPI_SR2Link_BYTE(Tx);
-//
-//          Rx_Full |= (uint64_t)Rx<<i;
-//      }
-//
-//      return Rx_Full;
-//  }
-//
-// uint16_t SPI_SR2Link_WORD(const uint16_t Tx){
-//     const uint8_t NumOfBytes = 2;
-//     uint16_t Rx = SPI_SR2Link_MultiBYTE(Tx, NumOfBytes);
-//     return Rx;
-// }
-// uint32_t SPI_SR2Link_DWORD(const uint32_t Tx){
-//     const uint8_t NumOfBytes = 4;
-//     uint16_t Rx = SPI_SR2Link_MultiBYTE(Tx, NumOfBytes);
-//     return Rx;
-// }
-// uint64_t SPI_SR2Link_QWORD(const uint64_t Tx){
-//     const uint8_t NumOfBytes = 8;
-//     uint16_t Rx = SPI_SR2Link_MultiBYTE(Tx, NumOfBytes);
-//     return Rx;
-// }
-// void SPI_Clock_BYTES(const uint8_t Bytes2Clock){
-//     int i;
-//     for(i=0;i<Bytes2Clock; i++)
-//         SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE);
-// }
-
  //---------------------------------------------------------------------------------------------------------
  void wakeup_idle(){ //Number of ICs in the system
      int i;
@@ -285,12 +192,6 @@ void init_PEC15_Table(){
  }
 #endif
 
-
-
-// void SendClearThenMeasureCMD(const uint16_t cmd_clear, const uint16_t cmd_Measure){
-//     SendCMD2Slave_alone(cmd_clear);
-//     SendCMD2Slave_alone(cmd_Measure);
-// }
  //---------------------------------------------------------------------------------------------------------
 
  bool ReadRegGroup_NoPecCheck(const uint16_t cmd, uint16_t* data){
@@ -327,14 +228,15 @@ void init_PEC15_Table(){
          swap_word_bytes_arr(ReadOneReg, ReadOneReg_Swap, WORDS_PER_REG_GROUP);
 
          Rx_Pec_Calc = pec15_calc(WORDS_PER_REG_GROUP, ReadOneReg_Swap);
+         Rx_Pec_Calc = swap_word_bytes(Rx_Pec_Calc);
          Pec_Equal &= (Rx_Pec_Mesg == Rx_Pec_Calc);
-         if(false /*!Pec_Equal*/){//TODO: should be if(!Pec_Equal), however PEC_Equal is alway false idk
+         if(!Pec_Equal){//TODO: should be if(!Pec_Equal), however PEC_Equal is alway false idk
              break;
          }
      }
 
      setCS(HIGH, SLAVE_CS_PIN_ID);
-     return TRUE; //Pec_Equal; //TODO should return Pec_Equal, however PEC_Equal is alway false idk
+     return Pec_Equal; //TODO should return Pec_Equal, however PEC_Equal is alway false idk
  }
  bool ReadRegGroup(const uint16_t cmd, uint16_t *data){
      bool Pec_Eq;

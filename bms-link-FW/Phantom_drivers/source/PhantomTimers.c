@@ -113,7 +113,15 @@ uint32_t timer_toc_us(const uint32_t tic){
     uint32_t diff = (now-tic)/RTI_US_2_TICKS;
     return diff;
 }
+//------------------------------------------------------------------------------------
+uint32_t timeFunction_VoidVoid_us(void (*FuncPrt)(void)){
+        const uint32_t tic = timer_tic_tick();
 
+        FuncPrt();
+
+        const uint32_t toc_us = timer_toc_us(tic);
+        return toc_us;
+}
 //------------------------------------------------------------------------------------
 uint8_t debounceBool(const bool input, uint32_t * const perv, const uint8_t changeNum){
     const uint32_t changeMask = (1U<<changeNum) -1;

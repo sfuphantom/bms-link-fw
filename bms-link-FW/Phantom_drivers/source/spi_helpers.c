@@ -11,6 +11,7 @@
 
 //---------------------------------------------------------------------------------------------------------
  CS_Level Current_CS_Level = HIGH;
+// static bool SPI_free = true;
 //---------------------------------------------------------------------------------------------------------
 
  void setCS(const CS_Level level, const uint8_t CS){
@@ -38,8 +39,11 @@
      return Current_CS_Level;
  }
 
- bool SPI_busy(){
+ bool is_SPI_busy(){
      return Current_CS_Level == LOW;
+ }
+ bool is_SPI_free(){
+     return Current_CS_Level == HIGH;
  }
 // uint8_t SPI_SR2Link_2Bits(const uint8_t Tx){
 ////     const uint8_t waitCount = 0xFF;
@@ -80,12 +84,12 @@
 //     uint16_t Rx = REG_FOR_SPI->BUF;
 //     return Rx;
 // }
- uint64_t SPI_SR2Link_MultiBYTE(const uint64_t Tx_Full, const uint8_t Bytes){
+ uint32_t SPI_SR2Link_MultiBYTE(const uint32_t Tx_Full, const uint8_t Bytes){
       const uint8_t Bits = Bytes<<3;
 
       uint8_t Tx = 0;
       uint8_t Rx = 0;
-      uint64_t Rx_Full = 0;
+      uint32_t Rx_Full = 0;
 
       int i;
 
@@ -93,7 +97,7 @@
           Tx = Tx_Full >> (Bits - i-8);
           Rx = SPI_SR2Link_BYTE(Tx);
 
-          Rx_Full |= (uint64_t)Rx<<i;
+          Rx_Full |= (uint32_t)Rx<<i;
       }
 
       return Rx_Full;

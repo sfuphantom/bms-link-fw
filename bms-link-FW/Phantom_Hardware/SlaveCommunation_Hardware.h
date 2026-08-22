@@ -79,6 +79,7 @@
 #define ITMP_MILLI_VOLTS_2_CELCIUS      7.5f
 #define ITMP_KELVIN_2_CELCIUS           273
 //////////////////////////////////////////////////////////////////
-
+#define RES_ON_OHMS                     33
+//////////////////////////////////////////////////////////////////
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_HARDWARE_H_ */

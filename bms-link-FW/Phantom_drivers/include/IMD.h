@@ -18,7 +18,7 @@
 
 //---------------------------------------------------------------------------------------------------------
 #define IMD_ECAP_REG ecapREG6
-#define ecap_sec2counts  VCLK4_FREQ*(1000000);
+#define ecap_sec2counts  VCLK4_FREQ * 1E6;//*(1000000);
 #define VALID_FLAG_MASK 0x00FF
 #define VALID_FLAG_VAL  0x000E
 
