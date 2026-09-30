@@ -1,0 +1,47 @@
+BMS Tasks List:
+
+Faults:
+	Detect Fused Cells
+	 
+	Check if there are any Faults before starting
+	When clearing faults, check if there are any faults again
+	Have clear fault signal (from VCU)
+	
+	
+Testing:
+	Charger
+	8 slaves
+	IMD (accuracy)
+	
+Unfinished:
+	Cans and VCU
+	HV
+	Current from inverter
+	SOC (int Current)
+
+	better charger controller
+	States (Charging and Battery and BMS)
+	GUI
+	Temp and Fans
+	Resistance
+	Thermal runaway
+	Wait for start signal (VCU)
+	Faster UART
+	Better datalogging
+	PWM balancing 
+
+	hFiles
+	RTOS
+
+Old git:
+	SOC
+	resistance
+	Math
+
+
+
+
+	
+	
+	
+	
