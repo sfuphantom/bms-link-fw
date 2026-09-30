@@ -115,6 +115,7 @@ def CellVoltagesData_handler(data: Sequence) -> list:
 
 def IMDData_handler(data: Sequence) -> list:
     # SendIMDData_Serial() sends ecapIMDData_t as raw freq/duty bytes.
+
     return [data[0] / 2, data[1] / 4]
 
 
@@ -156,20 +157,28 @@ def SlaveStateData_handler(data: Sequence) -> list:
         data_fmt[i+1]  = (data_fmt[i+1] * 0.007_5) - 273.0
         data_fmt[i+2] *= 20
 
-    return list(data)
+    return data_fmt
 
+def PWM_Drain_Data_handler(data: Sequence) -> list:
+    PWM_Drain: list[int] = []
+    for PWM_Byte in data:
+        for i in range(2):
+            PWN_nibble = (PWM_Byte >> (4*i)) & 0xF
+            PWM_Drain.append(100/16*PWN_nibble)
 
-def DCCData_handler(data: Sequence) -> list:
-    # PLACEHOLDER: SendCellDCC_Serial() packs DCC values into compressed
-    # nibbles across 3-byte groups (bit-packed, not a plain array), so the
-    # raw unpacked bytes here are NOT the true DCC values yet -- decoding
-    # that packing needs NUMBER_OF_SLAVE_BOARDS and the exact packing
-    # order reproduced from the firmware.
-    DCC: list[int] = []
-    for d in data:
-        for i in range(8):
-            DCC.append(1 if bool((d>>i) | 0x1) else 0)
-    return list(DCC)
+    return PWM_Drain
+
+# def DCCData_handler(data: Sequence) -> list:
+#     # PLACEHOLDER: SendCellDCC_Serial() packs DCC values into compressed
+#     # nibbles across 3-byte groups (bit-packed, not a plain array), so the
+#     # raw unpacked bytes here are NOT the true DCC values yet -- decoding
+#     # that packing needs NUMBER_OF_SLAVE_BOARDS and the exact packing
+#     # order reproduced from the firmware.
+#     DCC: list[int] = []
+#     for d in data:
+#         for i in range(8):
+#             DCC.append(1 if bool((d>>i) | 0x1) else 0)
+#     return list(DCC)
 
 
 def DebugData_handler(data: Sequence) -> list:
@@ -191,9 +200,23 @@ DATA_HANDLERS: dict[str, Callable[[Sequence], list]] = {
     "Fans": FansData_handler,
     "FullBattery": FullBatteryData_handler,
     "SlaveState": SlaveStateData_handler,
-    "DCC": DCCData_handler,
+    "PWM_Drain": PWM_Drain_Data_handler
+    # "DCC": DCCData_handler,
+
 }
 
+DATA_HANDLERS_FMT: dict[str, list[str]] = {
+    "Debug": [""],
+    "Log": [""],
+    "Cell_Voltages": [":.4f"],
+    "IMD": [":4.1f", "05:.2f"],
+    "Charger": [":.4f"],
+    "Cell_Temp": [":.4f"],
+    "Fans": [""],
+    "FullBattery": [""],
+    "SlaveState": [""],
+    "PWM_Drain": [""],
+}
 
 # ---------------------------------------------------------------------------
 # on_message handlers: called once per completed message, AFTER the row has
@@ -213,7 +236,7 @@ def on_message_Log(name, msg_id, formatted_data, timestamp):
 def on_message_CellVoltages(name, msg_id, formatted_data, timestamp):
     maxCellVolt = max(formatted_data)
     maxCellIdx = formatted_data.index(maxCellVolt)
-    minCellVolt = min([d for d in formatted_data if d !=0 and d != 0xFF])
+    minCellVolt = min(formatted_data)
     minCellIdx = formatted_data.index(minCellVolt)
     SumVolt = sum(formatted_data)
     log_str: str= f"{maxCellVolt=}, {maxCellIdx=}, {minCellVolt=}, {minCellIdx=}, {SumVolt=}"
@@ -254,7 +277,7 @@ def on_message_SlaveState(name, msg_id, formatted_data, timestamp):
     pass  # TODO
 
 
-def on_message_DCC(name, msg_id, formatted_data, timestamp):
+def on_message_PWM_Drain(name, msg_id, formatted_data, timestamp):
     log_str: str= f"DCC = {formatted_data}"
 
     log.info(log_str)
@@ -272,9 +295,9 @@ ON_MESSAGE_HANDLERS: dict[str, Callable[[str, int, list, float], None]] = {
     "Fans": on_message_Fans,
     "FullBattery": on_message_FullBattery,
     "SlaveState": on_message_SlaveState,
-    "DCC": on_message_DCC,
+    # "DCC": on_message_DCC,
+    "PWM_Drain": on_message_PWM_Drain,
 }
-
 
 @dataclass(frozen=True, kw_only=True)
 class MSG_Config:
@@ -427,7 +450,8 @@ class UARTReceiver:
 
     # -- internal -------------------------------------------------------------
     def _dispatch(self, msg_id, payload, frame_start_time):
-        timeData_formated = frame_start_time - self.StartTime
+        timeData_shifted: float = frame_start_time - self.StartTime
+        timeData_formated: str = "{:.4f}".format(timeData_shifted)
 
         MSG_ID_CONFIG = self.msg_types[msg_id]
 
@@ -441,7 +465,10 @@ class UARTReceiver:
         # 2) data -> formatted data
         formatted_data = MSG_ID_CONFIG.data_handler(data)
 
-        # 3) time + formatted data -> CSV
+        # 3) formatted data -> data str (extra formating)
+
+
+        # 4) time + formatted data -> CSV
         appendRow2CSV_helper(MSG_ID_CONFIG.file, timeData_formated, formatted_data)
 
         log.debug(
@@ -530,8 +557,10 @@ class UARTReceiver:
         def WaitEOT(b):
             nonlocal state, msg_id, payload, frame_start_time
             if b == __class__.EOT:
+                self._dispatch(msg_id, payload, frame_start_time)
                 try:
-                    self._dispatch(msg_id, payload, frame_start_time)
+                    # self._dispatch(msg_id, payload, frame_start_time)
+                    1+1
                 except Exception:
                     # Never let a bad frame (bad fmt, handler bug, etc.) kill
                     # the reader thread -- log it and keep receiving.
@@ -587,7 +616,7 @@ if __name__ == "__main__":
     for p in serial.tools.list_ports.comports():
         print(f"{p.device} - {p.description} - location: {p.location}")
 
-    UART_KW_ARGS = {"port": "COM6", "baudrate": 115200}
+    UART_KW_ARGS = {"port": "COM8", "baudrate": 115200}
     receiver = UARTReceiver(
         uart_kw_args=UART_KW_ARGS,
         MsgTypeConfigFile=r"UART_Data_Config.csv",

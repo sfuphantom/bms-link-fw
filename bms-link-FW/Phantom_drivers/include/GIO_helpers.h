@@ -33,9 +33,9 @@ enum Gio_Bits {
 //--------------------------------------------------------------------------
 typedef enum{GIO_LOW, GIO_HIGH, GIO_FALLING_EGDE, GIO_RISING_EGDE} Gio_State_t;
 //--------------------------------------------------------------------------
-Gio_State_t gioGetBitHelper(const uint8_t bit);
-Gio_State_t gioSetBitHelper(const uint8_t bit, const Gio_State_t NewState);
-Gio_State_t gioToggleBitHelper(const uint8_t bit);
+bool gioGetBitHelper(const uint8_t bit);
+void gioSetBitHelper(const uint8_t bit, const bool NewState);
+bool gioToggleBitHelper(const uint8_t bit);
 
 void Debug_GIO_Notification();
 void IMD_FAULT_GIO_Notification();

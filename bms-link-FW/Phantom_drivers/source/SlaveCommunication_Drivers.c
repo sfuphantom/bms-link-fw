@@ -69,7 +69,7 @@ void init_PEC15_Table(){
  //---------------------------------------------------------------------------------------------------------
  void wakeup_idle(){ //Number of ICs in the system
      int i;
-     for (i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+     for (i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
          setCS(LOW, SLAVE_CS_PIN_ID);
          SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE);
          setCS(HIGH, SLAVE_CS_PIN_ID);
@@ -78,7 +78,7 @@ void init_PEC15_Table(){
  void wakeup_sleep() {
      setCS(LOW, SLAVE_CS_PIN_ID);
      int i;
-     for (i = 0; i < NUMBER_OF_SLAVE_BOARDS; i++) {
+     for (i = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++) {
          setCS(LOW, SLAVE_CS_PIN_ID);
          delay_ms_us(0, 2*tWAKE_us);
          setCS(HIGH, SLAVE_CS_PIN_ID);
@@ -212,7 +212,7 @@ void init_PEC15_Table(){
 
      SendCmdAndPec2Slave(cmd);
 
-     for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+     for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
          data_Rx = data + i*WORDS_PER_REG_GROUP;
 
          Rx_Pec_Mesg = Read_Data(ReadOneReg, WORDS_PER_REG_GROUP);
@@ -230,13 +230,13 @@ void init_PEC15_Table(){
          Rx_Pec_Calc = pec15_calc(WORDS_PER_REG_GROUP, ReadOneReg_Swap);
          Rx_Pec_Calc = swap_word_bytes(Rx_Pec_Calc);
          Pec_Equal &= (Rx_Pec_Mesg == Rx_Pec_Calc);
-         if(!Pec_Equal){//TODO: should be if(!Pec_Equal), however PEC_Equal is alway false idk
+         if(!Pec_Equal){
              break;
          }
      }
 
      setCS(HIGH, SLAVE_CS_PIN_ID);
-     return Pec_Equal; //TODO should return Pec_Equal, however PEC_Equal is alway false idk
+     return Pec_Equal;
  }
  bool ReadRegGroup(const uint16_t cmd, uint16_t *data){
      bool Pec_Eq;
@@ -256,7 +256,7 @@ void init_PEC15_Table(){
       setCS(LOW, SLAVE_CS_PIN_ID);
       SendCmdAndPec2Slave(cmd);
 
-      for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+      for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
           idx = NUMBER_OF_REG_WORDS_PER_CMD - (i+1)*WORDS_PER_REG_GROUP;
 
           Write_Data(&data[idx], WORDS_PER_REG_GROUP);

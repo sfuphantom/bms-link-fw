@@ -15,6 +15,20 @@
 #include "SlaveCommunation_Functions.h"
 
 
+typedef struct {
+    uint16_t RefVolt2nd;
+    uint16_t ITMP;
+    uint16_t SC;
+}SlaveStateSerialData_t;
+
+typedef struct {
+    uint8_t   State;
+    uint16_t  OutVolt;
+    int16_t   OutAmps;
+    uint8_t   Status;
+}ChargerSerialData_t;
+//------------------------------------------------------------------------------------
+
 void StartMsg(const msg_ID_t msg_ID){
 #if USE_UART_N_SPI
     sciSendByte(UART_REG, SOH_BYTE);
@@ -38,6 +52,10 @@ void SendDataSerial(const void * data, const uint16_t data_len){
     memcpy(data8, data, len);
     sciSend(UART_REG, len, data8);
 }
+
+uint16_t CalcCRC16_DataSerial(const void * data, const uint16_t data_len){
+
+}
 //void RecieveDataSerial(uint8_t * data, const uint16_t data_len);
 //void SendRecieveDataSerial(const uint8_t * data_Tx, uint8_t * data_Rx, const uint16_t data_len);
 
@@ -56,97 +74,71 @@ void SendMsgSerial_DL(const msg_ID_t msg_ID, const void * data, const uint16_t d
 //    RecieveDataSerial(data, data_len);
 ////    bool RecieveMsgEnd(const uint8_t lastData);
 //}
-
 //---------------------------------------------------------------------------------------------------------
 void SendCellVoltage_Serial(){
-   const uint16_t * CellVolt_prt =  GetCellVoltReadPrt();
+   const uint16_t * CellVolt_prt = GetCellVoltReadPrt(0);
    SendMsgSerial_DL(SEND_CELL_VOLT, CellVolt_prt, CELL_VOLTAGE_MSG_LEN);
 }
 void SendCellTemp_Serial(){
-
+    const uint16_t * CellTemp_prt =  GetCellTempReadPrt(0);
+    SendMsgSerial_DL(SEND_CELL_TEMP, CellTemp_prt, CELL_TEMP_MSG_LEN);
 }
 void SendFanData_Serial(){
-
+    const uint8_t * Fan_prt = GetFansDuty_ReadPrt();
+    SendMsgSerial_DL(SEND_FAN_DATA, Fan_prt, CELL_TEMP_MSG_LEN);
 }
 void SendIMDData_Serial(){
     const ecapIMDData_t EcapIMDData = GetEcapIMDData();
     SendMsgSerial_DL(SEND_IMD_DATA, &EcapIMDData, IMD_ECAP_DATA_MSG_LEN);
 }
-void SendChargerData_Serial(){
-
-}
 void SendCellRes_Serial(){
-
+    const uint16_t * CellRes_prt =  GetCellResReadPrt(0);
+    SendMsgSerial_DL(SEND_CELL_RES, CellRes_prt, CELL_RESISTANCE_MSG_LEN);
 }
-void SendCellDCC_Serial(){
-   int i,k;
-   const uint16_t* DCC_Val = GetCellDCCReadPrt();
-   uint8_t DCC_compressed[3];
-
-   StartMsg(SEND_DCC_DATA);
-
-   for(i=0,k=0; i<(NUMBER_OF_SLAVE_BOARDS+1)/2; i+=2,k=0){
-       DCC_compressed[k++] = (uint8_t)DCC_Val[i];
-
-       #if NUMBER_OF_SLAVE_BOARDS%2 == 0
-       DCC_compressed[k++]   = (  ((uint8_t)(DCC_Val[i+1]  <<4) & 0xF0)
-                               |   (uint8_t)(DCC_Val[i]    >>8));
-       DCC_compressed[k++]  = (uint8_t)(DCC_Val[i+1]>>4);
-
-
-       #else
-       if(NUMBER_OF_SLAVE_BOARDS > i+1){
-           DCC_compressed[k++]   = (  ((uint8_t)(DCC_Val[i+1]  <<4) & 0xF0)
-                                   |   (uint8_t)(DCC_Val[i]    >>8));
-           DCC_compressed[k++]  = (uint8_t)(DCC_Val[i+1]>>4);
-       }
-       else{
-           DCC_compressed[k++]   = (uint8_t)(DCC_Val[i]>>8);
-       }
-       #endif
-
-       SendDataSerial(DCC_compressed, sizeof(DCC_compressed));
-   }
-
-   endMsg();
-
-   //[0x0123,0x0456,0x0789, 0x0ABC] >> [0x12,0x34,0x56,0x78,0x9A,0xCB]
-//   for(i=0,k=0; i<NUMBER_OF_SLAVE_BOARDS; i+=2){
-//
-//       DCC_compressed[k++] = (uint8_t)DCC_Val[i];
-//
-//       #if NUMBER_OF_SLAVE_BOARDS%2 == 0
-//       DCC_compressed[k++]   = (  ((uint8_t)(DCC_Val[i+1]  <<4) & 0xF0)
-//                               |   (uint8_t)(DCC_Val[i]    >>8));
-//       DCC_compressed[k++]  = (uint8_t)(DCC_Val[i+1]>>4);
-//
-//       #else
-//        DCC_compressed[k++]   = (uint8_t)(DCC_Val[i]>>8);
-//       #endif
-//
-//   }
-//   SendMsgSerial_DL(SEND_DCC_DATA, DCC_compressed, CELL_DCC_MSG_LEN);
+void SendCellPWM_Serial(){
+    const uint8_t * BalancePWM_Nibbles_prt =  GetBalancePWM_NibblesReadPrt();
+    SendMsgSerial_DL(SEND_PWM_DATA, BalancePWM_Nibbles_prt, CELL_PWM_MSG_LEN);
 }
 void SendSlaveState_Serial(){
-    StartMsg(SEND_SLAVE_STATE);
-
-    const StatusReg* current_Slave = GetStatusRegData();
-
+    const StatusReg_t* current_Slave = GetStatusRegData();
     int i;
-    for(i=0;i<NUMBER_OF_SLAVE_BOARDS; i++){
 
-        const uint16_t RefVolt2nd = current_Slave->RefVolt2nd;
-        const uint16_t ITMP = current_Slave->ITMP;
-        const uint16_t SC = current_Slave->SC;
+    SlaveStateSerialData_t SlaveStateSerialData[NUMBER_OF_SLAVE_BOARDS_TOTAL];
 
-        SendDataSerial(&RefVolt2nd, sizeof(uint16_t));
-        SendDataSerial(&ITMP, sizeof(uint16_t));
-        SendDataSerial(&SC, sizeof(uint16_t));
+    for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++, current_Slave++){
 
-        current_Slave++;
+        SlaveStateSerialData[i].RefVolt2nd = current_Slave->RefVolt2nd;
+        SlaveStateSerialData[i].ITMP = current_Slave->ITMP;
+        SlaveStateSerialData[i].SC = current_Slave->SC;
     }
+    SendMsgSerial_DL(SEND_SLAVE_STATE, SlaveStateSerialData, SLAVE_STATUE_MSG_LEN);
+}
 
-    endMsg();
+
+void SendChargerData_Serial(){
+//    const uint8_t   State   = (uint8_t)Charger_GetState();
+//    const uint16_t  OutVolt = Charger_GetOutputVoltage16();
+//    const int16_t   OutAmps = Charger_GetOutputCurrent16();
+//    const uint8_t   Status  = Charger_GetStatusFlags();
+//
+
+
+    ChargerSerialData_t ChargerSerialData;
+    ChargerSerialData.State   = (uint8_t)Charger_GetState();
+    ChargerSerialData.OutVolt = Charger_GetOutputVoltage16();
+    ChargerSerialData.OutAmps = Charger_GetOutputCurrent16();
+    ChargerSerialData.Status  = Charger_GetStatusFlags();
+
+    SendMsgSerial_DL(SEND_CHARGER_DATA, &ChargerSerialData, sizeof(ChargerSerialData));
+
+//    StartMsg(SEND_CHARGER_DATA);
+//
+//    SendDataSerial(&State,      sizeof(uint8_t));
+//    SendDataSerial(&OutVolt,    sizeof(uint16_t));
+//    SendDataSerial(&OutAmps,    sizeof(int16_t));
+//    SendDataSerial(&Status,     sizeof(uint8_t));
+//
+//    endMsg();
 }
 
 void Send_BMSFaultsData_Serial(){
@@ -162,45 +154,5 @@ void Send_BMSFaultsData_Serial(){
     endMsg();
 }
 
-//---------------------------------------------------------------------------------------------------------
 
-static uint32_t PeriodicLastSentTick_arr[NUMBER_OF_PERIODIC_MSG] = {0};
-
-void SendPeriodic(const msg_ID_t msg_ID){
-    const uint8_t periodicMsgID = (uint8_t)msg_ID - PERIODIC_MSG_ID_START_IDX;
-    const uint32_t now = getNow_tick();
-
-    uint32_t Period;
-    switch(msg_ID){
-        case SEND_CELL_VOLT:       Period = CELL_VOLTAGE_MSG_PERIOD_TICK;      break;
-        case SEND_CELL_TEMP:       Period = CELL_TEMP_MSG_PERIOD_TICK;         break;
-        case SEND_DCC_DATA:        Period = CELL_DCC_MSG_PERIOD_TICK;          break;
-        case SEND_IMD_DATA:        Period = IMD_ECAP_DATA_MSG_PERIOD_TICK;     break;
-        case SEND_CHARGER_DATA:    Period = CHARGER_DATA_MSG_PERIOD_TICK;      break;
-        case SEND_CELL_RES:        Period = CELL_RESISTANCE_MSG_PERIOD_TICK;   break;
-        case SEND_SLAVE_STATE:     Period = SLAVE_STATUS_DATA_PERIOD_TICK;     break;
-        case SEND_FAN_DATA:        Period = FAN_DATA_MSG_PERIOD_TICK;          break;
-        default: return;
-    }
-
-    if(now < Period + PeriodicLastSentTick_arr[periodicMsgID])
-        return;
-
-    PeriodicLastSentTick_arr[periodicMsgID] = now;
-
-    switch(msg_ID){
-        case SEND_CELL_VOLT:            SendCellVoltage_Serial() ;      return;
-        case SEND_CELL_TEMP:            SendCellTemp_Serial();          return;
-        case SEND_DCC_DATA:             SendCellDCC_Serial() ;          return;
-        case SEND_IMD_DATA:             SendIMDData_Serial() ;          return;
-        case SEND_CHARGER_DATA:         SendChargerData_Serial();       return;
-        case SEND_CELL_RES:             SendCellRes_Serial();           return;
-        case SEND_SLAVE_STATE:          SendSlaveState_Serial();        return;
-        case SEND_FAN_DATA:             SendFanData_Serial() ;          return;
-        default: return;
-    }
-
-
-}
-
-
+#warning this is not done, race conditions, make better

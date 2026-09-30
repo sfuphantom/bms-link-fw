@@ -80,8 +80,13 @@ void ExtractByteFromWord(const uint16_t *words, uint8_t *bytes, uint16_t NumberO
     }
 }
 
+float clamp(float value, float min, float max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+}
 
-uint32 InvertAndInsertBit(uint32 Num, const uint8_t bit, bool * const new_val){
+uint32_t InvertAndInsertBit(uint32_t Num, const uint8_t bit, bool * const new_val){
     const uint32_t bitMask = 1U << bit;
 
     *new_val = (0 == (Num & bitMask));
@@ -89,7 +94,7 @@ uint32 InvertAndInsertBit(uint32 Num, const uint8_t bit, bool * const new_val){
     Num ^= bitMask;
     return Num;
 }
-uint32 GetAndInsertBit(uint32 Num, const uint8_t bit, const bool New_val, bool *const last_val){
+uint32_t GetAndInsertBit(uint32_t Num, const uint8_t bit, const bool New_val, bool *const last_val){
     const uint32_t bitMask = 1U << bit;
 
     *last_val = (0 != (Num & bitMask));
@@ -330,4 +335,6 @@ void initArray8(uint8_t* arr, const uint8_t val, uint8_t len){
         arr[i] = val;
     }
 }
+//----------------------------------------------------------------------------------------
+
 

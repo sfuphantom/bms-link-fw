@@ -19,9 +19,11 @@
 #include "PhantomTimers.h"
 #include "Fault_handler.h"
 
-
+static ConfigReg ConfigRegWriteData[NUMBER_OF_SLAVE_BOARDS_TOTAL];
+//ConfigReg ConfigRegReadData[NUMBER_OF_SLAVE_BOARDS];
+static StatusReg_t StatusRegData[NUMBER_OF_SLAVE_BOARDS_TOTAL];
 //---------------------------------------------------------------------------------------------------------
-StatusReg* GetStatusRegData(){
+StatusReg_t* GetStatusRegData(){
     return StatusRegData;
 }
 //---------------------------------------------------------------------------------------------------------
@@ -29,7 +31,7 @@ void Config_Struct2Words(uint16_t* data){
     int i;
     uint16_t data16[WORDS_PER_REG_GROUP];
     uint8_t data8[BYTES_PER_REG_GROUP];
-    for(i = 0; i < NUMBER_OF_SLAVE_BOARDS; i++){
+    for(i = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
         ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
         // CFGR0: GPIO[4:0] in bits[7:3], REFON in bit2, DTEN in bit1, ADCOPT in bit0
@@ -65,7 +67,7 @@ void Config_Words2Struct(const uint16_t* data){
     uint8_t byteLow, byteHigh;
     uint8_t vuv_lo;
 
-    for(i = 0, idx = 0; i < NUMBER_OF_SLAVE_BOARDS; i++){
+    for(i = 0, idx = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
         ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
         // word[0] = CFGR1(high byte) | CFGR0(low byte)
@@ -103,8 +105,8 @@ void Stat_Words2Struct(uint16_t* data){
     uint8_t flag;
     int cell, i, idx;
 
-    for(i = 0, idx = 0; i < NUMBER_OF_SLAVE_BOARDS; i++){
-        StatusReg* current_Reg = &StatusRegData[i];
+    for(i = 0, idx = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
+        StatusReg_t* current_Reg = &StatusRegData[i];
 
         // STATA:
         // word[0] = SC   (sum of all cells raw ADC value, multiply by 20*100uV)
@@ -154,7 +156,7 @@ void Stat_Words2Struct(uint16_t* data){
 
 //---------------------------------------------------------------------------------------------------------
 void Write_CFGR(){
-      uint16_t WriteConfig[NUMBER_OF_CONFIG_WORDS];
+      uint16_t WriteConfig[NUMBER_OF_CONFIG_WORDS_SLAVES];
 
       const uint16_t cmds_W[NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD] = {LTC6811_WRCFGA};
 
@@ -164,7 +166,7 @@ void Write_CFGR(){
       return;
  }
  bool Read_CFGR(){
-     uint16_t raw[NUMBER_OF_CONFIG_WORDS];
+     uint16_t raw[NUMBER_OF_CONFIG_WORDS_SLAVES];
      uint16_t cmds[NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD] = {LTC6811_RDCFGA};
 
      bool PecEq = ReadMultiRegGroups(cmds, NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD, raw);
@@ -179,8 +181,8 @@ void Write_CFGR(){
 
  bool WriteThenRead_CFGR(){
        bool PecEq, RW_EQ;
-       uint16_t WriteConfig[NUMBER_OF_CONFIG_WORDS];
-       uint16_t ReadConfig [NUMBER_OF_CONFIG_WORDS];
+       uint16_t WriteConfig[NUMBER_OF_CONFIG_WORDS_SLAVES];
+       uint16_t ReadConfig [NUMBER_OF_CONFIG_WORDS_SLAVES];
 
        uint16_t* WriteDataPrt = WriteConfig;
        uint16_t* ReadDataPrt  = ReadConfig;
@@ -198,16 +200,16 @@ void Write_CFGR(){
            PecEq = ReadMultiRegGroups(cmds_R, NUMBER_OF_CONFIG_REG_GROUPS_PER_BOARD, ReadConfig);
 
 
-           for(j=0; j<NUMBER_OF_CONFIG_WORDS; j++){
+           for(j=0; j<NUMBER_OF_CONFIG_WORDS_SLAVES; j++){
                WriteDataPrt[0]  &= ~(0x0002);
                ReadDataPrt[0]   &= ~(0x0002);
 
-               WriteDataPrt     += NUMBER_OF_CONFIG_WORDS;
-               ReadDataPrt      += NUMBER_OF_CONFIG_WORDS;
+               WriteDataPrt     += NUMBER_OF_CONFIG_WORDS_SLAVES;
+               ReadDataPrt      += NUMBER_OF_CONFIG_WORDS_SLAVES;
 
            }
 
-           RW_EQ = array16_eq_all(WriteConfig, ReadConfig, NUMBER_OF_CONFIG_WORDS);
+           RW_EQ = array16_eq_all(WriteConfig, ReadConfig, NUMBER_OF_CONFIG_WORDS_SLAVES);
            if(RW_EQ && PecEq){
                return true;
            }
@@ -215,7 +217,7 @@ void Write_CFGR(){
        return false;
   }
  bool Read_STAT(){
-     uint16_t raw[NUMBER_OF_STAT_WORDS];
+     uint16_t raw[NUMBER_OF_STAT_WORDS_SLAVES];
      uint16_t cmds[NUMBER_OF_STAT_REG_GROUPS_PER_BOARD] = {LTC6811_RDSTATA, LTC6811_RDSTATB};
 
      bool PecEq = ReadMultiRegGroups(cmds, NUMBER_OF_STAT_REG_GROUPS_PER_BOARD, raw);
@@ -223,7 +225,7 @@ void Write_CFGR(){
      Stat_Words2Struct(raw);
      int i;
      bool AllValid = TRUE;
-     for(i=0; i<NUMBER_OF_STAT_WORDS; i+=WORDS_PER_REG_GROUP){
+     for(i=0; i<NUMBER_OF_STAT_WORDS_SLAVES; i+=WORDS_PER_REG_GROUP){
          AllValid &= !array16_eq_every(&raw[i], SPI_DUMMY_DATA_WORD, WORDS_PER_REG_GROUP);
      }
 
@@ -232,10 +234,9 @@ void Write_CFGR(){
 
  }
 //---------------------------------------------------------------------------------------------
-
  void ReadConfig_DCC(uint16_t* DCC){
     int i;
-    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
          ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
          DCC[i] = current_Reg->DCC;
@@ -243,7 +244,7 @@ void Write_CFGR(){
 }
 void SetConfig_DCC(const uint16_t* DCC){
     int i;
-    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
          ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
           current_Reg->DCC = DCC[i] & 0xFFF;
@@ -251,21 +252,21 @@ void SetConfig_DCC(const uint16_t* DCC){
 }
 void SetAllConfig_DCC(const uint16_t DCC){
     int i;
-    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
          ConfigReg* current_Reg = &ConfigRegWriteData[i];
          current_Reg->DCC = DCC & 0xFFF;
     }
 }
 void SetAllHigh_DCC(const uint16_t DCC){
     int i;
-    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
          ConfigReg* current_Reg = &ConfigRegWriteData[i];
          current_Reg->DCC |= DCC & 0xFFF;
     }
 }
 void ReadConfig_gpio(uint8_t* gpio){
     int i;
-    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
          ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
          gpio[i] = current_Reg->gpio;
@@ -274,7 +275,7 @@ void ReadConfig_gpio(uint8_t* gpio){
 bool ReadConfig_gpio_allZero(){
     int i;
     bool allZero = TRUE;
-    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
          ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
          allZero &= !(current_Reg->gpio);
@@ -283,20 +284,20 @@ bool ReadConfig_gpio_allZero(){
 }
 void SetConfig_gpio(const uint8_t* gpio){
     int i;
-    for(i=0; i<NUMBER_OF_SLAVE_BOARDS; i++){
+    for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
          ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
           current_Reg->gpio = gpio[i];
     }
 }
 //---------------------------------------------------------------------------------------------------------
-void checkStatFlags(){
+uint32_t checkStatFlags(){
      bool flag;
      uint32_t Flags = 0;
 
-     const StatusReg* current_Slave = GetStatusRegData();
+     const StatusReg_t* current_Slave = GetStatusRegData();
      int i;
-     for(i=0;i<NUMBER_OF_SLAVE_BOARDS; i++, current_Slave++){
+     for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++, current_Slave++){
 
          flag = current_Slave->OV_flags == 0;
          Flags |= (uint32_t)flag<<BAD_OV_flags;
@@ -306,6 +307,8 @@ void checkStatFlags(){
          Flags |= (uint32_t)flag<<BAD_THSD;
          flag = !current_Slave->MUXFAIL;
          Flags |= (uint32_t)flag<<BAD_MUXFAIL;
+
+#warning Change all compamairaon with either inline function or macro, for readabilty
 
          flag = current_Slave->ITMP > MAX_INTERNAL_DIE_TEMPERATURE_FLAG;
          Flags |= (uint32_t)flag<<BAD_ITMP;
@@ -319,103 +322,14 @@ void checkStatFlags(){
          Flags |= (uint32_t)flag<<BAD_VD;
          flag = current_Slave->VD < MIN_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG;
          Flags |= (uint32_t)flag<<BAD_VD;
-         flag = (current_Slave->RefVolt2nd > MAX_2ND_REFERENCE_VOLTAGE_FLAG) | (current_Slave->RefVolt2nd > MIN_2ND_REFERENCE_VOLTAGE_FLAG);
+         flag = (current_Slave->RefVolt2nd > MAX_2ND_REFERENCE_VOLTAGE_FLAG) | (current_Slave->RefVolt2nd < MIN_2ND_REFERENCE_VOLTAGE_FLAG);
          Flags |= (uint32_t)flag<<BAD_REF2ND;
      }
 
-     AddSlaveFaults(Flags);
-}
-//---------------------------------------------------------------------------------------------------------
 
-//CS_Level checkSPIFree(){
-//    return  GetCS();
-//};
-//uint32_t waitSPIFree(const uint32_t wait_periods_us){
-//     CS_Level status;
-//      uint32_t PollingWaits = 0;
-//
-//      for(PollingWaits=0; PollingWaits < MAX_POLLS_TIMEOUT; PollingWaits++){
-//          status =  checkSPIFree();
-//          if(status == HIGH){
-//              ++PollingWaits;
-//              return PollingWaits;
-//          }
-//          delay_ms_us(0, wait_periods_us);
-//      }
-//
-//      if(status != HIGH){
-//          setCS(HIGH);
-//      }
-//      return 0;
-//  }
-//
-//#define Imp 2
-// bool isConvComplete() {
-//     uint8_t status = 0;
-//     setCS(LOW);
-//     SendCmdAndPec2Slave(LTC6811_PLADC);
-//     status =  SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE);
-//     setCS(HIGH);
-//     // If any bit is high, conversion is done (SDO is open-drain, driven low only when busy)
-//     return (status != 0x00);
-// }
-//
-// uint32_t waitConvComplete(const uint32_t wait_periods_us){
-//     bool status;
-//     uint32_t BytesWaiting = 0;
-//
-//     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
-//    #if Imp == 1
-//     for(BytesWaiting=0; BytesWaiting < MAX_POLLS_TIMEOUT; BytesWaiting++){
-//
-//         status = isConvComplete();
-//         if(status){
-//             break;
-//         }
-//
-//         delay_ms_us(0,wait_periods_us);
-//     }
-//    #elif Imp == 2
-//
-//     setCS(LOW);
-//     SendCmdAndPec2Slave(LTC6811_PLADC);
-//
-//     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
-//
-//     status = FALSE;
-//     for(BytesWaiting=0; BytesWaiting < MAX_POLLS_TIMEOUT; BytesWaiting++){
-//
-//         status = SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE) & 0x0001;
-//         if(status){
-//             break;
-//         }
-//
-//         delay_ms_us(0,wait_periods_us);
-//     }
-//     setCS(HIGH);
-//
-//    #endif
-//
-//     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
-//
-//     return status ? ++BytesWaiting : 0;
-// }
-// uint32_t waitConvComplete_ADC_Cells(){
-//     uint32_t PollsWaited =  waitConvComplete(500);
-//     return PollsWaited;
-// }
-// uint32_t waitConvComplete_ADC_GPIO(){
-//     uint32_t PollsWaited =  waitConvComplete(500);
-//     return PollsWaited;
-// }
-// uint32_t waitConvComplete_ADC_STAT(){
-//     uint32_t PollsWaited =  waitConvComplete(500);
-//     return PollsWaited;
-// }
-// uint32_t waitConvComplete_Cell_Bal(){
-//     uint32_t PollsWaited =  waitConvComplete(500);
-//     return PollsWaited;
-// }
+
+     return Flags;
+}
 
 //---------------------------------------------------------------------------------------------------------
  void ClearCellsCMD(){
@@ -438,19 +352,19 @@ void checkStatFlags(){
      ClearSCtrlCMD();
  }
  //---------------------------------------------------------------------------------------------------------
- bool CheckSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
-                   const uint8_t ST)    //  Self Test Mode Selection
- {
-
-     uint16_t MD_bits     = ((uint16_t)MD & 0x03) << 7;
-     uint16_t ST_bits     = ((uint16_t)ST & 0x03) << 5;
-     uint16_t cmd = LTC6811_STATST| MD_bits | ST_bits;
-
-     return SendCMD2Slave_pollAndWait(cmd);
-//     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_STAT_US);
-
- }
- void MeasureSTATCmd(const uint8_t MD,      // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+// bool CheckSTATCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+//                   const uint8_t ST)    //  Self Test Mode Selection
+// {
+//
+//     uint16_t MD_bits     = ((uint16_t)MD & 0x03) << 7;
+//     uint16_t ST_bits     = ((uint16_t)ST & 0x03) << 5;
+//     uint16_t cmd = LTC6811_STATST| MD_bits | ST_bits;
+//
+//     return SendCMD2Slave_pollAndWait(cmd);
+////     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_STAT_US);
+//
+// }
+ bool MeasureSTATCmd(const uint8_t MD,      // ADC mode: 0=Fast, 1=Normal, 2=Filtered
                      const uint8_t CHST)    //  Status Group Selection
  {
 
@@ -458,71 +372,76 @@ void checkStatFlags(){
      uint16_t ST_bits     = CHST & 0x7;
      uint16_t cmd = LTC6811_ADSTAT| MD_bits | ST_bits;
 
-     SendCMD2Slave_alone(cmd);
+     return SendCMD2Slave_pollAndWait(cmd);
  }
 
  bool MeasureSTATCmd_All(const uint8_t MD)     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
  {
-
-     const uint16_t MD_bits     = ((uint16_t)MD & 0x03) << 7;
-     const uint16_t ST_bits     = 0;
-     const uint16_t cmd = LTC6811_ADSTAT| MD_bits | ST_bits;
-
      ClearStatCMD();
-     return SendCMD2Slave_pollAndWait(cmd);
+     return MeasureSTATCmd(MD, 0);
+//     const uint16_t MD_bits     = ((uint16_t)MD & 0x03) << 7;
+//     const uint16_t ST_bits     = 0;
+//     const uint16_t cmd = LTC6811_ADSTAT| MD_bits | ST_bits;
+//
+//     ClearStatCMD();
+//     return SendCMD2Slave_pollAndWait(cmd);
 //     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_STAT_US);
  }
 
- void MeasureCellsCmd(const uint8_t MD  , // DC mode: 0=Fast, 1=Normal, 2=Filtered
+ bool MeasureCellsCmd(const uint8_t MD  , // DC mode: 0=Fast, 1=Normal, 2=Filtered
                       const bool DCP    , // Discharge Permit
                       const uint8_t CHG ) // Cell Selection for ADC Conversion
  {
 
-     uint16 CHG_bits     = CHG & 0x07;
-     uint16 DCP_bits     = DCP ? 0x0010 : 0x0000;
-     uint16_t MD_bits    = ((uint16_t)MD & 0x03) << 7;
-     uint16_t cmd = LTC6811_ADCV | MD_bits | DCP_bits | CHG_bits;
+     const uint16 CHG_bits     = CHG & 0x07;
+     const uint16 DCP_bits     = DCP ? 0x0010 : 0x0000;
+     const uint16_t MD_bits    = ((uint16_t)MD & 0x03) << 7;
+     const uint16_t cmd = LTC6811_ADCV | MD_bits | DCP_bits | CHG_bits;
 
-     SendCMD2Slave_alone(cmd);
-//     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_CELL_VOLTS_US);
+//     SendCMD2Slave_alone(cmd);
+     return SendCMD2Slave_pollAndWait(cmd);
  }
 
  bool MeasureCellsCmd_All_NoDis(const uint8_t MD) // DC mode: 0=Fast, 1=Normal, 2=Filtered
  {
-     const uint16 CHG_bits     = 0;
-     const uint16 DCP_bits     = 0x0000;
-     const uint16_t MD_bits    = ((uint16_t)MD & 0x03) << 7;
-     const uint16_t cmd = LTC6811_ADCV | MD_bits | DCP_bits | CHG_bits;
-
      ClearCellsCMD();
-     return SendCMD2Slave_pollAndWait(cmd);
+     return MeasureCellsCmd(MD, FALSE, 0);
+//     const uint16 CHG_bits     = 0;
+//     const uint16 DCP_bits     = 0x0000;
+//     const uint16_t MD_bits    = ((uint16_t)MD & 0x03) << 7;
+//     const uint16_t cmd = LTC6811_ADCV | MD_bits | DCP_bits | CHG_bits;
+//
+//     ClearCellsCMD();
+//     return SendCMD2Slave_pollAndWait(cmd);
 //     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_CELL_VOLTS_US);
  }
- void MeasureCellsCmd_Dis(const uint8_t MD  , // DC mode: 0=Fast, 1=Normal, 2=Filtered
+ bool MeasureCellsCmd_Dis(const uint8_t MD  , // DC mode: 0=Fast, 1=Normal, 2=Filtered
                           const uint8_t CHG ) // Cell Selection for ADC Conversion
  {
 
-     MeasureCellsCmd(MD, TRUE, CHG);
+     return MeasureCellsCmd(MD, TRUE, CHG);
  }
 
- void MeasureAUXCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+ bool MeasureAUXCmd(const uint8_t MD,     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
                     const uint8_t CHG)    //  GPIO Selection for ADC Conversion
  {
      uint16 CHG_bits     = CHG & 0x07;
      uint16_t MD_bits    = ((uint16_t)MD & 0x03) << 7;
      uint16_t cmd = LTC6811_ADAX | MD_bits | CHG_bits;
 
-     SendCMD2Slave_alone(cmd);
-//     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_AUX_US);
+//     SendCMD2Slave_alone(cmd);
+     return SendCMD2Slave_pollAndWait(cmd);
  }
  bool MeasureAUXCmd_All(const uint8_t MD)     // ADC mode: 0=Fast, 1=Normal, 2=Filtered
  {
-     const uint16 CHG_bits     = 0;
-     const uint16_t MD_bits    = ((uint16_t)MD & 0x03) << 7;
-     const uint16_t cmd = LTC6811_ADAX | MD_bits | CHG_bits;
-
      ClearAUXCMD();
-     return SendCMD2Slave_pollAndWait(cmd);
+     return MeasureAUXCmd(MD, 0);
+//     const uint16 CHG_bits     = 0;
+//     const uint16_t MD_bits    = ((uint16_t)MD & 0x03) << 7;
+//     const uint16_t cmd = LTC6811_ADAX | MD_bits | CHG_bits;
+//
+//     ClearAUXCMD();
+//     return SendCMD2Slave_pollAndWait(cmd);
 //     return SendCMD2Slave_pollAndWait(cmd, POLL_PERIOD_AUX_US);
  }
  bool Start_S_CTRL_Pulsing(){
@@ -548,8 +467,8 @@ bool WriteThenRead_PWM(const uint8* nibbles){
 bool SetAllPWM_Regs(uint8_t nibble){
     nibble &= 0xF;
     nibble |= nibble<<4;
-    uint8_t nibbles[NUMBER_OF_CELLS/2];
-    memset(nibbles, nibble, NUMBER_OF_CELLS/2);
+    uint8_t nibbles[NUMBER_OF_CELLS_SLAVES/2];
+    memset(nibbles, nibble, NUMBER_OF_CELLS_SLAVES/2);
     return WriteThenRead_PWM(nibbles);
 }
  //---------------------------------------------------------------------------------------------------------
@@ -572,7 +491,7 @@ bool SetAllPWM_Regs(uint8_t nibble){
 //     Read_CFGR();
 //
 //     int i;
-//     for(i=0;i<NUMBER_OF_SLAVE_BOARDS; i++){
+//     for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
 //         ConfigReg* current_Slaves_ConfigReg = &ConfigRegData[i];
 //
 //         gpio_data[i] = current_Slaves_ConfigReg->gpio;
@@ -588,10 +507,10 @@ bool SetAllPWM_Regs(uint8_t nibble){
      const bool     refon   = TRUE;
      const uint8_t  gpio    = 0b00000;
      const uint16_t DCC     = 0xFFF;//0b0000111111111110;//0xFFF;
-     const uint8_t dcto     = 0x0;
+     const uint8_t  dcto    = 0x0;
 
      int i;
-     for(i=0;i<NUMBER_OF_SLAVE_BOARDS;i++){
+     for(i = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
          ConfigReg* current_Reg = &ConfigRegWriteData[i];
 
          current_Reg->adcopt    = adcopt;
@@ -625,9 +544,105 @@ void initLink(){
 
     ClearSlaveRegs();
 
-    SetAllPWM_Regs(0xF);
+    SetAllPWM_Regs(0x0);
     initConfig();
 }
 
+//---------------------------------------------------------------------------------------------------------
+bool MeasureCellVoltage(uint16_t* CellVolt){
+   wakeup_idle();
+   bool cmdDone = MeasureCellsCmd_All_NoDis(ADC_MEASURE_MODE);
+   wakeup_idle();
+   bool PecEQ = GetVoltageReadings(CellVolt);
 
+   bool AllValid = !array16_eq_any(CellVolt, SPI_DUMMY_DATA_WORD, NUMBER_OF_CELLS_SLAVES);
 
+   return cmdDone && AllValid && PecEQ;
+}
+
+bool MeasureRef2ndVoltage() {
+    wakeup_idle();
+
+    ClearAUXCMD();
+    MeasureAUXCmd(ADC_MEASURE_MODE, 6);
+
+    uint16_t AUXDataOut[NUMBER_OF_AUCILIARY_SLAVES];
+    GetGPIOReadings_Analog(AUXDataOut);
+
+    int i, idx;
+    bool AllValid = TRUE;
+    StatusReg_t* current_Slave = GetStatusRegData();
+    for(i=0, idx=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
+      idx+=GPIOS_PER_SLAVE_BOARD;
+
+      AllValid &= SPI_DUMMY_DATA_WORD != AUXDataOut[idx];
+
+      current_Slave->RefVolt2nd = AUXDataOut[idx++];
+      current_Slave++;
+    }
+
+    if(!AllValid){
+       return false;
+    }
+
+    return true;
+ }
+
+ bool MeasureAUXVoltage(uint16_t* GPIO_DataOut){
+     uint32_t cmdDone = MeasureAUXCmd_All(ADC_MEASURE_MODE);
+
+     uint16_t AUXDataOut[NUMBER_OF_AUCILIARY_SLAVES];
+     bool PecEq = GetGPIOReadings_Analog(AUXDataOut);
+
+     bool AllValid = !array16_eq_any(AUXDataOut, SPI_DUMMY_DATA_WORD, NUMBER_OF_AUCILIARY_SLAVES);
+
+     if(!((cmdDone != 0) && AllValid && PecEq)){
+         return false;
+     }
+     ///////////////////////////////////////////////////////////
+     StatusReg_t* current_Slave = GetStatusRegData();
+
+     int i,j;
+     int idx = 0;
+     for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
+         for(j=0;j<GPIOS_PER_SLAVE_BOARD; j++){
+             *GPIO_DataOut = AUXDataOut[idx++];
+              GPIO_DataOut++;
+         }
+
+         current_Slave->RefVolt2nd = AUXDataOut[idx++];
+         current_Slave++;
+
+     }
+     return true;
+ }
+
+ bool ReadStatAndGetFlags(){
+
+      wakeup_idle();
+      const uint32_t cmdDone = MeasureSTATCmd_All(ADC_MEASURE_MODE);
+
+      const bool Stat_Valid = Read_STAT();
+
+      const bool Valid = (cmdDone != 0) && Stat_Valid;
+      if(!Valid){
+          return false;
+      }
+
+     return true;
+  }
+ //---------------------------------------------------------------------------------------------------------
+ float Slave_ADC2Volt(const uint16_t ADC_Word){
+     return SLAVE_ADC2VOLTS(ADC_Word);
+ }
+ float Slave_ADC2Celcius(const uint16_t ADC){
+     float Volts = Slave_ADC2Volt(ADC);
+     float Kelvin = Volts / ITMP_MILLI_VOLTS_2_CELCIUS * 1000;
+     float Celcius = Kelvin - ITMP_KELVIN_2_CELCIUS;
+     return Celcius;
+ }
+ float Slave_SC_ADC2Volt(const uint16_t ADC_Word){
+     return Slave_ADC2Volt(ADC_Word) * 20;
+ }
+
+ //---------------------------------------------------------------------------------------------------------

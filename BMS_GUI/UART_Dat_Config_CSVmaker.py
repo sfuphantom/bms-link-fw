@@ -5,12 +5,16 @@ from dataclasses import dataclass
 # Change this in one place to scale every slave-board-dependent message
 # format (SlaveState, DCC) up or down.
 # ---------------------------------------------------------------------------
-NUMBER_OF_SLAVES = 1
-NUMBER_OF_CELLS  = NUMBER_OF_SLAVES * 12
-NUMBER_OF_BATTERY_MODULES = int((NUMBER_OF_SLAVES+1)/2)
+NUMBER_OF_CELLS = 6
+NUMBER_OF_CELLS_PER_SLAVE = 12
+NUMBER_OF_SLAVES = int(0.5 + (NUMBER_OF_CELLS / NUMBER_OF_CELLS_PER_SLAVE))
+# NUMBER_OF_CELLS  = NUMBER_OF_SLAVES * 12
+# NUMBER_OF_BATTERY_MODULES = int((NUMBER_OF_SLAVES+1)/2)
+
 NUMBER_OF_FANS   = 8
-NUMBER_OF_THEREMISTORS = 256
-NUMBER_OF_DCC_BYTES = 3*NUMBER_OF_BATTERY_MODULES
+NUMBER_OF_THEREMISTORS = 8
+
+NUMBER_OF_PWM_BYTES = int((NUMBER_OF_CELLS+1)/2)
 
 HEADER_ROW = ["Enable", "msg_ID", "Name", "file_rel", "fmt", "header"]
 CONFIG_FILE = r"UART_Data_Config.csv"
@@ -52,21 +56,19 @@ class MSG_Config:
         ]
 
 
-CELL_VOLTAGE_FMT = f">{NUMBER_OF_CELLS}H"
-
 
 msgTypeRows = {
-    "Debug":         MSG_Config(msgID=0,  name="Debug",         file_rel="Debug.csv",         fmt="s",                          header=["Mes"]),
-    "Log":           MSG_Config(msgID=1,  name="Log",           file_rel="Log.csv",           fmt="s",                          header=["Mes"]),
-    "Cell_Voltages": MSG_Config(msgID=4,  name="Cell_Voltages", file_rel="Cell_Voltages.csv", fmt=f">{NUMBER_OF_CELLS}H",       header=make_Header(["Cell"], NUMBER_OF_CELLS)),
-    "IMD":           MSG_Config(msgID=5,  name="IMD",           file_rel="IMD.csv",           fmt=">BB",                         header=["freq", "duty", "Resistance"]),
-    "Charger":       MSG_Config(msgID=6,  name="Charger",       file_rel="Charger.csv",       fmt=">HH?",                       header=["Volt", "Current", "Status"]),
-    "Cell_Temp":     MSG_Config(msgID=7,  name="Cell_Temp",     file_rel="Cell_Temp.csv",     fmt=f">{NUMBER_OF_THEREMISTORS}H",header=make_Header(["Thermistor"], NUMBER_OF_THEREMISTORS)),
-    "Fans":          MSG_Config(msgID=8,  name="Fans",          file_rel="Fans.csv",          fmt=f">{NUMBER_OF_FANS}B",        header=make_Header(["Fan"], NUMBER_OF_FANS)),
-    "FullBattery":   MSG_Config(msgID=9,  name="FullBattery",   file_rel="FullBattery.csv",   fmt=">HH",                        header=["Current", "HV"]),
+    "Debug":         MSG_Config(msgID=0, Enable=False ,name="Debug",         file_rel="Debug.csv",         fmt="s",                          header=["Mes"]),
+    "Log":           MSG_Config(msgID=1, Enable=False ,name="Log",           file_rel="Log.csv",           fmt="s",                          header=["Mes"]),
+    "Cell_Voltages": MSG_Config(msgID=5, Enable=True  ,name="Cell_Voltages", file_rel="Cell_Voltages.csv", fmt=f">{NUMBER_OF_CELLS}H",       header=make_Header(["Cell"], NUMBER_OF_CELLS)),
+    "IMD":           MSG_Config(msgID=6, Enable=False ,name="IMD",           file_rel="IMD.csv",           fmt=">BB",                         header=["freq", "duty", "Resistance"]),
+    "Charger":       MSG_Config(msgID=7, Enable=False ,name="Charger",       file_rel="Charger.csv",       fmt=">HH?",                       header=["Volt", "Current", "Status"]),
+    "Cell_Temp":     MSG_Config(msgID=8, Enable=False ,name="Cell_Temp",     file_rel="Cell_Temp.csv",     fmt=f">{NUMBER_OF_THEREMISTORS}H",header=make_Header(["Thermistor"], NUMBER_OF_THEREMISTORS)),
+    "Fans":          MSG_Config(msgID=9, Enable=False ,name="Fans",          file_rel="Fans.csv",          fmt=f">{NUMBER_OF_FANS}B",        header=make_Header(["Fan"], NUMBER_OF_FANS)),
+    "FullBattery":   MSG_Config(msgID=10,Enable=False ,name="FullBattery",   file_rel="FullBattery.csv",   fmt=">HH",                        header=["Current", "HV"]),
     # SlaveState / DCC scale with NUMBER_OF_SLAVES above.
-    "SlaveState":    MSG_Config(msgID=11, name="SlaveState",    file_rel="SlaveState.csv",    fmt=f">{3 * NUMBER_OF_SLAVES}H",  header=make_Header(["2ndRef", "Temp", "SC"], 3*NUMBER_OF_SLAVES)),
-    "DCC":           MSG_Config(msgID=13, name="DCC",           file_rel="DCC.csv",           fmt=f">{NUMBER_OF_DCC_BYTES}B",   header=make_Header(["Cell"], NUMBER_OF_CELLS)),
+    "SlaveState":    MSG_Config(msgID=12,Enable=True ,name="SlaveState",    file_rel="SlaveState.csv",    fmt=f">{3 * NUMBER_OF_SLAVES}H",  header=make_Header(["2ndRef", "Temp", "SC"], 3*NUMBER_OF_SLAVES)),
+    "PWM_Drain":           MSG_Config(msgID=14,Enable=True ,name="PWM_Drain",           file_rel="PWM_Drain.csv",           fmt=f">{NUMBER_OF_PWM_BYTES}B",   header=make_Header(["Cell"], NUMBER_OF_CELLS)),
 }
 
 with open(CONFIG_FILE, mode='w', newline='') as f:

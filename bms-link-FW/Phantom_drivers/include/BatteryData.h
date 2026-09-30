@@ -9,48 +9,20 @@
 #define PHANTOM_DRIVERS_INCLUDE_BATTERYDATA_H_
 #include <stdint.h>
 #include <stdbool.h>
-#include "SlaveCommunation_Hardware.h"
-//#include "SlaveCommunation_Functions.h"
+#include "FullBattery_Hardware.h"
 
 //////////////////////////////////////////////////////////////
 #define KILL_DRIVER FALSE
-//////////////////////////////////////////////////////////////
-#define CELL_VOLT_SAFETY_RANGE  50
-#define CELL_VOLT_OVER          42000//(CELL_VOLT_100_FULL + CELL_VOLT_SAFETY_RANGE)
-#define CELL_VOLT_UNDER         26000//(CELL_VOLT_0_FULL   - CELL_VOLT_SAFETY_RANGE)
-
-#define CELL_VOLT_100_FULL      (CELL_VOLT_OVER - CELL_VOLT_SAFETY_RANGE)
-#define CELL_VOLT_0_FULL        (CELL_VOLT_UNDER - CELL_VOLT_SAFETY_RANGE)
-#define CELL_SOC_RANGE          (CELL_VOLT_100_FULL - CELL_VOLT_0_FULL)
-//////////////////////////////////////////////////////////////
-#define DEFINE_MAX_CELL_CHARGING_PERCENTAGE_N_VOLTAGE_TARGET FALSE
-#if DEFINE_MAX_CELL_CHARGING_PERCENTAGE_N_VOLTAGE_TARGET
-#define MAX_CELL_CHARGING_PERCENTAGE                        (30.0f / 100)
-#define MAX_CELL_CHARGING_VOLTAGE_TARGET                    ((MAX_CELL_CHARGING_PERCENTAGE * CELL_SOC_RANGE) + CELL_VOLT_0_FULL)//38000
-#else
-#define MAX_CELL_CHARGING_VOLTAGE_TARGET                    36000
-#define MAX_CELL_CHARGING_PERCENTAGE                        ((MAX_CELL_CHARGING_VOLTAGE_TARGET - CELL_VOLT_0_FULL) / CELL_SOC_RANGE)
-#endif
-#define CELL_CHARGING_SOC_TARGET_TOLORENCES_PERCENTAGE      (01.0f / 100)
-#define MAX_CELL_SOC_PERENTAGE                              (01.0f / 100)
-#define MAX_CELL_SOC_OVERSHOOT_PERENTAGE                    (MAX_CELL_CHARGING_PERCENTAGE + MAX_CELL_SOC_PERENTAGE)
-
 /////////////////////////////////////////////////////////////////
-#define CELL_BALANCE_THESHOLD_VOLTS_ADC 1000 //0.1V
-#define CELL_BALANCE_HYSTERSIS_BAND_VOLTS_ADC 200 // 0.05
-#define CELL_BALANCE_TRIGGER_HIGH_VOLTS_ADC (CELL_BALANCE_THESHOLD_VOLTS_ADC + CELL_BALANCE_HYSTERSIS_BAND_VOLTS_ADC)
-#define CELL_BALANCE_TRIGGER_LOW_VOLTS_ADC (CELL_BALANCE_THESHOLD_VOLTS_ADC - CELL_BALANCE_HYSTERSIS_BAND_VOLTS_ADC)
-
-#define VOLTS_Per_10000_DRAINED_PER_PULSE 100
-//////////////////////////////////////////////////////////////
-//#define MAX_CHARGER_CURRENT_AMPS 1
-//#define CHARGER_CURRENT_AMPS
-/////////////////////////////////////////////////////////////////
-
-#define NUMBER_OF_VOLT_SAMPLES_SAVED 3
+#define NUMBER_OF_VOLT_SAMPLES_SAVED 2
+#define NUMBER_OF_TEMP_SAMPLES_SAVED 2
+#define NUMBER_OF_RES_SAMPLES_SAVED 2
+#define NUMBER_OF_SOC_SAMPLES_SAVED 2
 //////////////////////////////////////////////////////////////
 
- typedef enum { BMS_RUNNING, BMS_CHARGING, BMS_DONE_CHARGING, BMS_DISCHARGING, BMS_SLEEPING, BMS_IDLE, BMS_FAULT } BMSState_t;
+//#define PROTO_CODE TRUE
+
+ typedef enum {BMS_START, BMS_RUNNING, BMS_CHARGING, BMS_DONE_CHARGING, BMS_DISCHARGING, BMS_DONE_DISCHARGING, BMS_SLEEPING, BMS_IDLE, BMS_FAULT } BMSState_t;
 //----------------------------------------------------------------------------------------------------
  typedef struct {
      uint8_t duty;
@@ -58,24 +30,28 @@
  //    uint32_t resistance;
  }ecapIMDData_t;
 
+ typedef struct {
+     uint16_t Volt;
+     int16_t Current;
+     uint16_t SOC;
+     uint16_t Res;
+
+ }FullBatteryData_t;
+
  struct BatteryData_t {
 
-   bool Charging;
+//   bool ChargingNDischarging;
 //   bool DoneChaging;
 //   uint16_t ChargerCurrent;
    BMSState_t BMS_State;
 
-   uint16_t CellTemp[NUMBER_OF_GPIOS];
-   uint16_t CellVolt[NUMBER_OF_CELLS];
-   uint16_t CellRes[NUMBER_OF_CELLS];
-   uint16_t CellDCC[NUMBER_OF_SLAVE_BOARDS];
+   uint16_t CellVolt[NUMBER_OF_VOLT_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];
+   uint16_t CellTemp[NUMBER_OF_TEMP_SAMPLES_SAVED][NUMBER_OF_THERMISTORS_TOTAL];
+   uint16_t CellRes[NUMBER_OF_RES_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];
+   uint16_t CellSOC[NUMBER_OF_SOC_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];
+   uint8_t BalancePWM_Nibbles[(NUMBER_OF_CELLS_SERIES+1)/2];
 
-//   uint16_t CellVolt[NUMBER_OF_VOLT_SAMPLES_SAVED][NUMBER_OF_CELLS];
-//   uint16_t ReadCellVolt[NUMBER_OF_CELLS];
-
-//   uint16_t RefVolt2nd[NUMBER_OF_REF_2ND];
-//   uint16_t current;
-   uint16_t HV_Voltage;
+   FullBatteryData_t FullBatteryData;
    ecapIMDData_t ecapIMDData;
 
  };
@@ -88,45 +64,39 @@
   void SetChargingStatus(const bool NewStat);
   bool GetChargingStatus();
   //----------------------------------------------------------------------------------------------------
-  inline void SetEcapIMDData(const ecapIMDData_t ecapIMDData);
-  inline ecapIMDData_t GetEcapIMDData();
- //----------------------------------------------------------------------------------------------------
-  inline uint16_t* GetCellVoltReadPrt();
-  inline uint16_t* GetCellTempReadPrt();
-  inline uint16_t* GetRefVolt2ndReadPrt();
-  inline uint16_t* GetCellVoltWritePrt();
-  inline uint16_t* GetCellTempWritePrt();
-  inline uint16_t* GetRefVolt2ndWritePrt();
-  //----------------------------------------------------------------------------------------------------
-  void writeCellRes(const uint16_t *CellRes);
-  //----------------------------------------------------------------------------------------------------
-  inline uint16_t* GetCellDCCReadPrt();
-  inline uint16_t* GetCellDCCWritePrt();
-  //----------------------------------------------------------------------------------------------------
-  uint16_t Get_HV_Voltage();
-  void Set_HV_Voltage(const uint16_t Volt);
-  float GetBatterySOC();
-//----------------------------------------------------------------------------------------------------
   void SetBatteryCurrentVal(const uint16_t ADC_Val);
   uint16_t GetBatteryCurrentVal();
-//----------------------------------------------------------------------------------------------------
-  inline uint16_t GetAvgCellVolt();
-  inline float    GetAvgCellVolt_float();
-  inline float    GetAvgCellSOC();
-  inline uint16_t GetMaxCellVolt();
-  inline float    GetMaxCellVolt_float();
-  inline float    GetMaxCellSOC();
-  inline uint16_t GetMinCellVolt();
-  inline float    GetMinCellVolt_float();
-  inline float    GetMinCellSOC();
-  //---------------------------------------------------------------------------------------------------------
-  uint8_t GetBalanceNibbles(uint8_t* BalanceNibbles);
-  uint8_t GetBalanceDCC(uint16_t* DCC);
+  //----------------------------------------------------------------------------------------------------
+  inline const uint16_t* GetCellVoltReadPrt(const uint8_t index);
+   inline const uint16_t* GetCellTempReadPrt(const uint8_t index);
+   inline const uint16_t* GetCellResReadPrt(const uint8_t index);
+   inline const uint16_t* GetCellSOCReadPrt(const uint8_t index);
+   inline const uint8_t* GetBalancePWM_NibblesReadPrt();
+  //----------------------------------------------------------------------------------------------------
+  inline uint16_t* GetCellVoltWritePrt();
+  inline uint16_t* GetCellTempWritePrt();
+  inline uint8_t* GetBalancePWM_NibblesWritePrt();
+  inline uint16_t* GetCellResWritePrt();
+  inline uint16_t* GetCellSOCWritePrt();
+  //----------------------------------------------------------------------------------------------------
+  inline void SetCellVolt(const uint16_t* CellVolt);
+  inline void SetCellTemp(const uint16_t* CellTemp);
+  inline void SetCellRes(const uint16_t *CellRes);
+  inline void SetCellSOC(const uint16_t *CellSOC);
+  inline void GetCellVolt(uint16_t* const CellVolt);
+  inline void GetCellTemp(uint16_t* const CellTemp);
+  inline void GetCellRes(uint16_t* const CellRes);
+  inline void GetCellSOC(uint16_t* const CellSOC);
+  inline void SetBalancePWM_Nibbles(const uint8_t* BalancePWM_Nibbles);
+  inline void GetBalancePWM_Nibbles(uint8_t* const BalancePWM_Nibbles);
+  //----------------------------------------------------------------------------------------------------
+  inline void SetEcapIMDData(const ecapIMDData_t ecapIMDData);
+  inline ecapIMDData_t GetEcapIMDData();
   //---------------------------------------------------------------------------------------------------------
   struct BatteryData_t* GetBatteryDataPrt();
   void initBatteryData();
+  BMSState_t getBMS_State();
   //---------------------------------------------------------------------------------------------------------
-  struct BatteryData_t BatteryData;
 
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_BATTERYDATA_H_ */

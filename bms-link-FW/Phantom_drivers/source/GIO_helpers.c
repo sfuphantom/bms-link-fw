@@ -8,12 +8,11 @@
 #include "gio.h"
 #include "GIO_helpers.h"
 #include "PhantomHelpers.h"
-
-
+#include "PhantomTimers.h"
 
 //static uint8_t gio_past_level;
 //--------------------------------------------------------------------------
-Gio_State_t gioGetBitHelper(const uint8_t bit){
+bool gioGetBitHelper(const uint8_t bit){
 //     const typeof(gio_past_level) bitMask = 1U << bit;
 
      const bool NewLevel = (bool)gioGetBit(GIO_PORT_A, bit);
@@ -27,41 +26,23 @@ Gio_State_t gioGetBitHelper(const uint8_t bit){
 //     return (Gio_State_t)NewState;
 }
 
-Gio_State_t gioSetBitHelper(const uint8_t bit, const Gio_State_t NewState){
+void gioSetBitHelper(const uint8_t bit, const bool NewState){
 //     const typeof(gio_past_level) bitMask = 1U << bit;
 
-     const bool NewLevel = (bool)NewState & 1U;
-     gioSetBit(GIO_PORT_A, bit, NewLevel);
-     return NewLevel;
-//     if(NewLevel){
-//         hetREG1->DOUT |= (1 << bit);   // set high
-//     }
-//     else {
-//         hetREG1->DOUT &= ~(1 << bit);   // set high
-//
-//     }
-
-//     bool LastLevel;
-
-//     gio_past_level = GetAndInsertBit(gio_past_level, bit, NewLevel, &LastLevel);
-
-//     const uint8_t State = (uint8_t)NewLevel | ((uint8_t)(NewLevel ^ LastLevel)<<1U);
-
-//     return (Gio_State_t)State;
+     gioSetBit(GIO_PORT_A, bit, NewState);
 }
-Gio_State_t gioToggleBitHelper(const uint8_t bit){
-//     const typeof(gio_past_level) bitMask = 1U << bit;
+bool gioToggleBitHelper(const uint8_t bit){
 
     gioToggleBit(GIO_PORT_A, bit);
 
-    bool NewLevel;
-    return NewLevel;
-//    gio_past_level = InvertAndInsertBit(gio_past_level, bit, &NewLevel);
-//
-//     const uint8_t State = (uint8_t)NewLevel | (1U)<<1U;
-
-//     return (Gio_State_t)State;
+    return gioGetBitHelper(bit);
 }
+gioPulse(const uint8_t bit, uint32_t time_us, const bool Val){
+    gioSetBitHelper(bit, Val);
+    delay_ms_us(0, time_us);
+    gioSetBitHelper(bit, !Val);
+}
+
 
 #pragma WEAK(Debug_GIO_Notification)
 void Debug_GIO_Notification(){  }

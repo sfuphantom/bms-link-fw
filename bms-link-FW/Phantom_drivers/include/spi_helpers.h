@@ -54,5 +54,6 @@ void setCS(const CS_Level level, const uint8_t CS);
 
  //---------------------------------------------------------------------------------------------------------
 bool is_SPI_busy();
+bool is_SPI_free();
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_SPI_DRIVERS_H_ */

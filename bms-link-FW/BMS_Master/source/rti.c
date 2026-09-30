@@ -956,4 +956,33 @@ void rtiCompare3Interrupt(void)
 
 
 
+/* USER CODE BEGIN (88) */
+/* USER CODE END */
+
+/** @fn void rtiOverflow0Interrupt(void)
+*   @brief RTI1 Counter 0 overflow Interrupt Handler
+*
+*   RTI1 counter 0 overflow interrupt handler 
+*
+*/
+#pragma CODE_STATE(rtiOverflow0Interrupt, 32)
+#pragma INTERRUPT(rtiOverflow0Interrupt, IRQ)
+
+/* SourceId : RTI_SourceId_027 */
+/* DesignId : RTI_DesignId_022 */
+/* Requirements : HL_SR95 */
+void rtiOverflow0Interrupt(void)
+{
+/* USER CODE BEGIN (89) */
+/* USER CODE END */
+
+    rtiREG1->INTFLAG = 0x20000U;
+    rtiNotification(rtiNOTIFICATION_COUNTER0);
+
+/* USER CODE BEGIN (90) */
+/* USER CODE END */
+}
+
+/* USER CODE BEGIN (91) */
+/* USER CODE END */
 

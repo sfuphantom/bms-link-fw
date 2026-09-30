@@ -137,7 +137,7 @@ void ecapNotification(ecapBASE_t *ecap, uint16 flags)
     // mibspi3miso (X1, pin 5 on the right) <- input
 
     if (ecap != IMD_ECAP_REG) {return;} // change this is there is more then 1 ecap
-    if (flags & VALID_FLAG_MASK != VALID_FLAG_VAL) {return;} // double check flags
+    if ((flags & VALID_FLAG_MASK) != VALID_FLAG_VAL) {return;} // double check flags
 
     const uint32 C1 = ecapGetCAP1(ecap);
     const uint32 C2 = ecapGetCAP2(ecap);
@@ -161,9 +161,6 @@ void ecapNotification(ecapBASE_t *ecap, uint16 flags)
     SetEcapIMDData(ecapIMDData);
     ReportEcapIMDData(ecapIMDData);
     Sendfault_IMD(&IMDData);
-
-
-    SendPeriodic(SEND_IMD_DATA);
 
 
     //see what is wrong in helcogen, I should not need these functions

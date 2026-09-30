@@ -11,29 +11,16 @@
 #include <stdbool.h>
 #include "ltc6811_commands.h"
 #include "SlaveCommunation_Hardware.h"
+#include "FullBattery_Hardware.h"
+#include "BatteryCell_Hardware.h"
+
 #include "BatteryData.h"
+
 
 //------------------------------------------------------------------------
 #define DUMMY_CMD LTC6811_PLADC
 ////////////////////////////////////////////////////////////////////
-//------------------------------------------------------------------------
-#define MAX_INTERNAL_DIE_TEMPERATURE_FLAG  50000
-#define MIN_INTERNAL_DIE_TEMPERATURE_FLAG  01000
 
-#define MAX_CELL_TEMPERATURE_FLAG  01000
-
-#define MAX_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG  55000
-#define MIN_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG  45000
-#define MAX_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG 36000
-#define MIN_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG 27000
-#define MAX_2ND_REFERENCE_VOLTAGE_FLAG        29900
-#define MIN_2ND_REFERENCE_VOLTAGE_FLAG        30100
-
-
-#define OVER_VOLTAGE_FLAG       CELL_VOLT_OVER
-#define UNDER_VOLTAGE_FLAG      CELL_VOLT_UNDER
-#define OVER_VOLTAGE_CONFIG     (OVER_VOLTAGE_FLAG>>4)
-#define UNDER_VOLTAGE_CONFIG    ((UNDER_VOLTAGE_FLAG>>4)-1)
  //---------------------------------------------------------------------------------------------------------
 #define POLL_PERIOD_STAT_US 1000
 #define POLL_PERIOD_AUX_US 1000
@@ -64,7 +51,7 @@ typedef struct {
     uint8_t  REV;       /* Device revision code             */
 
     uint16_t RefVolt2nd;
-}StatusReg;
+}StatusReg_t;
 
 //////////////////////////////////////////////////////////////////
 
@@ -77,12 +64,12 @@ typedef struct {
 // void SetAllConfigReg(bool* adcopt, bool* DTEN, bool* refon, uint8_t* gpio,  uint16_t* VUV, uint16_t* VOV, uint16_t* DCC, uint8_t* dcto);
 //void GetValueStatusReg(uint16_t* data, StatusReg_Values Value2Get);
  //---------------------------------------------------------------------------------------------------------
-StatusReg* GetStatusRegData();
+StatusReg_t* GetStatusRegData();
 
 void Write_CFGR();
 bool Read_CFGR();
 bool Read_STAT();
-void checkStatFlags();
+uint32_t checkStatFlags();
 //--------------------------------------------------------------------------------------------------------
 void ClearCellsCMD();
 void ClearAUXCMD();
@@ -91,21 +78,21 @@ void ClearSCtrlCMD();
 void ClearSlaveRegs();
 
 //---------------------------------------------------------------------------------------------------------
- void MeasureCellsCmd(const uint8_t MD,     //ADC Mode
+bool MeasureCellsCmd(const uint8_t MD,     //ADC Mode
                         const bool DCP,     //Discharge Permit
                         const uint8_t CHG   //Cell Selection for ADC Conversion
                         );
  bool MeasureCellsCmd_All_NoDis(const uint8_t MD);    //ADC Mode
- void MeasureCellsCmd_Dis(const uint8_t MD,   //ADC Mode
+ bool MeasureCellsCmd_Dis(const uint8_t MD,   //ADC Mode
                           const uint8_t CHG   //GPIO Selection for ADC Conversion
                           );
 
- void MeasureAUXCmd(const uint8_t MD,       // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+ bool MeasureAUXCmd(const uint8_t MD,       // ADC mode: 0=Fast, 1=Normal, 2=Filtered
                     const uint8_t CHG       // Cell Selection for ADC Conversion
                     );
  bool MeasureAUXCmd_All(const uint8_t MD);  // ADC mode: 0=Fast, 1=Normal, 2=Filtered
 
- void MeasureSTATCmd(const uint8_t MD,      // ADC mode: 0=Fast, 1=Normal, 2=Filtered
+ bool MeasureSTATCmd(const uint8_t MD,      // ADC mode: 0=Fast, 1=Normal, 2=Filtered
                      const uint8_t CHST     //  Status Group Selection
                      );
  bool MeasureSTATCmd_All(const uint8_t MD); // ADC mode: 0=Fast, 1=Normal, 2=Filtered
@@ -129,11 +116,11 @@ void ClearSlaveRegs();
  bool GetGPIOReadings_Digital(uint8_t *gpio_data);
  //---------------------------------------------------------------------------------------------------------
 bool Start_S_CTRL_Pulsing();
-void Write_S_CTRL(const uint8* S_CTRL_nibbles);
-bool Read_S_CTRL(uint8* S_CTRL_nibbles);
-void Write_PWM(const uint8* PWM_nibbles);
-bool Read_PWM(uint8* PWM_nibbles);
-bool WriteThenRead_PWM(const uint8* nibbles);
+void Write_S_CTRL(const uint8_t* S_CTRL_nibbles);
+bool Read_S_CTRL(uint8_t* S_CTRL_nibbles);
+void Write_PWM(const uint8_t* PWM_nibbles);
+bool Read_PWM(uint8_t* PWM_nibbles);
+bool WriteThenRead_PWM(const uint8_t* nibbles);
 bool SetAllPWM_Regs(uint8_t nibble);
 //---------------------------------------------------------------------------------------------------------
 void ReadConfig_DCC(uint16_t* DCC);
@@ -152,7 +139,10 @@ void waitDummyCMD(const uint32_t WaitPeriod_ms, const uint32_t WaitPeriod_us, ui
 //---------------------------------------------------------------------------------------------------------
 void initLink();
 //---------------------------------------------------------------------------------------------------------
-ConfigReg ConfigRegWriteData[NUMBER_OF_SLAVE_BOARDS];
-//ConfigReg ConfigRegReadData[NUMBER_OF_SLAVE_BOARDS];
-StatusReg StatusRegData[NUMBER_OF_SLAVE_BOARDS];
+bool MeasureCellVoltage(uint16_t* CellVolt);
+bool MeasureRef2ndVoltage();
+ bool MeasureAUXVoltage(uint16_t* GPIO_DataOut);
+ bool ReadStatAndGetFlags();
+
+
 #endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_FUNCTIONS_H_ */

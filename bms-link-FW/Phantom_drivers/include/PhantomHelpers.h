@@ -4,9 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-
-
-
+// -----------------------------------------
 #define NIBBLE2BYTES 2
 #define  WORDS2BYTES 2
 #define DWORDS2BYTES 4
@@ -29,6 +27,28 @@ typedef enum {  nibble  = 4 ,
 #define sizeof_arr(arr) (sizeof(arr)/sizeof(arr[0]))
 
 // -----------------------------------------
+#define GREATER_VAL(a,b)    (a > b)
+#define LESS_VAL(a,b)       (a < b)
+#define EQ_VAL(a,b)         (a == b)
+#define GREATER_EQ_VAL(a,b) (a >= b)
+#define LESS_EQ_VAL(a,b)    (a <= b)
+
+#define VAL_FROM_B2C_OO(a,b,c)    (a > b  && a < c )
+#define VAL_FROM_B2C_CO(a,b,c)    (a >= b && a <= c)
+#define VAL_FROM_B2C_OC(a,b,c)    (a > b  && a < c )
+#define VAL_FROM_B2C_CC(a,b,c)    (a >= b && a <= c)
+
+#define MAX_VAL(a, b)   ((a > b) ? a : b)
+#define MIN_VAL(a, b)   ((a < b) ? a : b)
+
+
+
+#define TEMP_C_TO_F(C)         ((( C ) * 9.0f / 5.0f) + 32.0f)
+#define TEMP_F_TO_C(F)         ((( F ) - 32.0f) * 5.0f / 9.0f)
+#define TEMP_C_TO_K(C)         ((( C ) + 273.15f)
+#define TEMP_K_TO_C(K)         ( ( K ) - 273.15f)
+
+// -----------------------------------------
 void word2byte(const uint16_t word, uint8_t *byteLow, uint8_t *byteHigh);
 uint16_t word2byte_BigEndian(const uint8_t byteLow, const uint8_t byteHigh);
 uint16_t word2byte_LittleEndian(const uint8_t byte1, const uint8_t byte2);
@@ -43,6 +63,8 @@ uint16_t round16(const uint16_t word, uint8_t bit2Round);
 
 //uint32_t divCeil_u32(uint32_t num,  uint32_t dem);
 //uint32_t Bit2Bytes_Ceil(uint32_t Bits);
+// -----------------------------------------
+
 // -----------------------------------------
 void array16_minAndIdx(const uint16_t* arr, uint8_t len, uint16_t* min, uint8_t* idx);
 void array16_maxAndIdx(const uint16_t* arr, uint8_t len, uint16_t* max, uint8_t* idx);
@@ -64,8 +86,8 @@ bool array16_eq_every(const uint16_t* arr1, uint16_t val, uint8_t len);
 bool array16_less_every(const uint16_t* arr1, uint16_t val, uint8_t len);
 bool array16_greater_every(const uint16_t* arr1, uint16_t val, uint8_t len);
 
-uint32 InvertAndInsertBit(uint32 Num, const uint8_t bit, bool * const new_val);
-uint32 GetAndInsertBit(uint32 Num, const uint8_t bit, const bool New_val, bool *const last_val);
+uint32_t InvertAndInsertBit(uint32_t Num, const uint8_t bit, bool * const new_val);
+uint32_t GetAndInsertBit(uint32_t Num, const uint8_t bit, const bool New_val, bool *const last_val);
 
 
 #endif /* HELPERS_H */

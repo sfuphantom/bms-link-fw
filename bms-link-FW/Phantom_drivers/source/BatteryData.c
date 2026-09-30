@@ -9,34 +9,44 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "string.h"
+
 #include "SlaveCommunation_Hardware.h"
+//#include "BatteryCell_Hardware.h"
+#include "FullBattery_Hardware.h"
+
 #include "PhantomHelpers.h"
-
 #include "BatteryData.h"
+#include "RowBuf.h"
 
-
-
+  struct BatteryData_t BatteryData;
 //----------------------------------------------------------------------------------------------------
-inline uint16_t Slave_Volt2ADC(const float ADC_Volt){
-    uint16_t ADC_Value = (ADC_Volt - ADC_OFFSET_VOLTS)/ADC2VOLTS;
-    return ADC_Value;
-}
-inline float Slave_ADC2Volt(const uint16_t ADC_Word){
-    uint16 ADC_Round = round16(ADC_Word, 16-ADC_RESOLUTION_BIT);
-    float Volt = ADC_Round * ADC2VOLTS + ADC_OFFSET_VOLTS;
-    return Volt;
-}
-inline float Slave_ADC2Celcius(const uint16_t ADC){
-    float Volts = Slave_ADC2Volt(ADC);
-    float Kelvin = Volts / ITMP_MILLI_VOLTS_2_CELCIUS * 1000;
-    float Celcius = Kelvin - ITMP_KELVIN_2_CELCIUS;
-    return Celcius;
-}
-void Slave_ADC2Volt_arr(const uint16_t* ADC_Words, float* Volts, const uint16_t len){
-    int i;
-    for(i=0; i<len; i++)
-        Volts[i] = Slave_ADC2Volt(ADC_Words[i]);
-}
+//float Slave_ADC2Volt(const uint16_t ADC_Word){
+//    VOLTS2SLAVE_ADC(ADC_Word);
+//}
+//inline uint16_t Slave_Volt2ADC(const float ADC_Volt){
+//    uint16_t ADC_Value = (ADC_Volt - ADC_OFFSET_VOLTS)/ADC2VOLTS;
+//    return ADC_Value;
+//}
+//inline uint16_t Slave_Volt2ADC(const float ADC_Volt){
+//    uint16_t ADC_Value = (ADC_Volt - ADC_OFFSET_VOLTS)/ADC2VOLTS;
+//    return ADC_Value;
+//}
+//inline float Slave_ADC2Volt(const uint16_t ADC_Word){
+//    uint16_t ADC_Round = round16(ADC_Word, 16-ADC_RESOLUTION_BIT);
+//    float Volt = ADC_Round * ADC2VOLTS + ADC_OFFSET_VOLTS;
+//    return Volt;
+//}
+//inline float Slave_ADC2Celcius(const uint16_t ADC){
+//    float Volts = Slave_ADC2Volt(ADC);
+//    float Kelvin = Volts / ITMP_MILLI_VOLTS_2_CELCIUS * 1000;
+//    float Celcius = Kelvin - ITMP_KELVIN_2_CELCIUS;
+//    return Celcius;
+//}
+//void Slave_ADC2Volt_arr(const uint16_t* ADC_Words, float* Volts, const uint16_t len){
+//    int i;
+//    for(i=0; i<len; i++)
+//        Volts[i] = Slave_ADC2Volt(ADC_Words[i]);
+//}
 
 //inline uint16_t BatteryCurrent2Voltage_16(const uint16_t current){
 //    const uint16_t voltage = current;
@@ -48,21 +58,21 @@ void Slave_ADC2Volt_arr(const uint16_t* ADC_Words, float* Volts, const uint16_t 
 //
 //    return voltage_f;
 //}
-inline float CellVolts2SoC(const uint16_t CellVolt){
-    const uint16_t CellVolt_offset = CellVolt - CELL_VOLT_0_FULL;
-    const float CellSOC = CellVolt_offset /(CELL_SOC_RANGE) * 100;
-    return CellSOC;
-}
+//inline float CellVolts2SoC(const uint16_t CellVolt){
+//    const uint16_t CellVolt_offset = CellVolt - CELL_VOLT_0_FULL;
+//    const float CellSOC = CellVolt_offset /(CELL_SOC_RANGE) * 100;
+//    return CellSOC;
+//}
  //----------------------------------------------------------------------------------------------------
-inline void SetChargingStatus(const bool NewStat){
-     BatteryData.Charging = NewStat;
- }
-inline bool GetChargingStatus(){
-     return BatteryData.Charging;
- }
-// void CheckChargingSatusTask(){
-//     SetChargingStatus(TRUE);
+//inline void SetChargingStatus(const bool NewStat){
+//     BatteryData.Charging = NewStat;
 // }
+//inline bool GetChargingStatus(){
+//     return BatteryData.Charging;
+// }
+//// void CheckChargingSatusTask(){
+////     SetChargingStatus(TRUE);
+//// }
 //----------------------------------------------------------------------------------------------------
 inline void SetEcapIMDData(const ecapIMDData_t ecapIMDData){
     BatteryData.ecapIMDData = ecapIMDData;
@@ -71,230 +81,188 @@ inline ecapIMDData_t GetEcapIMDData(){
     return BatteryData.ecapIMDData;
 }
  //----------------------------------------------------------------------------------------------------
- inline uint16_t* GetCellVoltReadPrt(){
-     return BatteryData.CellVolt;
+ inline const uint16_t* GetCellVoltReadPrt(const uint8_t index){
+     return (const uint16_t*)BatteryData.CellVolt[index];
  }
- inline uint16_t* GetCellTempReadPrt(){
-     return BatteryData.CellTemp;
+ inline const uint16_t* GetCellTempReadPrt(const uint8_t index){
+     return (const uint16_t*)BatteryData.CellTemp[index];
  }
+ inline const uint16_t* GetCellResReadPrt(const uint8_t index){
+     return (const uint16_t*)BatteryData.CellRes[index];
+ }
+ inline const uint16_t* GetCellSOCReadPrt(const uint8_t index){
+     return (const uint16_t*)BatteryData.CellSOC[index];
+ }
+ inline const uint8_t* GetBalancePWM_NibblesReadPrt(){
+     return (const uint8_t*)BatteryData.BalancePWM_Nibbles;
+ }
+
+ //----------------------------------------------------------------------------------------------------
  inline uint16_t* GetCellVoltWritePrt(){
-     return BatteryData.CellVolt;
+     shiftRowBufElements(BatteryData.CellVolt, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_VOLT_SAMPLES_SAVED);
+     return BatteryData.CellVolt[0];
  }
  inline uint16_t* GetCellTempWritePrt(){
-     return BatteryData.CellTemp;
+     shiftRowBufElements(BatteryData.CellTemp, sizeof(uint16_t)*NUMBER_OF_THERMISTORS_TOTAL, NUMBER_OF_TEMP_SAMPLES_SAVED);
+     return BatteryData.CellTemp[0];
+ }
+ inline uint8_t* GetBalancePWM_NibblesWritePrt(){
+     return BatteryData.BalancePWM_Nibbles;
+ }
+ inline uint16_t* GetCellResWritePrt(){
+     shiftRowBufElements(BatteryData.CellRes, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_RES_SAMPLES_SAVED);
+     return BatteryData.CellRes[0];
+ }
+ inline uint16_t* GetCellSOCWritePrt(){
+     shiftRowBufElements(BatteryData.CellSOC, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_SOC_SAMPLES_SAVED);
+     return BatteryData.CellSOC[0];
  }
  //----------------------------------------------------------------------------------------------------
-void writeCellRes(const uint16_t *CellRes){
-    memcpy(BatteryData.CellRes, CellRes, sizeof(BatteryData.CellRes));
+ inline void SetCellVolt(const uint16_t* CellVolt){
+     prePendRowIntoBuf(BatteryData.CellVolt, CellVolt, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_VOLT_SAMPLES_SAVED);
+
+     // check falut
+ }
+ inline void SetCellTemp(const uint16_t* CellTemp){
+     prePendRowIntoBuf(BatteryData.CellTemp, CellTemp, sizeof(uint16_t)*NUMBER_OF_THERMISTORS_TOTAL, NUMBER_OF_TEMP_SAMPLES_SAVED);
+     // check falut
+ }
+ inline void SetCellRes(const uint16_t *CellRes){
+     prePendRowIntoBuf(BatteryData.CellRes, CellRes, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_RES_SAMPLES_SAVED);
+ }
+ inline void SetCellSOC(const uint16_t *CellSOC){
+     prePendRowIntoBuf(BatteryData.CellSOC, CellSOC, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_SOC_SAMPLES_SAVED);
+ }
+ //----------------------------------------------------------------------------------------------------
+ inline void GetCellVolt(uint16_t* const CellVolt){
+     peekRowBuf(BatteryData.CellVolt, CellVolt, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES);
+ }
+ inline void GetCellTemp(uint16_t* const CellTemp){
+     peekRowBuf(BatteryData.CellTemp, CellTemp, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES);
+ }
+ inline void GetCellRes(uint16_t* const CellRes){
+     peekRowBuf(BatteryData.CellRes, CellRes, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES);
+ }
+ inline void GetCellSOC(uint16_t* const CellSOC){
+     peekRowBuf(BatteryData.CellSOC, CellSOC, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES);
+ }
+ //----------------------------------------------------------------------------------------------------
+void SetBalancePWM_Nibbles(const uint8_t* BalancePWM_Nibbles){
+    memcpy(BatteryData.BalancePWM_Nibbles, BalancePWM_Nibbles, NUMBER_OF_CELLS_SERIES/2 * sizeof(uint8_t));
 }
-//----------------------------------------------------------------------------------------------------
-inline uint16_t* GetCellDCCReadPrt(){
-    return BatteryData.CellDCC;
-}
-inline uint16_t* GetCellDCCWritePrt(){
-    return BatteryData.CellDCC;
+void GetBalancePWM_Nibbles(uint8_t* const BalancePWM_Nibbles){
+    memcpy(BalancePWM_Nibbles, BatteryData.BalancePWM_Nibbles, NUMBER_OF_CELLS_SERIES/2 * sizeof(uint8_t));
 }
 
- //----------------------------------------------------------------------------------------------------
-//  inline void SetBatteryCurrentVal(const uint16_t ADC_Val){
-//      BatteryData.current = ADC_Val;
-//  }
-//  inline uint16_t GetBatteryCurrentVal(){
-//      return BatteryData.current ;
-//  }
-//  inline uint16_t GetBatteryCurrentVal_f(){
-//      return GetBatteryCurrentVal();
-//  }
-//  inline uint16_t GetBatteryVoltVal_16(){
-//      return BatteryCurrent2Voltage_16(BatteryData.current);
-//  }
-//  inline float GetBatteryVoltVal_f(){
-//      return BatteryCurrent2Voltage_f(BatteryData.current);
-//  }
 //----------------------------------------------------------------------------------------------------
-//void getCellResistance(float* Resistance){
-//    int i;
-//    float CellVolts;
-//    const uint16_t* allVolts = GetCellVoltPrt();
-//    const float current = GetBatteryCurrentVal_f();
-//
-//    for(i=0;i<NUMBER_OF_CELLS; i++, allVolts++){
-//        CellVolts = (float)(*allVolts);
-//        Resistance[i] = CellVolts/current;
-//    }
-//}
-//uint16_t getBatteryResistance(){
-//    const float current = GetBatteryCurrentVal_f();
-//    const float Volts = GetBatteryVoltVal_f();
-//    const float Resistance = Volts/current;
-//    return Resistance;
-//}
-//----------------------------------------------------------------------------------------------------
-  inline uint16_t GetAvgCellVolt(){
-      return array16_avg(GetCellVoltReadPrt(), NUMBER_OF_CELLS);
+  inline uint16_t GetAvgCellVolt_SlaveADC(){
+      return array16_avg(GetCellVoltReadPrt(0), NUMBER_OF_CELLS_SERIES);
   }
-  inline uint16_t GetMaxCellVolt(){
-      return array16_max(GetCellVoltReadPrt(), NUMBER_OF_CELLS);
+  inline uint16_t GetMaxCellVolt_SlaveADC(){
+      return array16_max(GetCellVoltReadPrt(0), NUMBER_OF_CELLS_SERIES);
   }
-  inline uint16_t GetMinCellVolt(){
-      return array16_min(GetCellVoltReadPrt(), NUMBER_OF_CELLS);
+  inline uint16_t GetMinCellVolt_SlaveADC(){
+      return array16_min(GetCellVoltReadPrt(0), NUMBER_OF_CELLS_SERIES);
   }
   inline float GetAvgCellVolt_float(){
-      return Slave_ADC2Volt(GetAvgCellVolt());
+      return SLAVE_ADC2VOLTS(GetAvgCellVolt_SlaveADC());
   }
   inline float GetMaxCellVolt_float(){
-      return Slave_ADC2Volt(GetMaxCellVolt());
+      return SLAVE_ADC2VOLTS(GetMaxCellVolt_SlaveADC());
   }
   inline float GetMinCellVolt_float(){
-      return Slave_ADC2Volt(GetMinCellVolt());
-  }
-  inline float GetAvgCellSOC(){
-      const uint16_t avgVolts   = GetAvgCellVolt();
-      const float avgSOC        = CellVolts2SoC(avgVolts);
-      return avgSOC;
-  }
-  inline float GetMaxCellSOC(){
-      const uint16_t maxVolts   = GetMaxCellVolt();
-      const float maxSOC        = CellVolts2SoC(maxVolts);
-      return maxSOC;
-  }
-  inline float GetMinCellSOC(){
-      const uint16_t minVolts   = GetMinCellVolt();
-      const float minSOC        = CellVolts2SoC(minVolts);
-      return minSOC;
+      return SLAVE_ADC2VOLTS(GetMinCellVolt_SlaveADC());
   }
   //----------------------------------------------------------------------------------------------------
-uint16_t Get_HV_Voltage(){
-    return BatteryData.HV_Voltage;
-}
-void Set_HV_Voltage(const uint16_t Volt){
-    BatteryData.HV_Voltage = Volt;
-}
-float GetBatterySOC(){
-    return (float)((Get_HV_Voltage()-200)/200);
-}
-  //----------------------------------------------------------------------------------------------------
-  bool GetCellsUnbalanceState(const uint16_t avg, const uint16_t min){
-      static bool Balance_Hysteresis = FALSE;
-
-      const uint16_t minAvgDiff = avg-min;
-
-      if (CELL_BALANCE_TRIGGER_HIGH_VOLTS_ADC < minAvgDiff ){
-          Balance_Hysteresis = TRUE;
-      }
-      else if(CELL_BALANCE_TRIGGER_LOW_VOLTS_ADC > minAvgDiff){
-          Balance_Hysteresis = FALSE;
-      }
-      else{
-          Balance_Hysteresis = Balance_Hysteresis;
-      }
-      return Balance_Hysteresis;
+  inline uint16_t GetAvgCellTemp_SlaveADC(){
+      return array16_avg(GetCellTempReadPrt(0), NUMBER_OF_THERMISTORS_TOTAL);
   }
-  inline uint8_t BalanceCellNibbleVaule(const uint16 cellVolt, const uint16_t min){
-
-      const uint16_t Vdiff = cellVolt - min;
-
-      if(CELL_BALANCE_THESHOLD_VOLTS_ADC > Vdiff){
-          return 0;
-      }
-      #define DRAIN_BINARY true
-      #if DRAIN_BINARY
-          return 0xF;
-      #else
-           uint8_t nibble;
-
-           nibble  = Vdiff + VOLTS_Per_10000_DRAINED_PER_PULSE/2;
-           nibble /= VOLTS_Per_10000_DRAINED_PER_PULSE;
-
-           if(nibble < 0xF){
-               return nibble;
-           }
-           else{
-               return 0xF;
-           }
-    #endif
-   }
-
-  uint8_t GetBalanceNibbles(uint8_t* BalanceNibbles){
-      int i, j;
-      uint16_t cellVolt;
-      uint8_t nibble, byte;
-      uint8_t NumCellsFull = 0;
-
-      const uint16_t* allVolts = GetCellVoltReadPrt();
-      const uint16_t min = array16_min(allVolts, NUMBER_OF_CELLS);
-      const uint16_t avg = array16_avg(allVolts, NUMBER_OF_CELLS);
-
-      const bool UnBalance = GetCellsUnbalanceState(avg, min);
-
-      for(i=0; i<NUMBER_OF_CELLS/NIBBLE2BYTES; i++){
-          for(j=0, byte=0; j<NIBBLE2BYTES; j++, allVolts){
-              cellVolt = *allVolts;
-
-              if(cellVolt >= MAX_CELL_CHARGING_VOLTAGE_TARGET){
-                 nibble  = 0xF;
-                 NumCellsFull++;
-              }
-              else if(!UnBalance){
-                  nibble = 0;
-              }
-              else{
-                  nibble = BalanceCellNibbleVaule(cellVolt, min);
-              }
-
-              byte |= nibble<<(j*4);
-          }
-          BalanceNibbles[i] = byte;
-      }
-      return NumCellsFull;
+  inline uint16_t GetMaxCellTemp_SlaveADC(){
+      return array16_max(GetCellTempReadPrt(0), NUMBER_OF_THERMISTORS_TOTAL);
   }
-  uint8_t GetBalanceDCC(uint16_t* DCC){
-  //     const uint8_t Nibbles2Bytes = 2;
-       int i, j;
-       uint16_t cellVolt;
-       uint8_t nibble=0;
-       uint8_t NumCellsFull = 0;
-
-       const uint16_t* allVolts = GetCellVoltReadPrt();
-       const uint16_t min = array16_min(allVolts, NUMBER_OF_CELLS);
-       const uint16_t avg = array16_avg(allVolts, NUMBER_OF_CELLS);
-
-       const bool UnBalance = GetCellsUnbalanceState(avg, min);
-//       const uint32_t T = MAX_CELL_CHARGING_VOLTAGE_TARGET;
-
-       for(i=0;i<NUMBER_OF_SLAVE_BOARDS;i++){
-           *DCC = 0;
-
-           for (j=0;j<CELLS_PER_SLAVE_BOARD; j++, allVolts++){
-               cellVolt = *allVolts;
-
-               if(cellVolt > MAX_CELL_CHARGING_VOLTAGE_TARGET){
-                  nibble  = 0xF;
-                  NumCellsFull++;
-               }
-               else if(!UnBalance){
-                   nibble = 0;
-               }
-               else{
-//                   nibble = BalanceCellNibbleVaule(cellVolt, min);
-                   nibble = 0;
-               }
-
-               if(nibble){
-                   *DCC |= 1U<<j;
-               }
-           }
-
-           DCC++;
-       }
-       return NumCellsFull;
-   }
+  inline uint16_t GetMinCellTemp_SlaveADC(){
+      return array16_min(GetCellTempReadPrt(0), NUMBER_OF_THERMISTORS_TOTAL);
+  }
+  inline float GetAvgCellTemp_float(){
+      return 0;
+  }
+  inline float GetMaxCellTemp_float(){
+      return 0;
+  }
+  inline float GetMinCellTemp_float(){
+      return 0;
+  }
   //----------------------------------------------------------------------------------------------------
-void setBMS_State(BMSState_t State){
+  const FullBatteryData_t* getFullBatteryData(){
+    return (const FullBatteryData_t*)&BatteryData.FullBatteryData;
+  }
+  uint16_t getFullBatteryData_Volts(){
+    return BatteryData.FullBatteryData.Volt;
+  }
+  uint16_t getFullBatteryData_SOC(){
+    return BatteryData.FullBatteryData.SOC;
+  }
+  uint16_t getFullBatteryData_Current(){
+    return BatteryData.FullBatteryData.Current;
+  }
+  uint16_t getFullBatteryData_Res(){
+    return BatteryData.FullBatteryData.Res;
+  }
+  //----------------------------------------------------------------------------------------------------
+  void setFullBatteryData_Volts(const uint16_t Volt){
+    BatteryData.FullBatteryData.Volt = Volt;
+  }
+  void setFullBatteryData_SOC(const uint16_t SOC){
+    BatteryData.FullBatteryData.SOC = SOC;
+  }
+  void setFullBatteryData_Current(const uint16_t Current){
+    BatteryData.FullBatteryData.Current = Current;
+  }
+  void setFullBatteryData_Res(const uint16_t Res){
+    BatteryData.FullBatteryData.Res = Res;
+  }
+  void setFullBatteryData(const FullBatteryData_t * FullBatteryData){
+    memcpy(&BatteryData.FullBatteryData, FullBatteryData, sizeof(FullBatteryData_t));
+  }
+  void setFullBatteryData_split(const uint16_t Volt, const uint16_t Current, const uint16_t SOC, const uint16_t Res){
+      setFullBatteryData_Volts(Volt);
+      setFullBatteryData_SOC(SOC);
+      setFullBatteryData_Current(Current);
+      setFullBatteryData_Res(Res);
+  }
+
+//---------------------------------------------------------------------------
+void setBMS_State(const BMSState_t State){
     BatteryData.BMS_State = State;
 }
 BMSState_t getBMS_State(){
     return BatteryData.BMS_State;
+}
+
+
+void BMS_StateMachine(const bool shouldCharge, const bool clearFault, const bool RunBMS, const bool VCUFault, const bool hasFault){
+    //TODO
+    const BMSState_t currentState = getBMS_State();
+    BMSState_t newState = BMS_RUNNING;
+
+    if (hasFault){
+        newState = BMS_FAULT;
+
+    }
+    switch(currentState){
+        case BMS_RUNNING:{
+
+        }
+        case BMS_CHARGING:{}
+        case BMS_DONE_CHARGING:{}
+        case BMS_DISCHARGING:{}
+        case BMS_DONE_DISCHARGING:{}
+        case BMS_SLEEPING:{}
+        case BMS_IDLE:{}
+        case BMS_FAULT:{}
+
+    }
+    setBMS_State(newState);
 }
   //----------------------------------------------------------------------------------------------------
 
@@ -302,13 +270,6 @@ BMSState_t getBMS_State(){
       return &BatteryData;
   }
   void initBatteryData(){
-      BatteryData.BMS_State = BMS_RUNNING;
+      BatteryData.BMS_State = BMS_CHARGING;
 
-
-      memset(BatteryData.CellTemp     , 0, NUMBER_OF_GPIOS  *sizeof (uint16_t));
-      memset(BatteryData.CellVolt     , 0, NUMBER_OF_CELLS  *sizeof (uint16_t));
-
-      BatteryData.HV_Voltage = 0;
-
-//      BatteryData.HV_Voltage = 0;
   }

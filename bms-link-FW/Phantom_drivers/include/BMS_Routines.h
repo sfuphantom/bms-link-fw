@@ -26,6 +26,9 @@
  void MonitorFullBatteryDataRoutine();
  void MeasureCellResistanceRoutine();
  void keepSlavesAwakeRoutine();
+ void SendChargerControlsRoutine();
+
+ void SendDataRoutine_Serial();
  //---------------------------------------------------------------------------------------------------------
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_TASKANDROUTINES_H_ */

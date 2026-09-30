@@ -94,6 +94,7 @@ extern void rtiCompare0Interrupt(void);
 extern void rtiCompare1Interrupt(void);
 extern void rtiCompare2Interrupt(void);
 extern void rtiCompare3Interrupt(void);
+extern void rtiOverflow0Interrupt(void);
 extern void gioHighLevelInterrupt(void);
 extern void can1HighLevelInterrupt(void);
 extern void gioLowLevelInterrupt(void);
@@ -271,7 +272,7 @@ typedef struct vim_config_reg
                                     | (uint32)((uint32)1U << 3U)\
                                     | (uint32)((uint32)1U << 4U)\
                                     | (uint32)((uint32)1U << 5U)\
-                                    | (uint32)((uint32)0U << 6U)\
+                                    | (uint32)((uint32)1U << 6U)\
                                     | (uint32)((uint32)0U << 7U)\
                                     | (uint32)((uint32)0U << 8U)\
                                     | (uint32)((uint32)1U << 9U)\

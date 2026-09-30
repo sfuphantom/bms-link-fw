@@ -11,7 +11,19 @@
 #include "Phantom_Can.h"
 #include <string.h>
 #include "PhantomHelpers.h"
+#include "SendDataSerial.h"
 
+//----------------------------------------------------------------------------------------
+#warning enable this
+#define ENABLE_CANS_LOGS false
+void LogCansMsg(const phantomCanMsgBox msg, const uint8_t * buf){
+#if ENABLE_CANS_LOGS
+    StartMsg(SEND_CANS_LOG);
+    SendDataSerial(&msg, 1);
+    SendDataSerial(buf, DEFULT_CAN_MSG_SIZE_BYTE);
+    endMsg();
+#endif
+}
 
 //----------------------------------------------------------------------------------------
 bool wasCanVaild(uint32 returnVal){
@@ -19,7 +31,7 @@ bool wasCanVaild(uint32 returnVal){
 
     else return false;
 }
-uint32_t can_transmit_data(const phantomCanMsgBox msgbox, const void * const data, const uint8_t len){
+bool can_transmit_data(const phantomCanMsgBox msgbox, const void * const data, const uint8_t len){
     uint8_t buf[DEFULT_CAN_MSG_SIZE_BYTE];
 //    const uint8_t arr_len = sizeof_arr(data);
     memset(buf, 0, DEFULT_CAN_MSG_SIZE_BYTE);
@@ -28,13 +40,18 @@ uint32_t can_transmit_data(const phantomCanMsgBox msgbox, const void * const dat
 
     memcpy(buf, data, d_len*sizeof(uint8_t));
 
-    return canTransmit(CAN_NODE_REG, msgbox, buf);
+    const uint32_t return_val = canTransmit(CAN_NODE_REG, msgbox, buf);
+    LogCansMsg(msgbox, buf);
+
+    return wasCanVaild(return_val);
 }
-uint32_t can_receive_data(const phantomCanMsgBox msgbox, void * const data, const uint8_t len){
+bool can_receive_data(const phantomCanMsgBox msgbox, void * const data, const uint8_t len){
     uint8_t buf[DEFULT_CAN_MSG_SIZE_BYTE];
     const uint32_t return_val = canGetData(CAN_NODE_REG, msgbox, buf);
 
     const uint32_t d_len = len < DEFULT_CAN_MSG_SIZE_BYTE?len:DEFULT_CAN_MSG_SIZE_BYTE;
+
+    LogCansMsg(msgbox, buf);
 
     memcpy(data, buf, d_len*sizeof(uint8_t));
     return return_val;

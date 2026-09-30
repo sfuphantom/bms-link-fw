@@ -12,7 +12,6 @@
 #include "het.h"
 #include "string.h"
 #include "spi_helpers.h"
-#include "sci_helpers.h"
 #include "GIO_helpers.h"
 
 
@@ -71,7 +70,12 @@ bool AnyIMDFaults(){
 
 
 bool AnyFaults(){
-    return AnyBMSFaults() || AnySlaveFaults() || AnyIMDFaults();
+    const bool hasBMSFault = AnyBMSFaults();
+    const bool hasSlaveFault = AnySlaveFaults();
+    const bool hasIMDFault = AnyIMDFaults();
+
+    return hasBMSFault || hasSlaveFault || hasIMDFault;
+
 }
 //----------------------------------------------------------------------------------------------------
 BMSFaultsData_t* GetBMSFaultsData(){
@@ -91,7 +95,7 @@ IMDData_t GetIMDFaults(){
 //
 //}
 bool GetBMSFault_bool(const BMS_Faults Fault){
-   uint16_t Val = BMSFaultsData.BMS_Faults & ~(1U << Fault);
+   uint16_t Val = BMSFaultsData.BMS_Faults & (1U << Fault);
    return (Val != 0);
 }
 bool GetSlaveFault_bool(const Slave_Faults Fault){
@@ -122,13 +126,8 @@ void Fault_Handler(){
     }
     gioSetBitHelper(GIO_BMS_FAULT_BIT , GIO_LOW);
 
-//    uint16_t DCC[NUMBER_OF_CELLS];
-//    memset(DCC,0,NUMBER_OF_CELLS * sizeof(uint16_t));
-//    SetConfig_DCC(DCC);
-//    Write_CFGR();
-
     SetAllFansDuty(99);
-    ShutDownCharger_Fault();
+    Charger_FaultShutdown();
     SendFault_Cans(&BMSFaultsData);
 
 }
@@ -201,12 +200,14 @@ void Fault_Handler(){
   }
   //----------------------------------------------------------------------------------------------------
 
-  //----------------------------------------------------------------------------------------------------
-
 void init_BMS_Faults(){
-    Gio_State_t IMD_F = gioGetBitHelper(GIO_IMD_FAULT_BIT);
-    if ((IMD_F & 1) == 0){
-        IMD_FAULT_GIO_Notification();
-    }
+    bool IMD_F = gioGetBitHelper(GIO_IMD_FAULT_BIT);
+    BMSFaultsData.IMD_Faults.IMDState = IMD_NO_FAULT_VAL;
+    BMSFaultsData.IMD_Faults.IsolationState = ISOLATION_MAX_NO_FAULT_VAL;
     ClearAllFaults();
+    if ((IMD_F & 1) == 0){
+//        IMD_FAULT_GIO_Notification();
+    }
 }
+
+#warning need more faults, report better, make logic better

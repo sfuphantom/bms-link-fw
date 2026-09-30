@@ -28,7 +28,6 @@
 #include "BMS_Tasks.h"
 #include "Fans.h"
 #include "spi_helpers.h"
-#include "HV_data.h"
 #include "sci.h"
 #include "gio.h"
 
@@ -40,6 +39,13 @@ void enableAllInterrupts(){
     _enable_IRQ();
     _enable_interrupt_();
 }
+//----------------------------------------------------------------------------------------------------
+void restart_BMS_system(){
+    init_fans();
+    ClearAllFaults();
+    initLink();
+}
+//----------------------------------------------------------------------------------------------------
 
 void init_BMS_system(){
     systemInit();
@@ -53,20 +59,19 @@ void init_BMS_system(){
     ecapInit();
     sciInit();
 
-
     rtiInit();
+    initPhantomTimers();
     rtiStartCounter(rtiCOUNTER_BLOCK0);
 
-    init_fans();
-
     init_BMS_Faults();
-
-    initLink();
-
     initBatteryData();
-    initCharger();
+    Charger_Init();
+
+    restart_BMS_system();
+
 }
 //----------------------------------------------------------------------------------------------------
+
 void DoNothing(){
     //Nothing
 }
@@ -97,7 +102,7 @@ bool returnFalse(){
 
 void TaskSuperLoop(Task_t AllTasks[], uint8_t NumOfTasks){
     int i;
-    uint32_t now = 0;
+//    uint32_t now = 0;
     Task_t currentTask;
 
     for(i=0; i<NumOfTasks; i++){
@@ -107,27 +112,32 @@ void TaskSuperLoop(Task_t AllTasks[], uint8_t NumOfTasks){
 
         currentTask = AllTasks[i];
 
-        if(currentTask.AllowFunction()){
+        if(! currentTask.AllowFunction()){
             continue;
         }
 
-        now = getNow_tick();
-        if(now - currentTask.LastDone < currentTask.Period){
+//        now = getNow_tick();
+//        if(hasTimeElapsed(currentTask.LastDone, currentTask.Period)){
+        if(!hasPeriodExpired_rti(currentTask.Period, &currentTask.LastDone)){
+//        if(now - currentTask.LastDone < currentTask.Period){
             continue;
         }
-        currentTask.LastDone = now;
         currentTask.RoutineFunction();
+//        currentTask.LastDone = getNow_tick();
+
     }
 }
 //----------------------------------------------------------------------------------------------------
 Task_t BMSTask[] =   {
-                                     {CellVoltageControlRoutine     ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK, 0, is_SPI_busy},
-//                                     {MonitorCellTempRoutine    ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_US, 0, SPI_busy},
-                                     {SlaveFlagsRoutine             ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK, 0, is_SPI_busy},
-                                     {MeasureCellResistanceRoutine  ,CELL_RESISTANCE_MONITOR_TASK_PERIOD_TICK, 0, is_SPI_busy},
-                                     {MonitorFullBatteryDataRoutine ,FULL_BATTERY_MONITOR_TASK_PERIOD_TICK, 0, is_SPI_busy},
-                                     {keepSlavesAwakeRoutine        ,KEEP_SLAVES_AWAKE_TASK_PERIOD_TICK, 0, is_SPI_busy},
-                                    };
+                         {CellVoltageControlRoutine     ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK, 0, is_SPI_free},
+//                                     {MonitorCellTempRoutine    ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_US, 0, is_SPI_free},
+                         {SlaveFlagsRoutine             ,SLAVE_FLAG_CHECK_TASK_PERIOD_TICK, 0, is_SPI_free},
+//                                     {MeasureCellResistanceRoutine  ,CELL_RESISTANCE_MONITOR_TASK_PERIOD_TICK, 0, is_SPI_free},
+//                                     {MonitorFullBatteryDataRoutine ,FULL_BATTERY_MONITOR_TASK_PERIOD_TICK, 0, is_SPI_free},
+                         {keepSlavesAwakeRoutine        ,KEEP_SLAVES_AWAKE_TASK_PERIOD_TICK, 0, is_SPI_free},
+                         {SendChargerControlsRoutine    ,SEND_CHARGER_CONTROL_TASK_PERIOD_TICK, 0, returnTrue},
+                         {SendDataRoutine_Serial        ,SEND_DATA_SERIAL_TASK_PERIOD_TICK,     0, returnTrue},
+                        };
 
 const uint8_t NUMBER_OF_TASKS = sizeof(BMSTask)/sizeof(Task_t);
 
@@ -135,40 +145,5 @@ void Do_BMS_Tasks(){
     TaskSuperLoop(BMSTask, NUMBER_OF_TASKS);
 }
 
-//struct Task_t AllTask[] =   {
-//                               {SlaveComunation_Task,0,0},
-//                            };
-
-//----------------------------------------------------------------------------------------------------
-
-// bool CellVoltageControlTask(){
-////     const uint32_t CS_pollWaitings = waitSPIFree(1000);
-//     if(!rtiTimerExpired(CellVoltageControl_ID, CELL_VOLTAGE_CONTROL_TASK_PERIOD_US, 0)){
-//         keepAwake();
-//         return false;
-//     }
-//
-//     CellVoltageControlRoutine();
-//     return true;
-// }
-// bool MonitorCellTempTask(){
-////     const uint32_t CS_pollWaitings = waitSPIFree(1000);
-//     if(!rtiTimerExpired(MonitorCellTemp_ID, CELL_TEMP_MONITOR_TASK_PERIOD_US, 0)){
-//         keepAwake();
-//         return false;
-//     }
-//
-//     MonitorCellTempRoutine();
-//     return true;
-// }
-// bool SlaveFlagsCheckTasks(){
-// //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
-//      if(!rtiTimerExpired(SlaveFlagsCheck_ID, SLAVE_FLAG_CHECK_TASK_PERIOD_US, 0)){
-//          keepAwake();
-//          return false;
-//      }
-//      SlaveFlagsRoutine();
-//      return true;
-//  }
 // //----------------------------------------------------------------------------------------------------
 //
