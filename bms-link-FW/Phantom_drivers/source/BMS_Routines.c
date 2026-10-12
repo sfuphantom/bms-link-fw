@@ -22,13 +22,18 @@
 #include "Balance.h"
 
 
-
+void waitBatterySettle_helper(){
+    SendDummyCMD();
+    Charger_SendAllCommands();
+    delay_ms_us(500,0);
+}
  //---------------------------------------------------------------------------------------------------------
  void SubRoutine_ErrorHandler_Decorator(bool (*SubRoutine_prt)(void), const BMS_Faults ErrorFault){
      int repeat_idx;
      bool Valid;
 
      for(repeat_idx=0; repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
+#warning add logic if there is already a fault
 //         if(anyFaluts()){
 //            return;
 //         }
@@ -119,25 +124,16 @@ void SendChargerControlsRoutine(){
 #if !USE_ANILOG_GPIO
      SubRoutine_ErrorHandler_Decorator(MeasureRef2ndVoltage, BAD_SLAVE_CONNECTION_FLAG);
 #endif
-
      SubRoutine_ErrorHandler_Decorator(ReadStatAndGetFlags, BAD_SLAVE_CONNECTION_FLAG);
 
       const uint32_t Flags = checkStatFlags();
-
-
-
-
       AddSlaveFaults(Flags);
-
   }
 
  void MeasureBatteryVoltage(){
      SubRoutine_ErrorHandler_Decorator(MeasureAndSaveBatteryVoltage, BAD_HV_VOLT_FLAG);
-
-
  }
-void MeasureCellResistanceRoutine(){
-}
+
 void keepSlavesAwakeRoutine(){
     SendDummyCMD();
 }
@@ -157,4 +153,49 @@ void SendDataRoutine_Serial(){
 void SendData2VCU(){
 
 //    SubRoutine_ErrorHandler_Decorator(Send2VCU_direct(BatteryVolts, BatterySOC, BatteryCurrent);
+}
+
+void MeasureCellResistanceRoutine(){
+
+     uint8_t SlavePWMBalanceNibbles[NUMBER_OF_CELLS_SLAVES/2] = {0};
+     uint16_t NoCurrentVolts[NUMBER_OF_CELLS_SLAVES];
+     uint16_t CurrentVolts[NUMBER_OF_CELLS_SLAVES];
+
+     const float OG_Charing_current_A = Charger_GetTargetCurrent();
+     const float NoCharingCurrent_A = 0;
+     const float ControledCharingCurrent_A = 1;
+
+     bool Vaild = true;
+     memset(SlavePWMBalanceNibbles, 0x00, sizeof(SlavePWMBalanceNibbles));
+     wakeup_idle();
+     Vaild &= WriteThenRead_PWM(SlavePWMBalanceNibbles);
+
+     Charger_SetTargetCurrent(NoCharingCurrent_A);
+
+     doUntilTimeLimit(waitBatterySettle_helper, MIN_SEC_MS_US_TICK_2_TICK(0,5,0,0,0));
+
+     Vaild &= MeasureCellVoltage(NoCurrentVolts);
+     //------------------------------------------------------------------------
+     memset(SlavePWMBalanceNibbles, 0xFF, sizeof(SlavePWMBalanceNibbles));
+     Vaild &= WriteThenRead_PWM(SlavePWMBalanceNibbles);
+
+     Charger_SetTargetCurrent(ControledCharingCurrent_A);
+
+     doUntilTimeLimit(waitBatterySettle_helper, MIN_SEC_MS_US_TICK_2_TICK(0,5,0,0,0));
+
+     Vaild &= MeasureCellVoltage(CurrentVolts);
+
+     const float Idiff = Charger_GetOutputCurrent() - NoCharingCurrent_A;
+     //------------------------------------------------------------------------
+     // reset slaves and charger
+     Charger_SetTargetCurrent(OG_Charing_current_A);
+     Vaild &= WriteThenRead_PWM(GetBalancePWM_NibblesWritePrt());
+     //------------------------------------------------------------------------
+     float res_f[NUMBER_OF_CELLS_SERIES];
+     int i;
+     for(i=0;i<NUMBER_OF_CELLS_SERIES;i++){
+         const float Vdiff =  SLAVE_ADC2VOLTS(NoCurrentVolts[i] - CurrentVolts[i]);
+         res_f[i] = Vdiff / Idiff;
+     }
+
 }

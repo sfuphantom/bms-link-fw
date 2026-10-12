@@ -41,6 +41,7 @@ uint8_t debounceBool(const bool input, uint32_t * const perv, const uint8_t chan
 
 bool hasTimeElapsed_rti(const uint64_t start_ticks, uint64_t const wait_ticks);
 bool hasPeriodExpired_rti(const uint64_t period_tick, uint64_t * const last_tick);
+bool doUntilTimeLimit(void (*Callable)(void), const uint64_t timeLimit_tick);
 // -----------------------------------------
 void initPhantomTimers();
 #endif /* PHANTOM_DRIVERS_INCLUDE_PHANTOMTIMERS_H_ */
