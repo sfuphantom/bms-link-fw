@@ -22,12 +22,6 @@
 ////////////////////////////////////////////////////////////////////
 
  //---------------------------------------------------------------------------------------------------------
-#define POLL_PERIOD_STAT_US 1000
-#define POLL_PERIOD_AUX_US 1000
-#define POLL_PERIOD_CELL_VOLTS_US 1000
-#define POLL_PERIOD_CELL_BAL_US 1000
-
-//------------------------------------------------------------------------
 typedef struct {
     bool     adcopt; // ADC Mode Option Bit
     bool     DTEN;   // The Discharge Timer Enable (READ ONLY)
@@ -37,7 +31,7 @@ typedef struct {
     uint16_t VOV;    // Overvoltage Comparison Voltage
     uint16_t DCC;    //  Discharge Cell x
     uint8_t  dcto;   //  Discharge Time Out Value
-}ConfigReg;
+}ConfigReg_t;
 typedef struct {
     uint16_t SC;    /* Sum of All Cells raw ADC value  */
     uint16_t ITMP;  /* Internal die temperature raw    */
@@ -52,7 +46,7 @@ typedef struct {
 
     uint16_t RefVolt2nd;
 }StatusReg_t;
-
+//typedef enum {BAD_TEMP_flags, BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL, BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND}Slave_Faults;
 //////////////////////////////////////////////////////////////////
 
 //typedef enum  {adcopt, DTEN, refon, gpio, DCC, dcto, VUV, VOV}ConfigReg_Values;
@@ -64,8 +58,10 @@ typedef struct {
 // void SetAllConfigReg(bool* adcopt, bool* DTEN, bool* refon, uint8_t* gpio,  uint16_t* VUV, uint16_t* VOV, uint16_t* DCC, uint8_t* dcto);
 //void GetValueStatusReg(uint16_t* data, StatusReg_Values Value2Get);
  //---------------------------------------------------------------------------------------------------------
-StatusReg_t* GetStatusRegData();
-
+const StatusReg_t* GetStatusRegData();
+const ConfigReg_t* GetConfigRegData();
+//uint16_t GetSlaveStatusFaults();
+//---------------------------------------------------------------------------------------------------------
 void Write_CFGR();
 bool Read_CFGR();
 bool Read_STAT();

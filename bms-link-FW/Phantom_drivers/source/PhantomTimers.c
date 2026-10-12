@@ -134,10 +134,15 @@ uint64_t getNow_tick(){
 uint64_t timer_tic_tick(){
     return getNow_tick();
 }
-uint64_t timer_toc_us(const uint64_t tic){
+uint64_t timer_toc_tick(const uint64_t tic){
     const uint64_t now = getNow_tick();
-    uint64_t diff = (now-tic)/RTI_US_2_TICKS;
+    const uint64_t diff = (now-tic);
     return diff;
+}
+uint64_t timer_toc_us(const uint64_t tic){
+    const uint64_t diff = timer_toc_tick(tic);
+    const usTime = diff/RTI_US_2_TICKS;
+    return usTime;
 }
 //------------------------------------------------------------------------------------
 bool hasTimeElapsed_rti(const uint64_t start_ticks, uint64_t const wait_ticks){
@@ -200,6 +205,13 @@ inline uint64_t Min_Sec_MS_US_Tick_2_Ticks(const uint16_t min,const uint16_t sec
     const uint64_t total_ticks = total_us * RTI_US_2_TICKS + tick;
 
     return total_ticks;
+}
+
+bool doUntilTimeLimit(void (*Callable)(void), const uint64_t timeLimit_tick){
+    const uint64_t start_tick = getNow_tick();
+    while(timer_toc_tick(start_tick) < timeLimit_tick){
+        Callable();
+    }
 }
 
 //bool debounce_Tflipflop(const bool input, bool currentState, uint32_t * const perv, const uint8_t changeNum){

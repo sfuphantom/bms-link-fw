@@ -1,42 +1,8 @@
 #include <stdint.h>
 #include <stdbool.h>
-#include "rti.h"
 #include "PhantomHelpers.h"
-
 #include <math.h>
-
-
-
 //----------------------------------------------------------------------------------------
-//void splitArrayElements(void* arr_in, void* arr_out, uint16_t in_len, Endianness Endian, dataType in_dType, dataType out_dType){
-//    const uint8_t TIMES_MORE_BITS = 2;
-//    const uint8_t BITS2SHIFT = 16/TIMES_MORE_BITS;
-//
-//    int i, j;
-//
-//    for (i = 0; i < in_len; i++){
-//        for(j=0; j<TIMES_MORE_BITS; j++){
-//            uint8_t shiftIdx = (Endian == BigEndian) ? TIMES_MORE_BITS - j - 1 : j;
-//            shiftIdx *= BITS2SHIFT;
-//            arr_in[TIMES_MORE_BITS * i + j]     = (uint8_t)(arr_out[i] >> shiftIdx);
-//        }
-//    }
-//}
-//void combineArrayElements(uint8_t *bytes, uint16_t *words, uint16_t NumberOfWords, Endianness Endian){
-//    const uint8_t TIMES_MORE_BITS = 2;
-//    const uint8_t BITS2SHIFT = 16/TIMES_MORE_BITS;
-//    int i, j;
-//
-//    for (i = 0; i < NumberOfWords; i++){
-//        words[i] = 0;
-//        for(j=0; j<TIMES_MORE_BITS; j++){
-//            uint8_t shiftIdx = (Endian == BigEndian) ? TIMES_MORE_BITS - j - 1 : j;
-//            shiftIdx *= BITS2SHIFT;
-//            words[i] |= (uint16_t)(bytes[TIMES_MORE_BITS * i + j]<<shiftIdx);
-//        }
-//    }
-//}
-
 void word2byte(const uint16_t word, uint8_t *byteLow, uint8_t *byteHigh){
     *byteLow  = (word>>0U) & 0xFF;
     *byteHigh = (word>>8U) & 0xFF;
@@ -242,25 +208,25 @@ bool array8_eq_all(const uint8_t* arr1, const uint8_t* arr2, uint8_t len){
     int i;
     for(i=0; i<len; i++){
         if(arr1[i] != arr2[i]){
-            return FALSE;
+            return false;
         }
     }
 
-    return TRUE;
+    return true;
 }
 bool array16_eq_all(const uint16_t* arr1, const uint16_t* arr2, uint8_t len){
     int i;
     for(i=0; i<len; i++){
         if(arr1[i] != arr2[i]){
-            return FALSE;
+            return false;
         }
     }
 
-    return TRUE;
+    return true;
 }
 bool array16_eq_element(const uint16_t* arr1, const uint16_t* arr2, bool *out, uint8_t len){
     int i;
-    bool eqAll = TRUE;
+    bool eqAll = true;
     for(i=0; i<len; i++){
         out[i] = (arr1[i] == arr2[i]);
         eqAll &= out[i];
@@ -270,7 +236,7 @@ bool array16_eq_element(const uint16_t* arr1, const uint16_t* arr2, bool *out, u
 }
 bool array16_less_element(const uint16_t* arr1, const uint16_t* arr2, bool *out, uint8_t len){
     int i;
-    bool lessAll = TRUE;
+    bool lessAll = true;
     for(i=0; i<len; i++){
         out[i] = (arr1[i] < arr2[i]);
         lessAll &= out[i];
@@ -280,7 +246,7 @@ bool array16_less_element(const uint16_t* arr1, const uint16_t* arr2, bool *out,
 }
 bool array16_greater_element(const uint16_t* arr1, const uint16_t* arr2, bool *out, uint8_t len){
     int i;
-    bool greaterAll = TRUE;
+    bool greaterAll = true;
     for(i=0; i<len; i++){
         out[i] = (arr1[i] > arr2[i]);
         greaterAll &= out[i];
@@ -292,41 +258,41 @@ bool array16_eq_any(const uint16_t* arr1, uint16_t val, uint8_t len){
     int i;
     for(i=0; i<len; i++){
         if(arr1[i] == val){
-            return TRUE;
+            return true;
         }
     }
 
-    return FALSE;
+    return false;
 }
 bool array16_eq_every(const uint16_t* arr1, uint16_t val, uint8_t len){
     int i;
     for(i=0; i<len; i++){
         if(arr1[i] != val){
-            return FALSE;
+            return false;
         }
     }
 
-    return TRUE;
+    return true;
 }
 bool array16_less_any(const uint16_t* arr1, uint16_t val, uint8_t len){
     int i;
     for(i=0; i<len; i++){
         if(arr1[i] < val){
-            return TRUE;
+            return true;
         }
     }
 
-    return FALSE;
+    return false;
 }
 bool array16_greater_any(const uint16_t* arr1, uint16_t val, uint8_t len){
     int i;
     for(i=0; i<len; i++){
         if(arr1[i] > val){
-            return TRUE;
+            return true;
         }
     }
 
-    return FALSE;
+    return false;
 }
 //----------------------------------------------------------------------------------------
 void initArray8(uint8_t* arr, const uint8_t val, uint8_t len){
@@ -336,5 +302,23 @@ void initArray8(uint8_t* arr, const uint8_t val, uint8_t len){
     }
 }
 //----------------------------------------------------------------------------------------
+//void float_to_8_arr(const float in[], const uint16_t out[], size_t numberOfElements){
+//    for
+//}
+//----------------------------------------------------------------------------------------
+void initArr_f(float arr[], const float val, const uint32_t len){
+    int i;
+    for(i=0;i<len;i++){
+        arr[i] = val;
+    }
+}
 
-
+float clampValue(const float Val_in, const float Val_max, const float Val_min){
+    if(Val_in <= Val_min){
+        return Val_min;
+    }
+    if(Val_in >= Val_max){
+        return Val_max;
+    }
+    return Val_in;
+}

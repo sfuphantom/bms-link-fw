@@ -19,20 +19,48 @@
 #include "PhantomTimers.h"
 #include "Fault_handler.h"
 
-static ConfigReg ConfigRegWriteData[NUMBER_OF_SLAVE_BOARDS_TOTAL];
+static ConfigReg_t ConfigRegWriteData[NUMBER_OF_SLAVE_BOARDS_TOTAL];
 //ConfigReg ConfigRegReadData[NUMBER_OF_SLAVE_BOARDS];
 static StatusReg_t StatusRegData[NUMBER_OF_SLAVE_BOARDS_TOTAL];
+static uint16_t SlaveStatusFaults = 0u;
+
 //---------------------------------------------------------------------------------------------------------
-StatusReg_t* GetStatusRegData(){
+static float Slave_ADC2Volt(const uint16_t ADCVaule){
+    const float Volts = SLAVE_ADC2VOLTS(ADCVaule);
+    return Volts;
+}
+static void ADC2Volts_arr(const uint16_t ADCVaule_in[], float Volts_out[], const size_t NumberOfElements){
+    int i;
+    for(i=0;i<NumberOfElements;i++){
+        Volts_out[i] = Slave_ADC2Volt(ADCVaule_in[i]);
+    }
+}
+float Slave_ADC2Celcius(const uint16_t ADC){
+    float Volts = Slave_ADC2Volt(ADC);
+    float Kelvin = Volts / ITMP_MILLI_VOLTS_2_CELCIUS * 1000;
+    float Celcius = Kelvin - ITMP_KELVIN_2_CELCIUS;
+    return Celcius;
+}
+float Slave_SC_ADC2Volt(const uint16_t ADC_Word){
+    return Slave_ADC2Volt(ADC_Word) * 20;
+}
+//---------------------------------------------------------------------------------------------------------
+const StatusReg_t* GetStatusRegData(){
     return StatusRegData;
 }
+const ConfigReg_t* GetConfigRegData(){
+    return ConfigRegWriteData;
+}
+//uint16_t GetSlaveStatusFaults(){
+//    return SlaveStatusFaults;
+//}
 //---------------------------------------------------------------------------------------------------------
 void Config_Struct2Words(uint16_t* data){
     int i;
     uint16_t data16[WORDS_PER_REG_GROUP];
     uint8_t data8[BYTES_PER_REG_GROUP];
     for(i = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-        ConfigReg* current_Reg = &ConfigRegWriteData[i];
+        ConfigReg_t* current_Reg = &ConfigRegWriteData[i];
 
         // CFGR0: GPIO[4:0] in bits[7:3], REFON in bit2, DTEN in bit1, ADCOPT in bit0
         data8[0] = ((current_Reg->gpio   & 0x1F) << 3U)
@@ -68,7 +96,7 @@ void Config_Words2Struct(const uint16_t* data){
     uint8_t vuv_lo;
 
     for(i = 0, idx = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-        ConfigReg* current_Reg = &ConfigRegWriteData[i];
+        ConfigReg_t* current_Reg = &ConfigRegWriteData[i];
 
         // word[0] = CFGR1(high byte) | CFGR0(low byte)
         // CFGR0 = GPIO5..GPIO1 | REFON | DTEN | ADCOPT
@@ -237,7 +265,7 @@ void Write_CFGR(){
  void ReadConfig_DCC(uint16_t* DCC){
     int i;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-         ConfigReg* current_Reg = &ConfigRegWriteData[i];
+         ConfigReg_t* current_Reg = &ConfigRegWriteData[i];
 
          DCC[i] = current_Reg->DCC;
     }
@@ -245,7 +273,7 @@ void Write_CFGR(){
 void SetConfig_DCC(const uint16_t* DCC){
     int i;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-         ConfigReg* current_Reg = &ConfigRegWriteData[i];
+         ConfigReg_t* current_Reg = &ConfigRegWriteData[i];
 
           current_Reg->DCC = DCC[i] & 0xFFF;
     }
@@ -253,21 +281,21 @@ void SetConfig_DCC(const uint16_t* DCC){
 void SetAllConfig_DCC(const uint16_t DCC){
     int i;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-         ConfigReg* current_Reg = &ConfigRegWriteData[i];
+         ConfigReg_t* current_Reg = &ConfigRegWriteData[i];
          current_Reg->DCC = DCC & 0xFFF;
     }
 }
 void SetAllHigh_DCC(const uint16_t DCC){
     int i;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-         ConfigReg* current_Reg = &ConfigRegWriteData[i];
+         ConfigReg_t* current_Reg = &ConfigRegWriteData[i];
          current_Reg->DCC |= DCC & 0xFFF;
     }
 }
 void ReadConfig_gpio(uint8_t* gpio){
     int i;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-         ConfigReg* current_Reg = &ConfigRegWriteData[i];
+         ConfigReg_t* current_Reg = &ConfigRegWriteData[i];
 
          gpio[i] = current_Reg->gpio;
     }
@@ -276,7 +304,7 @@ bool ReadConfig_gpio_allZero(){
     int i;
     bool allZero = TRUE;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-         ConfigReg* current_Reg = &ConfigRegWriteData[i];
+         ConfigReg_t* current_Reg = &ConfigRegWriteData[i];
 
          allZero &= !(current_Reg->gpio);
     }
@@ -285,7 +313,7 @@ bool ReadConfig_gpio_allZero(){
 void SetConfig_gpio(const uint8_t* gpio){
     int i;
     for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-         ConfigReg* current_Reg = &ConfigRegWriteData[i];
+         ConfigReg_t* current_Reg = &ConfigRegWriteData[i];
 
           current_Reg->gpio = gpio[i];
     }
@@ -492,7 +520,7 @@ bool SetAllPWM_Regs(uint8_t nibble){
 //
 //     int i;
 //     for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-//         ConfigReg* current_Slaves_ConfigReg = &ConfigRegData[i];
+//         ConfigReg_t* current_Slaves_ConfigReg = &ConfigRegData[i];
 //
 //         gpio_data[i] = current_Slaves_ConfigReg->gpio;
 //     }
@@ -511,7 +539,7 @@ bool SetAllPWM_Regs(uint8_t nibble){
 
      int i;
      for(i = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-         ConfigReg* current_Reg = &ConfigRegWriteData[i];
+         ConfigReg_t* current_Reg = &ConfigRegWriteData[i];
 
          current_Reg->adcopt    = adcopt;
          current_Reg->DTEN      = DTEN  ;
@@ -544,7 +572,7 @@ void initLink(){
 
     ClearSlaveRegs();
 
-    SetAllPWM_Regs(0x0);
+//    SetAllPWM_Regs(0x0);
     initConfig();
 }
 
@@ -631,18 +659,5 @@ bool MeasureRef2ndVoltage() {
 
      return true;
   }
- //---------------------------------------------------------------------------------------------------------
- float Slave_ADC2Volt(const uint16_t ADC_Word){
-     return SLAVE_ADC2VOLTS(ADC_Word);
- }
- float Slave_ADC2Celcius(const uint16_t ADC){
-     float Volts = Slave_ADC2Volt(ADC);
-     float Kelvin = Volts / ITMP_MILLI_VOLTS_2_CELCIUS * 1000;
-     float Celcius = Kelvin - ITMP_KELVIN_2_CELCIUS;
-     return Celcius;
- }
- float Slave_SC_ADC2Volt(const uint16_t ADC_Word){
-     return Slave_ADC2Volt(ADC_Word) * 20;
- }
 
  //---------------------------------------------------------------------------------------------------------

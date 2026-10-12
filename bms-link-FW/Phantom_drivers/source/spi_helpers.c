@@ -133,3 +133,23 @@
      uint16_t Rx = REG_FOR_SPI->BUF;
      return Rx;
  }
+ //---------------------------------------------------------------------------------------------------------
+// union{uint64_t ele64;
+//       uint32_t ele32;
+//       uint16_t ele16;
+//       uint8_t buf8[sizeof(uint64_t)];
+// }multiByte2buf8;
+//
+//#define MAX_BUF_SIZE sizeof(uint64_t)
+//
+// uint32_t SPI_SR2Link_arr(const void * Tx, void * Rx, const size_t Bytes, const size_t ElementSize){
+//     uint8_t txbuf8[MAX_BUF_SIZE];
+//     uint8_t* tx8 = &Tx;
+//     uint8_t* rx8 = &Rx;
+//     const size_t SafeElementSize = MIN(MAX_BUF_SIZE, ElementSize);
+//     for(i=0;i<(Bytes/SafeElementSize);i+=SafeElementSize){
+//         memcpy(txbuf8, tx8, SafeElementSize);
+//         tx8 += SafeElementSize;
+//
+//     }
+// }

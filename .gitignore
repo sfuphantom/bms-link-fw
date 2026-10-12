@@ -5,3 +5,10 @@ RemoteSystemsTempFiles/.project
 **/bms-link-FW/.jxbrowser-data/
 .cproject
 .ccsproject
+.project
+.clangd
+bms-link-FW/Debug/
+bms-link-FW/.launches/
+bms-link-FW/.settings/
+bms-link-FW/Release/
+bms-link-FW/targetConfigs/
