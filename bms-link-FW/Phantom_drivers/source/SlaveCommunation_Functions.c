@@ -36,10 +36,11 @@ static void ADC2Volts_arr(const uint16_t ADCVaule_in[], float Volts_out[], const
     }
 }
 float Slave_ADC2Celcius(const uint16_t ADC){
-    float Volts = Slave_ADC2Volt(ADC);
-    float Kelvin = Volts / ITMP_MILLI_VOLTS_2_CELCIUS * 1000;
-    float Celcius = Kelvin - ITMP_KELVIN_2_CELCIUS;
-    return Celcius;
+    return SLAVE_ADC2TEMP(ADC);
+//    float Volts = Slave_ADC2Volt(ADC);
+//    float Kelvin = Volts / ITMP_MILLI_VOLTS_2_CELCIUS * 1000;
+//    float Celcius = Kelvin - ITMP_KELVIN_2_CELCIUS;
+//    return Celcius;
 }
 float Slave_SC_ADC2Volt(const uint16_t ADC_Word){
     return Slave_ADC2Volt(ADC_Word) * 20;
@@ -85,7 +86,7 @@ void Config_Struct2Words(uint16_t* data){
         data8[5] = ((current_Reg->dcto & 0x0F) << 4U)
                  | ((current_Reg->DCC  >> 8U)  & 0x0F);
 
-        bytes2words_arr(data8, data16, WORDS_PER_REG_GROUP, BigEndian);
+        bytes_to_u16_BE(data8, data16, WORDS_PER_REG_GROUP);
         memcpy(data, data16, WORDS_PER_REG_GROUP * sizeof(uint16_t));
         data += WORDS_PER_REG_GROUP;
     }
@@ -101,7 +102,7 @@ void Config_Words2Struct(const uint16_t* data){
         // word[0] = CFGR1(high byte) | CFGR0(low byte)
         // CFGR0 = GPIO5..GPIO1 | REFON | DTEN | ADCOPT
         // CFGR1 = VUV[7:0]
-        word2byte(data[idx++], &byteLow, &byteHigh);
+        word2bytes(data[idx++], &byteLow, &byteHigh);
         current_Reg->adcopt = (byteLow >> 0U) & 0x01;
         current_Reg->DTEN   = (byteLow >> 1U) & 0x01;
         current_Reg->refon  = (byteLow >> 2U) & 0x01;
@@ -111,7 +112,7 @@ void Config_Words2Struct(const uint16_t* data){
         // word[1] = CFGR3(high byte) | CFGR2(low byte)
         // CFGR2 = VOV[3:0] in bits[7:4], VUV[11:8] in bits[3:0]
         // CFGR3 = VOV[11:4]
-        word2byte(data[idx++], &byteLow, &byteHigh);
+        word2bytes(data[idx++], &byteLow, &byteHigh);
         current_Reg->VUV = ((uint16_t)(byteLow & 0x0F) << 8U)   // VUV[11:8]
                          |  (uint16_t)vuv_lo;                    // VUV[7:0]
         current_Reg->VOV = ((uint16_t)byteHigh          << 4U)   // VOV[11:4]
@@ -120,7 +121,7 @@ void Config_Words2Struct(const uint16_t* data){
         // word[2] = CFGR5(high byte) | CFGR4(low byte)
         // CFGR4 = DCC[8:1]
         // CFGR5 = DCTO[3:0] in bits[7:4], DCC[12:9] in bits[3:0]
-        word2byte(data[idx++], &byteLow, &byteHigh);
+        word2bytes(data[idx++], &byteLow, &byteHigh);
         current_Reg->DCC  = ((uint16_t)(byteHigh & 0x0F) << 8U)  // DCC[12:9]
                           |  (uint16_t)byteLow;                   // DCC[8:1]
         current_Reg->dcto = (byteHigh >> 4U) & 0x0F;             // DCTO[3:0]
@@ -159,7 +160,7 @@ void Stat_Words2Struct(uint16_t* data){
         UO_Flags |= (uint32_t)(data[idx] & 0x00FF) << 16U;       // STBR4 low byte
 
         // STBR5: REV[3:0] | RSVD | RSVD | MUXFAIL | THSD
-        word2byte(data[idx++], &byteLow, &byteHigh);
+        word2bytes(data[idx++], &byteLow, &byteHigh);
         // byteLow  = STBR4 (already consumed above)
         // byteHigh = STBR5
 
@@ -234,10 +235,9 @@ void Write_CFGR(){
 
                WriteDataPrt     += NUMBER_OF_CONFIG_WORDS_SLAVES;
                ReadDataPrt      += NUMBER_OF_CONFIG_WORDS_SLAVES;
-
            }
 
-           RW_EQ = array16_eq_all(WriteConfig, ReadConfig, NUMBER_OF_CONFIG_WORDS_SLAVES);
+           RW_EQ = arr_u16_equal(WriteConfig, ReadConfig, NUMBER_OF_CONFIG_WORDS_SLAVES);
            if(RW_EQ && PecEq){
                return true;
            }
@@ -254,12 +254,9 @@ void Write_CFGR(){
      int i;
      bool AllValid = TRUE;
      for(i=0; i<NUMBER_OF_STAT_WORDS_SLAVES; i+=WORDS_PER_REG_GROUP){
-         AllValid &= !array16_eq_every(&raw[i], SPI_DUMMY_DATA_WORD, WORDS_PER_REG_GROUP);
+         AllValid &= !arr_u16_all(&raw[i], SPI_DUMMY_DATA_WORD, isEqual, WORDS_PER_REG_GROUP);
      }
-
-
      return (PecEq & AllValid);
-
  }
 //---------------------------------------------------------------------------------------------
  void ReadConfig_DCC(uint16_t* DCC){
@@ -319,6 +316,48 @@ void SetConfig_gpio(const uint8_t* gpio){
     }
 }
 //---------------------------------------------------------------------------------------------------------
+void getStatus_SC(float * SC){
+    const StatusReg_t* current_Slave = GetStatusRegData();
+    int i;
+    for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++, current_Slave++){
+        SC[i] = Slave_SC_ADC2Volt(current_Slave->SC);
+    }
+}
+void getStatus_BoardTempC(float * BoardTempC){
+    const StatusReg_t* current_Slave = GetStatusRegData();
+    int i;
+    for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++, current_Slave++){
+        BoardTempC[i] = Slave_ADC2Celcius(current_Slave->ITMP);
+    }
+}
+void getStatus_RefVolt2nd(float * RefVolt2nd){
+    const StatusReg_t* current_Slave = GetStatusRegData();
+    int i;
+    for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++, current_Slave++){
+        RefVolt2nd[i] = Slave_ADC2Volt(current_Slave->RefVolt2nd);
+    }
+}
+//---------------------------------------------------------------------------------------------------------
+static void slitAUX_GIO_Ref2nd(const uint16_t * AUXData, uint16_t * GPIO_Data, uint16 * RefVolt2nd){
+    uint8_t i,j;
+    uint8_t idx = 0;
+    for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
+        for(j=0;j<GPIOS_PER_SLAVE_BOARD; j++){
+            *GPIO_Data = AUXData[idx++];
+            GPIO_Data++;
+        }
+
+        *RefVolt2nd = AUXData[idx++];
+        RefVolt2nd++;
+    }
+}
+static void setStatus_RefVolt2nd_16(const uint16 * RefVolt2nd){
+    int i;
+    for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
+        StatusRegData[i].RefVolt2nd = RefVolt2nd[i];
+    }
+}
+//---------------------------------------------------------------------------------------------------------
 uint32_t checkStatFlags(){
      bool flag;
      uint32_t Flags = 0;
@@ -326,6 +365,7 @@ uint32_t checkStatFlags(){
      const StatusReg_t* current_Slave = GetStatusRegData();
      int i;
      for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++, current_Slave++){
+
 
          flag = current_Slave->OV_flags == 0;
          Flags |= (uint32_t)flag<<BAD_OV_flags;
@@ -531,11 +571,11 @@ bool SetAllPWM_Regs(uint8_t nibble){
 
  void initConfig(){
      const bool     adcopt  = FALSE;
-     const bool     DTEN    = TRUE;
+     const bool     DTEN    = true;
      const bool     refon   = TRUE;
-     const uint8_t  gpio    = 0b00000;
-     const uint16_t DCC     = 0xFFF;//0b0000111111111110;//0xFFF;
-     const uint8_t  dcto    = 0x0;
+     const uint8_t  gpio    = 0b11111;
+     const uint16_t DCC     = 0x000;//0b0000111111111110;//0xFFF;
+     const uint8_t  dcto    = 0x10;
 
      int i;
      for(i = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
@@ -551,9 +591,8 @@ bool SetAllPWM_Regs(uint8_t nibble){
          current_Reg->VOV       = OVER_VOLTAGE_CONFIG;
      }
 
-     return Write_CFGR();
-//     bool WriteThenRead_PWM(const uint8* nibbles);
- }
+     Write_CFGR();
+  }
 //---------------------------------------------------------------------------------------------------------
 void SendDummyCMD(){
     SendCMD2Slave_alone(DUMMY_CMD);
@@ -572,82 +611,60 @@ void initLink(){
 
     ClearSlaveRegs();
 
-//    SetAllPWM_Regs(0x0);
+    SetAllPWM_Regs(0x0);
     initConfig();
 }
-
+void wakeup_sleep_and_SetConfig(){
+    wakeup_sleep();
+    Write_CFGR();
+}
 //---------------------------------------------------------------------------------------------------------
-bool MeasureCellVoltage(uint16_t* CellVolt){
-   wakeup_idle();
+bool MeasureCellVoltage_16(uint16_t* CellVolt){
    bool cmdDone = MeasureCellsCmd_All_NoDis(ADC_MEASURE_MODE);
-   wakeup_idle();
    bool PecEQ = GetVoltageReadings(CellVolt);
 
-   bool AllValid = !array16_eq_any(CellVolt, SPI_DUMMY_DATA_WORD, NUMBER_OF_CELLS_SLAVES);
+   bool AllValid = !arr_u16_any(CellVolt, SPI_DUMMY_DATA_WORD, isEqual, NUMBER_OF_CELLS_SLAVES);
 
    return cmdDone && AllValid && PecEQ;
 }
 
 bool MeasureRef2ndVoltage() {
-    wakeup_idle();
-
     ClearAUXCMD();
     MeasureAUXCmd(ADC_MEASURE_MODE, 6);
 
     uint16_t AUXDataOut[NUMBER_OF_AUCILIARY_SLAVES];
+    uint16_t GPIO_data_buf[NUMBER_OF_GPIOS_SLAVES];
+    uint16_t RefVolt2nd_Data[NUMBER_OF_REF_2ND_SLAVES];
+
     GetGPIOReadings_Analog(AUXDataOut);
+    ///////////////////////////////////////////////////////////
+    slitAUX_GIO_Ref2nd(AUXDataOut, GPIO_data_buf, RefVolt2nd_Data);
+    setStatus_RefVolt2nd_16(RefVolt2nd_Data);
+    ///////////////////////////////////////////////////////////
+    bool AllValid = !arr_u16_any(AUXDataOut, SPI_DUMMY_DATA_WORD, isEqual, NUMBER_OF_AUCILIARY_SLAVES);
 
-    int i, idx;
-    bool AllValid = TRUE;
-    StatusReg_t* current_Slave = GetStatusRegData();
-    for(i=0, idx=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-      idx+=GPIOS_PER_SLAVE_BOARD;
-
-      AllValid &= SPI_DUMMY_DATA_WORD != AUXDataOut[idx];
-
-      current_Slave->RefVolt2nd = AUXDataOut[idx++];
-      current_Slave++;
-    }
-
-    if(!AllValid){
-       return false;
-    }
-
-    return true;
+    return AllValid;
  }
 
- bool MeasureAUXVoltage(uint16_t* GPIO_DataOut){
+ bool MeasureAUXVoltage16(uint16_t* GPIO_Data){
      uint32_t cmdDone = MeasureAUXCmd_All(ADC_MEASURE_MODE);
 
      uint16_t AUXDataOut[NUMBER_OF_AUCILIARY_SLAVES];
+     uint16_t RefVolt2nd_Data[NUMBER_OF_REF_2ND_SLAVES];
+
      bool PecEq = GetGPIOReadings_Analog(AUXDataOut);
 
-     bool AllValid = !array16_eq_any(AUXDataOut, SPI_DUMMY_DATA_WORD, NUMBER_OF_AUCILIARY_SLAVES);
+     bool AllValid = !arr_u16_any(AUXDataOut, SPI_DUMMY_DATA_WORD, isEqual, NUMBER_OF_AUCILIARY_SLAVES);
 
      if(!((cmdDone != 0) && AllValid && PecEq)){
          return false;
      }
      ///////////////////////////////////////////////////////////
-     StatusReg_t* current_Slave = GetStatusRegData();
-
-     int i,j;
-     int idx = 0;
-     for(i=0;i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-         for(j=0;j<GPIOS_PER_SLAVE_BOARD; j++){
-             *GPIO_DataOut = AUXDataOut[idx++];
-              GPIO_DataOut++;
-         }
-
-         current_Slave->RefVolt2nd = AUXDataOut[idx++];
-         current_Slave++;
-
-     }
+     slitAUX_GIO_Ref2nd(AUXDataOut, GPIO_Data, RefVolt2nd_Data);
+     setStatus_RefVolt2nd_16(RefVolt2nd_Data);
      return true;
  }
-
  bool ReadStatAndGetFlags(){
-
-      wakeup_idle();
       const uint32_t cmdDone = MeasureSTATCmd_All(ADC_MEASURE_MODE);
 
       const bool Stat_Valid = Read_STAT();
@@ -660,4 +677,19 @@ bool MeasureRef2ndVoltage() {
      return true;
   }
 
+ //---------------------------------------------------------------------------------------------------------
+ bool MeasureCellVoltage(float* CellVolt, const size_t NumberOfRealValues){
+     uint16_t CellVolt16[NUMBER_OF_CELLS_SLAVES];
+     const bool vaild = MeasureCellVoltage_16(CellVolt16);
+
+     ADC2Volts_arr(CellVolt16, CellVolt, NumberOfRealValues);
+     return vaild;
+ }
+ bool MeasureAUXVoltage(float* GPIO_Data, const size_t NumberOfRealValues){
+     uint16_t GPIO_Data16[NUMBER_OF_GPIOS_SLAVES];
+     const bool vaild = MeasureAUXVoltage16(GPIO_Data16);
+
+     ADC2Volts_arr(GPIO_Data16, GPIO_Data, NumberOfRealValues);
+     return vaild;
+ }
  //---------------------------------------------------------------------------------------------------------

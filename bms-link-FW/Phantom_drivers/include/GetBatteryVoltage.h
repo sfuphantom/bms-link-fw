@@ -28,11 +28,11 @@
 #define HV_OVER_VOLT_FLAG      41000
 #define HV_UNDER_VOLT_FLAG     26000
 ///////////////////////////////////////////////////////////////////////
-#define VOLT2SAVED_SCALE    (100.0f)
+//#define VOLT2SAVED_SCALE    (100.0f)
 
 ///////////////////////////////////////////////////////////////////////
-
-bool MeasureAndSaveBatteryVoltage();
+float MeasureBatteryVoltage();
+bool MeasureAndSetVoltage();
 float GetBatteryVoltage();
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_GETBATTERYVOLTAGE_H_ */

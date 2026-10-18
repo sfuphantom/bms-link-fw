@@ -1,55 +1,47 @@
 """
 uart_receiver.py
 
-Interrupt-style UART receiver for pyserial (PC / Raspberry Pi / Linux).
+Reads the BMS serial stream (SendDataSerial.c) and writes it to CSV.
 
-Framing:
-    [SOH][msg_ID][payload bytes ...][EOT]
-    (variable-length messages additionally carry a 4-byte big-endian
-     length field right after msg_ID, before the payload -- see
-     DATA_LEN_FMT / WAIT_DATA_LEN)
+Frame, big endian:
+    [SOH][id][len hi][len lo][payload (len bytes)][crc16 hi][crc16 lo][EOT]
+    payload = [tick u64][body]
+    The CRC is CRC-16/CCITT (poly 0x1021, init 0xFFFF) over id .. end of payload.
+    Whether the CRC is there is not sent, USE_CRC has to match SERIAL_USE_CRC in SendDataSerial.h.
 
-    SOH (0x01) - Start of Header. Lets the parser resynchronize after any
-                 corruption/desync instead of hunting for "\n" inside binary
-                 data (which can false-trigger, since a payload byte can
-                 legitimately equal 0x0A).
-    msg_ID     - one byte. Looked up in self.msg_types (built from the CSV
-                 config file) to know:
-                   * how many payload bytes follow (fixed size), or that a
-                     4-byte length field precedes the payload (variable size,
-                     fmt == 's')
-                   * how to unpack them (struct format)
-                   * how to convert the unpacked values into "formatted"
-                     data (MSG_Config.data_handler)
-                   * what to do once formatted data is ready
-                     (MSG_Config.on_message_handler)
-    payload    - exact number of bytes for that msg_ID.
-    EOT (0x04) - End of Transmission. Validates that we read the frame
-                 correctly (if this byte isn't EOT, the frame is discarded).
+Bodies:
+    LOG      [level][text_len][text]
+    LOG_RAW  [level][text_len][text][raw bytes]
+    RAW      [raw bytes]
+    FAULT    [fault id u16][text_len][text]
+    CAN      [msg box][data bytes]
+    DATA     ([section id][len u16][section data]) ...
 
-"Interrupt-driven" here means: a dedicated thread blocks on serial.read(),
-which sleeps efficiently (no busy-wait / no manual polling loop checking
-in_waiting) until bytes actually arrive, and dispatches a callback per
-completed frame. This is the standard pyserial equivalent of an ISR, since
-plain CPython has no access to a real UART hardware interrupt.
+The time of every row is the tick of the sender (its "now" when it built the frame).
 
-Per-frame timeout: once SOH is seen, a clock starts and is refreshed on
-*every* byte received while mid-frame. If more than frame_timeout seconds
-pass since the *last* byte (not since SOH), the partial data is discarded
-and the parser goes back to hunting for SOH. This means a slow-but-steady
-trickle of bytes won't be falsely timed out, but a stall mid-frame will be.
+Files in the output folder:
+    data.csv : one row per DATA frame, one column per value (empty if that section was not sent)
+    log.csv  : logs, faults, CAN, raw frames, and events of this program (kind PC: connected,
+               connection lost, device restarted, ...)
+
+What it survives: the port missing at start, the cable pulled (it reconnects), the device being
+silent or restarting, garbage on the line, and a CSV that is open in another program (the rows wait
+in memory and are written when the file is free).
 """
 
-import serial
-import serial.tools.list_ports
+import binascii
+import csv
+import logging
+import os
 import struct
 import threading
 import time
-import logging
-import csv
-import os
 from dataclasses import dataclass
-from typing import Callable, Any, Sequence
+from enum import IntEnum
+from typing import Callable, Optional
+
+import serial
+import serial.tools.list_ports
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -57,379 +49,292 @@ log = logging.getLogger("uart_receiver")
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Must match SendDataSerial.h / the BMS headers
 # ---------------------------------------------------------------------------
+USE_CRC = True              # SERIAL_USE_CRC
 
+SOH = 0x01
+EOT = 0x04
+HEADER_LEN = 4              # SOH, id, len (2)
+TICK_LEN = 8
+CRC_LEN = 2
+SECTION_HEADER_LEN = 3      # id, len (2)
+MAX_PAYLOAD = 4096         # sanity limit, a bigger length is treated as corruption
+TICKS_PER_SEC = 10_000_000  # RTI_CLOCK_MEG_HZ * 1e6 in PhantomTimers.h
+
+NUM_CELLS = 6               # NUMBER_OF_CELLS_SERIES
+NUM_THERMISTORS = 8         # NUMBER_OF_THERMISTORS_TOTAL
+NUM_SLAVES = 1              # TODO: NUMBER_OF_SLAVE_BOARDS_TOTAL
+NUM_FANS = 2                # TODO: NUMBER_OF_FANS_TOTAL
+
+SCALE_CELL_VOLT = 10000.0
+SCALE_TEMP = 100.0
+SCALE_RES = 10000.0
+SCALE_SOC = 100.0
+SCALE_PACK_VOLT = 100.0
+SCALE_CURRENT = 10.0
 SLAVE_ADC2VOLTS_SCALE = 10_000
-Slave_ADC2VOLTS = lambda ADC_vals: [float(val)/SLAVE_ADC2VOLTS_SCALE for val in ADC_vals]
-
-def get_element_count(fmt):
-    """
-    Returns (byte_size, element_count) for a struct format string.
-    fmt == "s" is our own sentinel for "variable length string/bytes",
-    which struct doesn't natively describe a fixed size for.
-    """
-    if fmt == "s":
-        return 0, 1
-
-    byte_size = struct.calcsize(fmt)
-    eleCount = len(struct.unpack(fmt, b'\x00' * byte_size))
-    return byte_size, eleCount
 
 
-def search_string_list(lst, target: str) -> int:
-    tar_low: str = target.lower()
-    for (i, ele) in enumerate(lst):
-        if ele.lower() == tar_low:
-            return i
-    return -1
+class MsgId(IntEnum):
+    LOG = 1
+    LOG_RAW = 2
+    RAW = 3
+    FAULT = 4
+    CAN = 5
+    DATA = 6
 
 
-def appendRow2CSV_helper(file, timestamp, values):
-    # newline='' is required (not '\n') so that on Windows the csv module's
-    # own \r\n line terminator isn't doubled up by text-mode translation,
-    # which otherwise leaves a blank line between every row.
-    with open(file, mode='a', newline='') as f:
-        writer = csv.writer(f)
-        row = [timestamp, *values]
-        writer.writerow(row)
+class LogLevel(IntEnum):
+    TRACE = 0
+    DEBUG = 1
+    INFO = 2
+    WARNING = 3
+    ERROR = 4
+    CRITICAL = 5
 
 
-# ---------------------------------------------------------------------------
-# Data handlers: payload tuple (from struct.unpack) -> formatted values
-#
-# These ONLY convert data -- they must not touch files, logging, or I/O.
-# Real scaling/units are only filled in for the messages whose firmware
-# implementation we could actually verify against SendDataSerial.c
-# (Cell_Voltages, IMD). Everything else is a placeholder pass-through
-# until the firmware side actually sends real data for it -- see the
-# comment above each handler.
-# ---------------------------------------------------------------------------
-
-def CellVoltagesData_handler(data: Sequence) -> list:
-    # SendCellVoltage_Serial() sends raw uint16 ADC counts per cell.
-    # 10000 scale factor kept from the original implementation.
-    data_fmt: list[float] = Slave_ADC2VOLTS(data)
-    return data_fmt
-
-
-def IMDData_handler(data: Sequence) -> list:
-    # SendIMDData_Serial() sends ecapIMDData_t as raw freq/duty bytes.
-
-    return [data[0] / 2, data[1] / 4]
-
-
-def ChargerData_handler(data: Sequence) -> list:
-    # PLACEHOLDER: SendChargerData_Serial() in SendDataSerial.c is an empty
-    # stub -- firmware doesn't send this yet, so no real scaling is defined.
-    # fmt from CSV is ">HH?" (Volt, Current, Status).
-    return list(data)
-
-
-def CellTempData_handler(data: Sequence) -> list:
-    # PLACEHOLDER: SendCellTemp_Serial() in SendDataSerial.c is an empty
-    # stub -- no real scaling defined yet.
-    return list(data)
-
-
-def FansData_handler(data: Sequence) -> list:
-    # PLACEHOLDER: SendFanData_Serial() in SendDataSerial.c is an empty stub.
-    return list(data)
-
-
-def FullBatteryData_handler(data: Sequence) -> list:
-    # PLACEHOLDER: no corresponding Send*_Serial() function exists in
-    # SendDataSerial.c for a combined "FullBattery" (Current, HV) message.
-    return list(data)
-
-
-def SlaveStateData_handler(data: Sequence) -> list:
-    # PLACEHOLDER / KNOWN MISMATCH: SendSlaveState_Serial() streams
-    # RefVolt2nd/ITMP/SC for NUMBER_OF_SLAVE_BOARDS boards back-to-back
-    # (3 * NUMBER_OF_SLAVE_BOARDS halfwords total), but the CSV fmt ">3H"
-    # only describes a single board's worth. Until NUMBER_OF_SLAVE_BOARDS
-    # is known here and the fmt is updated to match, this only decodes
-    # one board correctly.
-    data_fmt :list[float] = Slave_ADC2VOLTS(data)
-    NUMBER_OF_UNIQUE_ELEMENTS_IN_MESSAGE = 3
-    for i in range(0, len(data), NUMBER_OF_UNIQUE_ELEMENTS_IN_MESSAGE):
-        # data_fmt[i]
-        data_fmt[i+1]  = (data_fmt[i+1] * 0.007_5) - 273.0
-        data_fmt[i+2] *= 20
-
-    return data_fmt
-
-def PWM_Drain_Data_handler(data: Sequence) -> list:
-    PWM_Drain: list[int] = []
-    for PWM_Byte in data:
-        for i in range(2):
-            PWN_nibble = (PWM_Byte >> (4*i)) & 0xF
-            PWM_Drain.append(100/16*PWN_nibble)
-
-    return PWM_Drain
-
-# def DCCData_handler(data: Sequence) -> list:
-#     # PLACEHOLDER: SendCellDCC_Serial() packs DCC values into compressed
-#     # nibbles across 3-byte groups (bit-packed, not a plain array), so the
-#     # raw unpacked bytes here are NOT the true DCC values yet -- decoding
-#     # that packing needs NUMBER_OF_SLAVE_BOARDS and the exact packing
-#     # order reproduced from the firmware.
-#     DCC: list[int] = []
-#     for d in data:
-#         for i in range(8):
-#             DCC.append(1 if bool((d>>i) | 0x1) else 0)
-#     return list(DCC)
-
-
-def DebugData_handler(data: Sequence) -> list:
-    # data is a 1-tuple containing raw bytes (variable-length 's' format).
-    return [data[0].decode("utf-8", errors="replace")]
-
-
-def LogData_handler(data: Sequence) -> list:
-    return [data[0].decode("utf-8", errors="replace")]
-
-
-DATA_HANDLERS: dict[str, Callable[[Sequence], list]] = {
-    "Debug": DebugData_handler,
-    "Log": LogData_handler,
-    "Cell_Voltages": CellVoltagesData_handler,
-    "IMD": IMDData_handler,
-    "Charger": ChargerData_handler,
-    "Cell_Temp": CellTempData_handler,
-    "Fans": FansData_handler,
-    "FullBattery": FullBatteryData_handler,
-    "SlaveState": SlaveStateData_handler,
-    "PWM_Drain": PWM_Drain_Data_handler
-    # "DCC": DCCData_handler,
-
+PY_LOG_LEVEL = {
+    LogLevel.TRACE: logging.DEBUG,
+    LogLevel.DEBUG: logging.DEBUG,
+    LogLevel.INFO: logging.INFO,
+    LogLevel.WARNING: logging.WARNING,
+    LogLevel.ERROR: logging.ERROR,
+    LogLevel.CRITICAL: logging.CRITICAL,
 }
 
-DATA_HANDLERS_FMT: dict[str, list[str]] = {
-    "Debug": [""],
-    "Log": [""],
-    "Cell_Voltages": [":.4f"],
-    "IMD": [":4.1f", "05:.2f"],
-    "Charger": [":.4f"],
-    "Cell_Temp": [":.4f"],
-    "Fans": [""],
-    "FullBattery": [""],
-    "SlaveState": [""],
-    "PWM_Drain": [""],
+
+class SecId(IntEnum):
+    CELL_VOLT = 1
+    CELL_TEMP = 2
+    CELL_RES = 3
+    CELL_SOC = 4
+    PACK = 5
+    IMD = 6
+    CHARGER = 7
+    SLAVE_STATE = 8
+    FANS = 9
+    PWM = 10
+    BMS_STATE = 11
+
+
+# TODO: fill in with FaultId_t from SendDataSerial.h
+FAULT_NAMES: dict[int, str] = {
+    0: "NONE",
+    1: "UNKNOWN",
 }
 
-# ---------------------------------------------------------------------------
-# on_message handlers: called once per completed message, AFTER the row has
-# been written to CSV, with the fully formatted data. Placeholders for now --
-# each msg type gets its own hook so you can wire up e.g. dashboards, alarms,
-# or triggering other logic per message type without touching _dispatch.
-# ---------------------------------------------------------------------------
-
-def on_message_Debug(name, msg_id, formatted_data, timestamp):
-    pass  # TODO: e.g. print/log debug string live
-
-
-def on_message_Log(name, msg_id, formatted_data, timestamp):
-    pass  # TODO
-
-
-def on_message_CellVoltages(name, msg_id, formatted_data, timestamp):
-    maxCellVolt = max(formatted_data)
-    maxCellIdx = formatted_data.index(maxCellVolt)
-    minCellVolt = min(formatted_data)
-    minCellIdx = formatted_data.index(minCellVolt)
-    SumVolt = sum(formatted_data)
-    log_str: str= f"{maxCellVolt=}, {maxCellIdx=}, {minCellVolt=}, {minCellIdx=}, {SumVolt=}"
-    log.info(log_str)
-    pass  # TODO: e.g. check for over/under-voltage and raise an alert
-
-
-def on_message_IMD(name, msg_id, formatted_data, timestamp):
-    pass  # TODO
-
-
-def on_message_Charger(name, msg_id, formatted_data, timestamp):
-    pass  # TODO
-
-
-def on_message_CellTemp(name, msg_id, formatted_data, timestamp):
-    pass  # TODO: e.g. check for over-temp
-
-
-def on_message_Fans(name, msg_id, formatted_data, timestamp):
-    pass  # TODO
-
-
-def on_message_FullBattery(name, msg_id, formatted_data, timestamp):
-    pass  # TODO
-
-
-def on_message_SlaveState(name, msg_id, formatted_data, timestamp):
-    log_str: str= ""
-
-    for i in range(int(len(formatted_data)/3)):
-        idx = 3*i
-        log_str += f"2ndRef_{i}={formatted_data[idx]}, "
-        log_str += f"Temp_{i}={formatted_data[idx+1]}, "
-        log_str += f"SC_{i}={formatted_data[idx+2]}, "
-
-    log.info(log_str)
-    pass  # TODO
-
-
-def on_message_PWM_Drain(name, msg_id, formatted_data, timestamp):
-    log_str: str= f"DCC = {formatted_data}"
-
-    log.info(log_str)
-
-    pass  # TODO
-
-
-ON_MESSAGE_HANDLERS: dict[str, Callable[[str, int, list, float], None]] = {
-    "Debug": on_message_Debug,
-    "Log": on_message_Log,
-    "Cell_Voltages": on_message_CellVoltages,
-    "IMD": on_message_IMD,
-    "Charger": on_message_Charger,
-    "Cell_Temp": on_message_CellTemp,
-    "Fans": on_message_Fans,
-    "FullBattery": on_message_FullBattery,
-    "SlaveState": on_message_SlaveState,
-    # "DCC": on_message_DCC,
-    "PWM_Drain": on_message_PWM_Drain,
+# canMESSAGE_BOXn from Phantom_Can.h
+CAN_BOX_NAMES: dict[int, str] = {
+    1: "BMS2ALL_FAULT",
+    3: "BMS2VCU_DATA",
+    4: "VCU2BMS_DATA",
+    6: "BMS2CHARGER_DATA",
+    7: "CHARGER2BMS_DATA",
 }
 
-@dataclass(frozen=True, kw_only=True)
-class MSG_Config:
-    name: str
-    file: str
-    fmt: str
-    msgSize: int
-    NumberOfElement: int
-    data_handler: Callable[[Sequence], list]
-    on_message_handler: Callable[[str, int, list, float], None]
+
+# ---------------------------------------------------------------------------
+# Section decoders: tuple from struct.unpack -> list of values (one per CSV column).
+# Only convert here, no I/O.
+# ---------------------------------------------------------------------------
+def scaled(scale: float) -> Callable[[tuple], list]:
+    return lambda vals: [v / scale for v in vals]
+
+
+def decode_pack(vals: tuple) -> list:
+    volt, current, soc, res = vals
+    return [volt / SCALE_PACK_VOLT, current / SCALE_CURRENT, soc / SCALE_SOC, res / SCALE_RES]
+
+
+def decode_slave_state(vals: tuple) -> list:
+    out = [float(v) / SLAVE_ADC2VOLTS_SCALE for v in vals]
+    for i in range(0, len(out), 3):
+        out[i + 1] = out[i + 1] * 0.0075 - 273.0
+        out[i + 2] *= 20
+    return out
+
+
+def decode_pwm(vals: tuple) -> list:
+    # 2 cells per byte, low nibble first
+    pct = [100 / 16 * ((byte >> (4 * i)) & 0xF) for byte in vals for i in range(2)]
+    return pct[:NUM_CELLS]
+
+
+# ---------------------------------------------------------------------------
+# on_data hooks: called after the row is written, with the decoded values of that section
+# ---------------------------------------------------------------------------
+def on_cell_volt(values: list, t: float):
+    hi, lo = max(values), min(values)
+    log.info("cell volt: max=%.4f (cell %d) min=%.4f (cell %d) sum=%.4f",
+             hi, values.index(hi), lo, values.index(lo), sum(values))
+
+
+def on_slave_state(values: list, t: float):
+    for i in range(0, len(values), 3):
+        log.info("slave %d: 2ndRef=%.4f temp=%.2f SC=%.1f", i // 3, *values[i:i + 3])
+
+
+def on_pwm(values: list, t: float):
+    log.info("PWM drain %% = %s", values)
+
+
+@dataclass(frozen=True)
+class Section:
+    id: int
+    fmt: str                                    # struct format, same size as the C side sends
+    columns: list
+    decode: Callable[[tuple], list]
+    on_data: Optional[Callable[[list, float], None]] = None
+
+
+def cols(prefix: str, n: int) -> list:
+    return [f"{prefix}_{i}" for i in range(n)]
+
+
+# Column order in data.csv = order of this list (not the order on the wire)
+SECTIONS = [
+    Section(SecId.CELL_VOLT, f">{NUM_CELLS}H", cols("cell_volt", NUM_CELLS), scaled(SCALE_CELL_VOLT), on_cell_volt),
+    Section(SecId.CELL_TEMP, f">{NUM_THERMISTORS}h", cols("therm_temp", NUM_THERMISTORS), scaled(SCALE_TEMP)),
+    Section(SecId.CELL_RES, f">{NUM_CELLS}H", cols("cell_res", NUM_CELLS), scaled(SCALE_RES)),
+    Section(SecId.CELL_SOC, f">{NUM_CELLS}H", cols("cell_soc", NUM_CELLS), scaled(SCALE_SOC)),
+    Section(SecId.PACK, ">HhHH", ["pack_volt", "pack_current", "pack_soc", "pack_res"], decode_pack),
+    Section(SecId.IMD, ">4f", ["imd_duty", "imd_freq", "imd_isolation", "imd_resistance"], list),
+    Section(SecId.CHARGER, ">BHhB", ["charger_state", "charger_volt", "charger_amps", "charger_status"], list),
+    Section(SecId.SLAVE_STATE, f">{3 * NUM_SLAVES}H",
+            [f"slave{i}_{n}" for i in range(NUM_SLAVES) for n in ("ref2nd_V", "temp_C", "sc")],
+            decode_slave_state, on_slave_state),
+    Section(SecId.FANS, f">{NUM_FANS}B", cols("fan_duty", NUM_FANS), list),
+    Section(SecId.PWM, f">{(NUM_CELLS + 1) // 2}B", cols("pwm_drain", NUM_CELLS), decode_pwm, on_pwm),
+    Section(SecId.BMS_STATE, ">BBH", ["bms_state", "contactor_state", "fault_flags"], list),
+]
+SECTIONS_BY_ID = {s.id: s for s in SECTIONS}
+
+DATA_HEADER = ["time_s"] + [c for s in SECTIONS for c in s.columns]
+LOG_HEADER = ["time_s", "kind", "level", "id", "text_len", "text", "hex"]
+
+
+# ---------------------------------------------------------------------------
+# CSV that can be locked by another program (Excel on Windows does that)
+# ---------------------------------------------------------------------------
+class CsvFile:
+    MAX_PENDING = 100_000   # rows kept in memory while the file is locked
+
+    def __init__(self, path: str, header: list, clear: bool):
+        self.path = path
+        self.pending: list = []
+        self._blocked = False
+        if clear or not os.path.exists(path):
+            self.path = self._create(path, header)
+
+    @staticmethod
+    def _create(path: str, header: list) -> str:
+        """Writes the header. If the file is locked it uses name_1, name_2, ... instead."""
+        stem, ext = os.path.splitext(path)
+        candidate = path
+        for n in range(1, 21):
+            try:
+                with open(candidate, mode="w", newline="") as f:
+                    csv.writer(f).writerow(header)
+                if candidate != path:
+                    log.warning("%s can not be written (open in another program?), using %s", path, candidate)
+                return candidate
+            except OSError:
+                candidate = f"{stem}_{n}{ext}"
+        raise OSError(f"could not create {path} or any of its name_N alternatives")
+
+    def write(self, row: list):
+        self.pending.append(row)
+        self.flush()
+
+    def flush(self):
+        if not self.pending:
+            return
+        try:
+            # newline='' so Windows does not turn the csv module's \r\n into \r\r\n (blank line between rows)
+            with open(self.path, mode="a", newline="") as f:
+                csv.writer(f).writerows(self.pending)
+        except OSError as e:
+            if not self._blocked:
+                log.warning("Can not write %s (%s). Keeping the rows in memory until it is free.", self.path, e)
+                self._blocked = True
+            if len(self.pending) > self.MAX_PENDING:
+                lost = len(self.pending) - self.MAX_PENDING
+                del self.pending[:lost]
+                log.error("%s still blocked, dropped the %d oldest rows", self.path, lost)
+            return
+        if self._blocked:
+            log.info("%s is writable again, wrote %d waiting rows", self.path, len(self.pending))
+            self._blocked = False
+        self.pending.clear()
+
+    def close(self):
+        self.flush()
+        if not self.pending:
+            return
+        stem, ext = os.path.splitext(self.path)
+        alt = f"{stem}_unsaved{ext}"
+        try:
+            with open(alt, mode="a", newline="") as f:
+                csv.writer(f).writerows(self.pending)
+            log.warning("%s was blocked until the end, %d rows saved in %s", self.path, len(self.pending), alt)
+        except OSError:
+            log.error("%s was blocked until the end, %d rows lost", self.path, len(self.pending))
+        self.pending.clear()
+
+
+def level_name(level: int) -> str:
+    try:
+        return LogLevel(level).name
+    except ValueError:
+        return str(level)
+
+
+def decode_text(raw: bytes) -> str:
+    return raw.decode("utf-8", errors="replace")
 
 
 class UARTReceiver:
     DEFAULT_ROOT_FILE = "data"
-    DEFAULT_TIME_COL_NAME = "time"
-    CONFIG_FILE_COLS = ("msg_ID", "Name", "file_rel", "fmt", "header")
+    DEFAULT_UART_KW_ARGS = {"port": "COM6", "baudrate": 115200, "timeout": 0.1}
 
-    SOH = 0x01  # Start of Header
-    EOT = 0x04  # End of Transmission
-    # States for the frame parser state machine
-    WAIT_SOH, WAIT_ID, WAIT_DATA_LEN, WAIT_PAYLOAD, WAIT_EOT = range(5)
-
-    # Used when the sender tells us the payload length up front (fmt == 's')
-    DATA_LEN_FMT = ">H"
-    DATA_LEN_LEN = struct.calcsize(DATA_LEN_FMT)
-    # Sanity ceiling on a wire-supplied variable length, to avoid trying to
-    # allocate/accumulate a huge buffer if that length field gets corrupted
-    # or the parser desyncs mid-stream.
-    MAX_VARIABLE_PAYLOAD_LEN = 4096
-
-    DEFAULT_UART_KW_ARGS = {"port": "COM6",
-                             "baudrate": 115200,
-                             "timeout": 0.1}
-
-    def __init__(self, *, uart_kw_args,
-                 MsgTypeConfigFile, RootDesFolder=None, clearIfExist=True, TIME_COL_NAME=None,
-                 on_message=None,
-                 frame_timeout=0.5):
+    def __init__(self, *, uart_kw_args, RootDesFolder=None, clearIfExist=True,
+                 frame_timeout=0.5, reconnect_delay=1.0, silence_warn=5.0):
         """
-        uart_kw_args      : kwargs forwarded to serial.Serial(...), e.g.
-                             {"port": "COM4", "baudrate": 115200}
-        MsgTypeConfigFile : path to the CSV describing msg_ID -> name/fmt/file/header
-        RootDesFolder     : output folder for per-message CSV logs. Auto-
-                             increments (data_0, data_1, ...) if not given.
-        clearIfExist      : if True, always (re)write CSV headers, overwriting
-                             any existing per-message CSV files
-        on_message        : optional global callback(name, msg_id, formatted_data,
-                             timestamp) called after the per-type on_message
-                             handler, for anything you want applied to every
-                             message type without editing ON_MESSAGE_HANDLERS
-        frame_timeout     : max seconds allowed between consecutive bytes of
-                             an in-progress frame before it's discarded
+        uart_kw_args  : kwargs for serial.Serial(...), e.g. {"port": "COM4", "baudrate": 115200}
+        RootDesFolder : output folder, data_0, data_1, ... if not given
+        clearIfExist  : True = start the CSV files over, False = keep adding to existing ones
+        frame_timeout : seconds without a byte before a half received frame is thrown away
+        reconnect_delay: seconds between tries to open the port
+        silence_warn  : seconds without any byte before it is reported (and again when data is back)
+        The port does not have to exist yet, it is opened (and re-opened) by the reader thread.
         """
-
-        self.TIME_COL_NAME = TIME_COL_NAME or __class__.DEFAULT_TIME_COL_NAME
-        self.on_message = on_message
-
-        # Get root Folder
         if RootDesFolder is None:
-            folderExist = True
-            FolderSubscript = 0
-
-            while folderExist:
-                RootDesFolder = f"{__class__.DEFAULT_ROOT_FILE}_{FolderSubscript}"
-                folderExist = os.path.isdir(RootDesFolder)
-                FolderSubscript += 1
-
+            n = 0
+            while os.path.isdir(f"{self.DEFAULT_ROOT_FILE}_{n}"):
+                n += 1
+            RootDesFolder = f"{self.DEFAULT_ROOT_FILE}_{n}"
         os.makedirs(RootDesFolder, exist_ok=True)
 
-        self.msg_types: dict[int, MSG_Config] = {}
+        self._data_csv = CsvFile(os.path.join(RootDesFolder, "data.csv"), DATA_HEADER, clearIfExist)
+        self._log_csv = CsvFile(os.path.join(RootDesFolder, "log.csv"), LOG_HEADER, clearIfExist)
 
-        with open(MsgTypeConfigFile, 'r', newline='') as MTCF:
-            csv_reader = csv.reader(MTCF, delimiter=',', quotechar='"')
-            header = next(csv_reader)
-            header = [h.strip() for h in header]
-
-            file_col = {}
-            for col in __class__.CONFIG_FILE_COLS:
-                index = search_string_list(header, col)
-                if index == -1:
-                    raise ValueError(f"could not find {col=} in header: {header}")
-                file_col[col] = index
-
-            for row in csv_reader:
-                if not row:
-                    continue
-
-                # msg_ID must be an int to match the bytes read off the wire.
-                # base=0 lets the CSV use "0", "4", "0x04", etc. interchangeably.
-                MSG_ID = int(row[file_col["msg_ID"]].strip(), 0)
-                MSG_TYPE_NAME = row[file_col["Name"]].strip()
-                MSG_FMT: str = row[file_col["fmt"]].strip()
-                DES_FILE: str = os.path.join(RootDesFolder, row[file_col["file_rel"]].strip())
-                MSG_SIZE, NUMBER_OF_COL = get_element_count(MSG_FMT)
-
-                if MSG_TYPE_NAME not in DATA_HANDLERS:
-                    raise ValueError(
-                        f"No data handler registered for msg type '{MSG_TYPE_NAME}' "
-                        f"(msg_ID={MSG_ID}). Add one to DATA_HANDLERS."
-                    )
-                if MSG_TYPE_NAME not in ON_MESSAGE_HANDLERS:
-                    raise ValueError(
-                        f"No on_message handler registered for msg type '{MSG_TYPE_NAME}' "
-                        f"(msg_ID={MSG_ID}). Add one to ON_MESSAGE_HANDLERS."
-                    )
-
-                MSG_ID_CONFIG = MSG_Config(
-                    name=MSG_TYPE_NAME,
-                    file=DES_FILE,
-                    fmt=MSG_FMT,
-                    msgSize=MSG_SIZE,
-                    NumberOfElement=NUMBER_OF_COL,
-                    data_handler=DATA_HANDLERS[MSG_TYPE_NAME],
-                    on_message_handler=ON_MESSAGE_HANDLERS[MSG_TYPE_NAME],
-                )
-                self.msg_types[MSG_ID] = MSG_ID_CONFIG
-
-                if clearIfExist or not os.path.exists(DES_FILE):
-                    ALL_COLS_HEADERS = [col.strip() for col in row[file_col["header"]].split(',')]
-
-                    with open(DES_FILE, newline='', mode='w') as DF:
-                        writer = csv.writer(DF)
-                        writer.writerow(ALL_COLS_HEADERS)
-
-        self.StartTime: float = 0
         self.frame_timeout = frame_timeout
+        self.reconnect_delay = reconnect_delay
+        self.silence_warn = silence_warn
+        self._handlers = {
+            MsgId.LOG: self._on_log,
+            MsgId.LOG_RAW: self._on_log_raw,
+            MsgId.RAW: self._on_raw,
+            MsgId.FAULT: self._on_fault,
+            MsgId.CAN: self._on_can,
+            MsgId.DATA: self._on_data,
+        }
 
-        uart_kw_args = dict(uart_kw_args)  # don't mutate caller's dict
-        for key, val in __class__.DEFAULT_UART_KW_ARGS.items():
-            uart_kw_args.setdefault(key, val)
-
-        self.__SER = serial.Serial(**uart_kw_args)
+        self._uart_kw = {**self.DEFAULT_UART_KW_ARGS, **uart_kw_args}
+        self._ser: Optional[serial.Serial] = None
+        self._port_error_shown = False
+        self._last_t = 0.0                  # sender time of the last frame
         self._stop_event = threading.Event()
         self._thread = None
 
@@ -438,175 +343,242 @@ class UARTReceiver:
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._reader_loop, daemon=True)
         self._thread.start()
-        log.info("UART receiver started on %s", self.__SER.port)
+        log.info("UART receiver started (%s)", self._uart_kw["port"])
 
     def stop(self):
         self._stop_event.set()
         if self._thread:
             self._thread.join(timeout=2)
-        if self.__SER.is_open:
-            self.__SER.close()
+        self._close_port()
+        self._data_csv.close()
+        self._log_csv.close()
         log.info("UART receiver stopped")
 
-    # -- internal -------------------------------------------------------------
-    def _dispatch(self, msg_id, payload, frame_start_time):
-        timeData_shifted: float = frame_start_time - self.StartTime
-        timeData_formated: str = "{:.4f}".format(timeData_shifted)
+    # -- connection ---------------------------------------------------------
+    def _event(self, text: str):
+        """A note in log.csv about this program (not from the BMS). Its time is the last sender time seen."""
+        self._log_csv.write([f"{self._last_t:.6f}", "PC", "", "", "", text, ""])
 
-        MSG_ID_CONFIG = self.msg_types[msg_id]
+    def _connect(self) -> bool:
+        try:
+            self._ser = serial.Serial(**self._uart_kw)
+        except (serial.SerialException, OSError) as e:
+            self._ser = None
+            if not self._port_error_shown:         # once, not every retry
+                log.warning("Can not open %s (%s). Is it plugged in? Trying again every %.1f s",
+                            self._uart_kw["port"], e, self.reconnect_delay)
+                self._port_error_shown = True
+            return False
+        self._port_error_shown = False
+        log.info("Connected to %s", self._uart_kw["port"])
+        self._event("connected")
+        return True
 
-        # 1) payload -> data
-        if MSG_ID_CONFIG.fmt == 's':
-            unpack_fmt = f">{__class__.DATA_LEN_FMT}{len(payload) - __class__.DATA_LEN_LEN}s"
-        else:
-            unpack_fmt = MSG_ID_CONFIG.fmt
-        data = struct.unpack(unpack_fmt, bytes(payload))
+    def _close_port(self):
+        if self._ser is not None:
+            try:
+                self._ser.close()
+            except (serial.SerialException, OSError):
+                pass
+            self._ser = None
 
-        # 2) data -> formatted data
-        formatted_data = MSG_ID_CONFIG.data_handler(data)
+    def _disconnect(self, reason):
+        log.warning("Connection lost (%s). Reconnecting...", reason)
+        self._close_port()
+        self._event(f"connection lost: {reason}")
+        self._port_error_shown = True       # already told the user, do not repeat on the first failed retry
 
-        # 3) formatted data -> data str (extra formating)
-
-
-        # 4) time + formatted data -> CSV
-        appendRow2CSV_helper(MSG_ID_CONFIG.file, timeData_formated, formatted_data)
-
-        log.debug(
-            "Full formatted message received: %s (0x%02X) @ t=%.6f -> %s",
-            MSG_ID_CONFIG.name, msg_id, timeData_formated, formatted_data,
-        )
-
-        # Per-type hook, called now that formatted data + CSV write are done.
-        MSG_ID_CONFIG.on_message_handler(MSG_ID_CONFIG.name, msg_id, formatted_data, timeData_formated)
-
-        # Optional global hook, in addition to the per-type one above.
-        if self.on_message is not None:
-            self.on_message(MSG_ID_CONFIG.name, msg_id, formatted_data, timeData_formated)
-
+    # -- reading ------------------------------------------------------------
     def _reader_loop(self):
-        state = __class__.WAIT_SOH
-
-        msg_id = None
-        expected_len = 0
-        payload = bytearray()
-        sentLength = bytearray()
-
-        frame_start_time = 0.0
-        last_byte_time = time.monotonic()
-        self.StartTime = time.monotonic()
-
-        def check_timedOut():
-            nonlocal state, msg_id, payload, sentLength, last_byte_time
-            # Timeout is measured from the last byte received, not from SOH,
-            # so a slow-but-steady trickle of bytes doesn't get discarded --
-            # only an actual stall mid-frame does.
-            if state != __class__.WAIT_SOH and (time.monotonic() - last_byte_time) > self.frame_timeout:
-                log.warning("Frame timeout waiting for msg_ID=%s, discarding partial data", msg_id)
-                state, msg_id, payload, sentLength = __class__.WAIT_SOH, None, bytearray(), bytearray()
-
-        def wait4SOH(b):
-            nonlocal state, frame_start_time
-            if b == __class__.SOH:
-                state, frame_start_time = __class__.WAIT_ID, time.monotonic()
-
-        def wait4MSG_ID(b):
-            nonlocal state, msg_id, expected_len
-            if b not in self.msg_types:
-                log.warning("Unknown msg_ID 0x%02X, discarding and resyncing", b)
-                state = __class__.WAIT_SOH
-                return
-
-            msg_id_config = self.msg_types[b]
-            msg_id = b
-
-            if msg_id_config.fmt == 's':
-                state = __class__.WAIT_DATA_LEN
-            else:
-                state = __class__.WAIT_PAYLOAD
-                expected_len = msg_id_config.msgSize
-
-        def Wait4DataLength(b):
-            nonlocal state, expected_len, sentLength
-
-            sentLength.append(b)
-
-            if len(sentLength) < __class__.DATA_LEN_LEN:
-                return
-
-            length = struct.unpack(__class__.DATA_LEN_FMT, bytes(sentLength))[0]
-            sentLength = bytearray()
-
-            if length > __class__.MAX_VARIABLE_PAYLOAD_LEN:
-                log.warning(
-                    "Declared payload length %d for msg_ID=0x%02X exceeds max %d, "
-                    "discarding and resyncing (likely corrupted length field)",
-                    length, msg_id, __class__.MAX_VARIABLE_PAYLOAD_LEN,
-                )
-                state = __class__.WAIT_SOH
-                return
-
-            expected_len = length
-            state = __class__.WAIT_PAYLOAD
-
-        def WaitFullPayload(b):
-            nonlocal state, payload
-            payload.append(b)
-            if len(payload) >= expected_len:
-                state = __class__.WAIT_EOT
-
-        def WaitEOT(b):
-            nonlocal state, msg_id, payload, frame_start_time
-            if b == __class__.EOT:
-                self._dispatch(msg_id, payload, frame_start_time)
-                try:
-                    # self._dispatch(msg_id, payload, frame_start_time)
-                    1+1
-                except Exception:
-                    # Never let a bad frame (bad fmt, handler bug, etc.) kill
-                    # the reader thread -- log it and keep receiving.
-                    log.exception("Error dispatching msg_ID=%s, discarding frame", msg_id)
-            else:
-                log.warning(
-                    "Bad end byte (got 0x%02X, expected 0x%02X) for msg_ID=0x%02X -- "
-                    "msg_ID was likely wrong or data corrupted, discarding",
-                    b, __class__.EOT, msg_id,
-                )
-                print(payload)
-            state, msg_id, payload = __class__.WAIT_SOH, None, bytearray()
+        buf = bytearray()
+        last_rx = time.monotonic()
+        silent = False
 
         while not self._stop_event.is_set():
-            check_timedOut()
+            if self._ser is None:
+                if not self._connect():
+                    self._stop_event.wait(self.reconnect_delay)
+                    continue
+                buf.clear()                         # nothing from before the gap can be trusted
+                last_rx = time.monotonic()
+                silent = False
 
-            # Blocking read (bounded by read_timeout so we can check stop_event
-            # periodically). This is what makes it "interrupt-style" rather
-            # than a manual polling loop: the thread sleeps until a byte is
-            # available or the short timeout elapses.
-
-            byte = self.__SER.read(1)
-            if not byte:  # Nothing arrived this tick. If we're mid-frame, check timeout.
+            try:
+                # blocks until a byte arrives or the serial timeout passes
+                chunk = self._ser.read(self._ser.in_waiting or 1)
+            except (serial.SerialException, OSError) as e:
+                self._drop_stalled(buf)             # keep the complete frames that were already received
+                self._disconnect(e)
+                self._stop_event.wait(self.reconnect_delay)
                 continue
-            b = byte[0]
-            # print(b )
-            last_byte_time = time.monotonic()
 
-            match(state):
-                case __class__.WAIT_SOH     : wait4SOH(b)
-                case __class__.WAIT_ID      : wait4MSG_ID(b)
-                case __class__.WAIT_DATA_LEN: Wait4DataLength(b)
-                case __class__.WAIT_PAYLOAD : WaitFullPayload(b)
-                case __class__.WAIT_EOT     : WaitEOT(b)
-                case _: raise ValueError(f"self.UartReadingStateis not handled: {state=}")
+            now = time.monotonic()
+            if chunk:
+                buf += chunk
+                last_rx = now
+                if silent:
+                    silent = False
+                    log.info("Data is back")
+                    self._event("data is back")
+            else:
+                self._data_csv.flush()              # retry rows that waited for a locked file (does nothing if none)
+                self._log_csv.flush()
+                if buf and now - last_rx > self.frame_timeout:
+                    self._drop_stalled(buf)
+                if not silent and now - last_rx > self.silence_warn:
+                    silent = True
+                    log.warning("No data for %.1f s (is the BMS on?)", self.silence_warn)
+                    self._event(f"no data for {self.silence_warn:.1f} s")
+                continue
 
-            # if state == __class__.WAIT_SOH:
-            #     wait4SOH(b)
-            # elif state == __class__.WAIT_ID:
-            #     wait4MSG_ID(b)
-            # elif state == __class__.WAIT_DATA_LEN:
-            #     Wait4DataLength(b)
-            # elif state == __class__.WAIT_PAYLOAD:
-            #     WaitFullPayload(b)
-            # elif state == __class__.WAIT_EOT:
-            #     WaitEOT(b)
+            try:
+                self._parse(buf)
+            except Exception:
+                log.exception("Parser error, dropping %d buffered bytes", len(buf))
+                buf.clear()
+
+    def _drop_stalled(self, buf: bytearray):
+        """Nothing more is coming (timeout or connection lost), so whatever waits at the start of buf will never
+        finish (a false SOH or a corrupted length). Skip it, and still take out any complete frame queued behind it."""
+        if buf:
+            log.warning("Giving up on %d buffered bytes of an unfinished frame", len(buf))
+        while buf:
+            del buf[:1]
+            self._parse(buf)
+
+    def _parse(self, buf: bytearray):
+        """Takes every complete frame out of buf. On a bad frame it skips one byte and looks for the next SOH."""
+        while True:
+            start = buf.find(SOH)
+            if start < 0:
+                buf.clear()
+                return
+            del buf[:start]
+            if len(buf) < HEADER_LEN:
+                return
+
+            msg_id = buf[1]
+            length = int.from_bytes(buf[2:4], "big")
+            if length < TICK_LEN or length > MAX_PAYLOAD:
+                log.warning("Bad length %d (msg_ID=0x%02X), resyncing", length, msg_id)
+                del buf[:1]
+                continue
+
+            end = HEADER_LEN + length                   # end of payload
+            total = end + (CRC_LEN if USE_CRC else 0) + 1
+            if len(buf) < total:
+                return                                  # wait for the rest
+
+            if buf[total - 1] != EOT:
+                log.warning("Bad end byte 0x%02X (msg_ID=0x%02X), resyncing", buf[total - 1], msg_id)
+                del buf[:1]
+                continue
+            if USE_CRC:
+                got = int.from_bytes(buf[end:end + CRC_LEN], "big")
+                want = binascii.crc_hqx(bytes(buf[1:end]), 0xFFFF)
+                if got != want:
+                    log.warning("CRC error (msg_ID=0x%02X): got 0x%04X, expected 0x%04X, resyncing", msg_id, got, want)
+                    del buf[:1]
+                    continue
+
+            payload = bytes(buf[HEADER_LEN:end])
+            del buf[:total]
+            self._dispatch(msg_id, payload)
+
+    # -- handling -----------------------------------------------------------
+    def _dispatch(self, msg_id: int, payload: bytes):
+        handler = self._handlers.get(msg_id)
+        if handler is None:
+            log.warning("Unknown msg_ID 0x%02X, ignored", msg_id)
+            return
+
+        t = int.from_bytes(payload[:TICK_LEN], "big") / TICKS_PER_SEC
+        if t < self._last_t:
+            log.warning("Sender time went back from %.3f to %.3f s (BMS restarted?)", self._last_t, t)
+            self._event(f"sender time went back from {self._last_t:.6f} s (restart?)")
+        self._last_t = t
+
+        try:
+            handler(t, payload[TICK_LEN:])
+        except Exception:
+            # a bad frame must never kill the reader thread
+            log.exception("Error handling msg_ID=0x%02X, frame discarded", msg_id)
+
+    def _write_log(self, t: float, kind: str, level="", ident="", text_len="", text="", raw=b""):
+        self._log_csv.write([f"{t:.6f}", kind, level, ident, text_len, text, raw.hex(" ")])
+
+    @staticmethod
+    def _split_text(body: bytes, head_len: int):
+        """body = [head][text_len][text][rest] -> (text_len, text, rest)"""
+        text_len = body[head_len]
+        start = head_len + 1
+        text_raw = body[start:start + text_len]
+        if len(text_raw) != text_len:
+            log.warning("Log text is %d bytes, the sender said %d", len(text_raw), text_len)
+        return text_len, decode_text(text_raw), body[start + text_len:]
+
+    def _on_log(self, t: float, body: bytes):
+        level = body[0]
+        text_len, text, rest = self._split_text(body, 1)
+        if rest:
+            log.warning("Log has %d bytes after its text", len(rest))
+        self._write_log(t, "LOG", level=level_name(level), text_len=text_len, text=text)
+        log.log(PY_LOG_LEVEL.get(level, logging.INFO), "[%.4f] %s", t, text)
+
+    def _on_log_raw(self, t: float, body: bytes):
+        level = body[0]
+        text_len, text, raw = self._split_text(body, 1)
+        self._write_log(t, "LOG_RAW", level=level_name(level), text_len=text_len, text=text, raw=raw)
+        log.log(PY_LOG_LEVEL.get(level, logging.INFO), "[%.4f] %s | %s", t, text, raw.hex(" "))
+
+    def _on_raw(self, t: float, body: bytes):
+        self._write_log(t, "RAW", raw=body)
+        log.info("[%.4f] raw: %s", t, body.hex(" "))
+
+    def _on_fault(self, t: float, body: bytes):
+        fault_id = int.from_bytes(body[:2], "big")
+        text_len, text, _ = self._split_text(body, 2)
+        name = FAULT_NAMES.get(fault_id, str(fault_id))
+        self._write_log(t, "FAULT", ident=name, text_len=text_len, text=text)
+        log.error("[%.4f] FAULT %s: %s", t, name, text)
+
+    def _on_can(self, t: float, body: bytes):
+        box, data = body[0], body[1:]
+        name = CAN_BOX_NAMES.get(box, str(box))
+        self._write_log(t, "CAN", ident=name, raw=data)
+        log.debug("[%.4f] CAN %s: %s", t, name, data.hex(" "))
+
+    def _on_data(self, t: float, body: bytes):
+        values: dict[int, list] = {}
+
+        pos = 0
+        while pos + SECTION_HEADER_LEN <= len(body):
+            sec_id = body[pos]
+            length = int.from_bytes(body[pos + 1:pos + 3], "big")
+            chunk = body[pos + SECTION_HEADER_LEN:pos + SECTION_HEADER_LEN + length]
+            pos += SECTION_HEADER_LEN + length
+
+            sec = SECTIONS_BY_ID.get(sec_id)
+            if len(chunk) != length:
+                log.warning("Section 0x%02X is cut short, ignoring the rest of the frame", sec_id)
+                break
+            if sec is None:
+                log.warning("Unknown section 0x%02X, skipped", sec_id)
+                continue
+            if length != struct.calcsize(sec.fmt):
+                log.warning("Section %s is %d bytes, expected %d (NUM_* constants wrong?), skipped",
+                            SecId(sec_id).name, length, struct.calcsize(sec.fmt))
+                continue
+            values[sec_id] = sec.decode(struct.unpack(sec.fmt, chunk))
+
+        row = [f"{t:.6f}"]
+        for sec in SECTIONS:
+            row += values.get(sec.id, [""] * len(sec.columns))
+        self._data_csv.write(row)
+
+        for sec in SECTIONS:
+            if sec.id in values and sec.on_data is not None:
+                sec.on_data(values[sec.id], t)
 
 
 # ---------------------------------------------------------------------------
@@ -619,10 +591,9 @@ if __name__ == "__main__":
     UART_KW_ARGS = {"port": "COM8", "baudrate": 115200}
     receiver = UARTReceiver(
         uart_kw_args=UART_KW_ARGS,
-        MsgTypeConfigFile=r"UART_Data_Config.csv",
         frame_timeout=0.5,
-        RootDesFolder = "data_1",
-        # clearIfExist = False
+        RootDesFolder="data_1",
+        # clearIfExist=False
     )
 
     receiver.start()

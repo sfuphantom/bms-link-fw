@@ -581,7 +581,7 @@ void Charger_UpdateStateMachine(const uint8_t flags){
 
         case CHARGER_STATE_INHIBIT_CHARGING:
             /* Placeholder: implement a cool to down timer */
-            if(hasTimeElapsed_rti(start_inhibit_timer_tick, STATE_INHIBIT_CHARGING_TIME)){/* 1 min */
+            if(hasTimeElapsed(start_inhibit_timer_tick, STATE_INHIBIT_CHARGING_TIME)){/* 1 min */
                 s_chargerState = CHARGER_STATE_NOT_CHARGING;
             }
             return;

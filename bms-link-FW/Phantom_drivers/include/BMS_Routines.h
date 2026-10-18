@@ -21,9 +21,11 @@
  void ReadStatAndGetFlagsSubRoutine();
  //---------------------------------------------------------------------------------------------------------
  void CellVoltageControlRoutine();
+ void SetCellBalancersRoutine();
  void SlaveFlagsRoutine();
  void MonitorCellTempRoutine();
- void MonitorFullBatteryDataRoutine();
+ void MeasureBatteryVoltageRoutine();
+ void MeasureBatteryCurrentRoutine();
  void MeasureCellResistanceRoutine();
  void keepSlavesAwakeRoutine();
  void SendChargerControlsRoutine();

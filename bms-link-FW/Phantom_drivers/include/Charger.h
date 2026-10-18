@@ -360,7 +360,7 @@ typedef enum {  CHARGER_MSG_PAGE_1 = 1U,
 #define CHARGER_CTRL_FLAG_FAULT_RESET      (1U << 1)  /* operator/system requests a fault-state retry */
 #define CHARGER_CTRL_FLAG_CHARGE_ENABLE    (1U << 2)  /* permission to charge is present */
 
-#define STATE_INHIBIT_CHARGING_TIME      MIN_SEC_MS_US_TICK_2_TICK(1,0,0,0,0)
+#define STATE_INHIBIT_CHARGING_TIME      ticks_make(1,0,0,0,0)
 
 /*----------------------------------------------------------------------------------------------------
  * State machine definitions

@@ -37,9 +37,9 @@ bool gioToggleBitHelper(const uint8_t bit){
 
     return gioGetBitHelper(bit);
 }
-gioPulse(const uint8_t bit, uint32_t time_us, const bool Val){
+void gioPulse(const uint8_t bit, ticks_t tick, const bool Val){
     gioSetBitHelper(bit, Val);
-    delay_ms_us(0, time_us);
+    delay_ticks(tick);
     gioSetBitHelper(bit, !Val);
 }
 

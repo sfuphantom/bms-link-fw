@@ -103,12 +103,25 @@
  *      for SOH tracking (needs non-volatile storage, out of scope here), and
  *      a real isolation-resistance conversion for ecapIMDData_t (duty/freq
  *      -> ohms is sensor-model-specific and I don't have that datasheet).
+ *  13. FLOAT CONVERSION: current, all CellData_t / FullBatteryData_t values and
+ *      ecapIMDData_t are now float and are expected to hold PHYSICAL units
+ *      (V, degC, ohms, ...), not raw slave-ADC codes - convert before calling
+ *      the Set functions. Per-thermistor temperatures live in their own
+ *      file-static global (thermistors[] in BatteryData.c); CellData_t also has
+ *      its own, currently unused, per-cell CellTempData. ContactorState_t is
+ *      now an enum. The *_SlaveADC getters were removed (no ADC code to return
+ *      any more); the old *_float getters replace them.
+ *  14. RENAMES / REMOVALS: every public function now follows a Module_Verb
+ *      scheme (BatteryData_, BMS_, Pack_, Cell_, Thermistor_, IMD_). Notes 1-13
+ *      above still use the OLD names. GetChargingStatus() was removed - use
+ *      BMS_IsCharging(). Search for "#warning" in BatteryData.c for open issues.
  */
 
 #ifndef PHANTOM_DRIVERS_INCLUDE_BATTERYDATA_H_
 #define PHANTOM_DRIVERS_INCLUDE_BATTERYDATA_H_
 #include <stdint.h>
 #include <stdbool.h>
+#include "strings.h"
 #include "FullBattery_Hardware.h"
 
 //////////////////////////////////////////////////////////////
@@ -118,10 +131,10 @@
  * Left as-is but fixed to a real boolean instead of an undefined TRUE. */
 #define KILL_DRIVER false
 /////////////////////////////////////////////////////////////////
-#define NUMBER_OF_VOLT_SAMPLES_SAVED 2
-#define NUMBER_OF_TEMP_SAMPLES_SAVED 2
-#define NUMBER_OF_RES_SAMPLES_SAVED 2
-#define NUMBER_OF_SOC_SAMPLES_SAVED 2
+#define NUMBER_OF_VOLT_SAMPLES_SAVED 1
+#define NUMBER_OF_TEMP_SAMPLES_SAVED 1
+#define NUMBER_OF_RES_SAMPLES_SAVED 1
+#define NUMBER_OF_SOC_SAMPLES_SAVED 1
 //////////////////////////////////////////////////////////////
 
 //#define PROTO_CODE TRUE
@@ -155,45 +168,48 @@ typedef uint16_t BMSFaults_t;
 
 //----------------------------------------------------------------------------------------------------
 typedef struct {
-    uint8_t duty;
-    uint8_t freq;
-//    uint32_t resistance;
-} ecapIMDData_t;
+    float duty;
+    float freq;
+    float isolation;
+    float resistance;
+} IMDData_t;
 
 typedef struct {
-    uint16_t Volt;
-    uint16_t SOC;
-    uint16_t Res;
-    /* Current removed - see fix #4. Use Get/SetBatteryCurrentVal(). */
+    float Volt;
+    float SOC;
+    float Res;
+    /* Current removed - see fix #4. Use Pack_GetCurrent()/Pack_SetCurrent(). */
 } FullBatteryData_t;
 
 typedef struct {
-    uint16_t CellVolt[NUMBER_OF_VOLT_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];
-    uint16_t CellTemp[NUMBER_OF_TEMP_SAMPLES_SAVED][NUMBER_OF_THERMISTORS_TOTAL];
-    uint16_t CellRes[NUMBER_OF_RES_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];
-    uint16_t CellSOC[NUMBER_OF_SOC_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];
-    uint8_t  BalancePWM_Nibbles[(NUMBER_OF_CELLS_SERIES+1)/2];
+    float CellVolt[NUMBER_OF_VOLT_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];
+    float CellTempData[NUMBER_OF_TEMP_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];  /* per cell (not per thermistor) - currently unused */
+    float CellRes[NUMBER_OF_RES_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];
+    float CellSOC[NUMBER_OF_SOC_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];
+    uint8_t  BalancePWM_Nibbles[NUMBER_OF_CELLS_SERIES_PAIRS];
+    uint16_t BalanceDCC[NUMBER_OF_SLAVE_BOARDS_TOTAL];
 } CellData_t;
 
 /* New (fix #11): there was nowhere to even record contactor state before. */
-typedef struct {
-    bool MainContactorClosed;
-    bool PrechargeContactorClosed;
+typedef enum {
+    CONTACTORS_OPEN = 0,    /* main and precharge both open */
+    CONTACTORS_PRECHARGE,   /* precharge closed, main open - bus voltage ramping */
+    CONTACTORS_CLOSED       /* main closed, precharge open - normal running */
 } ContactorState_t;
 
 //----------------------------------------------------------------------------------------------------
 /* ---- Init ---- */
-void initBatteryData(void);
+void BatteryData_Init(void);
 
 //----------------------------------------------------------------------------------------------------
 /* ---- BMS state machine ---- */
-void        setBMS_State(const BMSState_t State);
-BMSState_t  getBMS_State(void);
+void        BMS_SetState(const BMSState_t State);
+BMSState_t  BMS_GetState(void);
 bool        BMS_IsCharging(void);
 bool        BMS_IsRunning(void);
 bool        BMS_IsFaulted(void);
 /* Skeleton only - see the #warning and per-case TODOs in BatteryData.c. */
-void BMS_StateMachine(const bool shouldCharge, const bool clearFault, const bool RunBMS, const bool VCUFault, const bool hasFault);
+void BMS_UpdateStateMachine(const bool shouldCharge, const bool clearFault, const bool RunBMS, const bool VCUFault, const bool hasFault);
 
 /* ---- Fault flags (fix #11) ---- */
 void        BMS_SetFault(const BMSFaults_t fault);
@@ -203,96 +219,87 @@ bool        BMS_HasFault(const BMSFaults_t fault);
 BMSFaults_t BMS_GetFaultFlags(void);
 
 /* ---- Contactor state (fix #11) ---- */
-void             SetContactorState(const ContactorState_t state);
-ContactorState_t GetContactorState(void);
+void             BMS_SetContactorState(const ContactorState_t state);
+ContactorState_t BMS_GetContactorState(void);
 
 //----------------------------------------------------------------------------------------------------
-/* ---- Charging status (fix #6: read-only, derived from BMS_State) ---- */
-bool GetChargingStatus(void);
-//----------------------------------------------------------------------------------------------------
 /* ---- Pack current (its own global, per request - fix #4) ---- */
-void    SetBatteryCurrentVal(const int16_t Current_Val);
-int16_t GetBatteryCurrentVal(void);
+void  Pack_SetCurrent(const float Current_Val);
+float Pack_GetCurrent(void);
 //----------------------------------------------------------------------------------------------------
 /* ---- Bulk row-buffer read pointers (index 0 = most recent sample) ---- */
-const uint16_t* GetCellVoltReadPrt(const uint8_t index);
-const uint16_t* GetCellTempReadPrt(const uint8_t index);
-const uint16_t* GetCellResReadPrt(const uint8_t index);
-const uint16_t* GetCellSOCReadPrt(const uint8_t index);
-const uint8_t*  GetBalancePWM_NibblesReadPrt(void);
-const CellData_t* GetCellDataPrt(void);
+const float*    Cell_GetVoltReadPtr(const uint8_t index);
+const float*    Thermistor_GetReadPtr(const uint8_t index);
+const float*    Cell_GetResReadPtr(const uint8_t index);
+const float*    Cell_GetSOCReadPtr(const uint8_t index);
+const uint8_t*  Cell_GetBalanceNibblesReadPtr(void);
+const uint16_t*  Cell_GetBalanceDCCReadPtr(void);
+const CellData_t* Cell_GetDataPtr(void);
 //----------------------------------------------------------------------------------------------------
 /* ---- Bulk row-buffer write pointers (shifts history, returns row 0) ---- */
-uint16_t* GetCellVoltWritePrt(void);
-uint16_t* GetCellTempWritePrt(void);
-uint8_t*  GetBalancePWM_NibblesWritePrt(void);
-uint16_t* GetCellResWritePrt(void);
-uint16_t* GetCellSOCWritePrt(void);
+float*    Cell_GetVoltWritePtr(void);
+float*    Thermistor_GetWritePtr(void);
+uint8_t*  Cell_GetBalanceNibblesWritePtr(void);
+uint16_t* Cell_GetBalanceDCCWritePtr(void);
+float*    Cell_GetResWritePtr(void);
+float*    Cell_GetSOCWritePtr(void);
 //----------------------------------------------------------------------------------------------------
-void SetCellVolt(const uint16_t* CellVolt);
-void SetCellTemp(const uint16_t* CellTemp);
-void SetCellRes(const uint16_t *CellRes);
-void SetCellSOC(const uint16_t *CellSOC);
-void GetCellVolt(uint16_t* const CellVolt);
-void GetCellTemp(uint16_t* const CellTemp);
-void GetCellRes(uint16_t* const CellRes);
-void GetCellSOC(uint16_t* const CellSOC);
-void SetBalancePWM_Nibbles(const uint8_t* BalancePWM_Nibbles);
-void GetBalancePWM_Nibbles(uint8_t* const BalancePWM_Nibbles);
+void Cell_SetVolt(const float* CellVolt);
+void Thermistor_Set(const float* temps);
+void Cell_SetRes(const float *CellRes);
+void Cell_SetSOC(const float *CellSOC);
+void Cell_GetVolt(float* const CellVolt);
+void Thermistor_Get(float* const temps);
+void Cell_GetRes(float* const CellRes);
+void Cell_GetSOC(float* const CellSOC);
+void Cell_SetBalanceNibbles(const uint8_t* BalancePWM_Nibbles);
+void Cell_GetBalanceNibbles(uint8_t* const BalancePWM_Nibbles);
 /* Nice to have (fix #11): per-cell balance duty without hand-rolling the
  * nibble packing. cellIndex must be < NUMBER_OF_CELLS_SERIES (unchecked,
  * consistent with the rest of this file's indexed accessors). */
-void    BatteryData_SetCellBalancePWM(const uint8_t cellIndex, const uint8_t dutyNibble);
-uint8_t BatteryData_GetCellBalancePWM(const uint8_t cellIndex);
+void    Cell_SetBalancePWM(const uint8_t cellIndex, const uint8_t dutyNibble);
+uint8_t Cell_GetBalancePWM(const uint8_t cellIndex);
 //----------------------------------------------------------------------------------------------------
 /* ---- Aggregate cell stats (fix #1: now actually declared) ---- */
-uint16_t GetAvgCellVolt_SlaveADC(void);
-uint16_t GetMaxCellVolt_SlaveADC(void);
-uint16_t GetMinCellVolt_SlaveADC(void);
-uint8_t  GetMaxCellVolt_Index(void);   /* new (fix #11): which cell, not just the value */
-uint8_t  GetMinCellVolt_Index(void);
-float    GetAvgCellVolt_float(void);
-float    GetMaxCellVolt_float(void);
-float    GetMinCellVolt_float(void);
+size_t  Cell_GetMaxVoltIndex(void);   /* new (fix #11): which cell, not just the value */
+size_t  Cell_GetMinVoltIndex(void);
+float    Cell_GetAvgVolt(void);
+float    Cell_GetMaxVolt(void);
+float    Cell_GetMinVolt(void);
 
-uint16_t GetAvgCellTemp_SlaveADC(void);
-uint16_t GetMaxCellTemp_SlaveADC(void);
-uint16_t GetMinCellTemp_SlaveADC(void);
-uint8_t  GetMaxCellTemp_Index(void);
-uint8_t  GetMinCellTemp_Index(void);
-/* Stubbed - see the #warning next to these in BatteryData.c: needs a real
- * thermistor ADC->Celsius curve that I don't have the constants for. */
-float GetAvgCellTemp_float(void);
-float GetMaxCellTemp_float(void);
-float GetMinCellTemp_float(void);
+size_t  Thermistor_GetMaxTempIndex(void);
+size_t  Thermistor_GetMinTempIndex(void);
+float Thermistor_GetAvgTemp(void);
+float Thermistor_GetMaxTemp(void);
+float Thermistor_GetMinTemp(void);
 
 /* New (fix #11): averages CellSOC into FullBattery.SOC. Call after a fresh
- * SetCellSOC() if you want the pack-level SOC to track the cells. */
-void BatteryData_UpdatePackSOCFromCells(void);
+ * Cell_SetSOC() if you want the pack-level SOC to track the cells. */
+void Pack_UpdateSOCFromCells(void);
 
 /* New (fix #11): lets a watchdog/state-machine detect a stalled slave-board
  * link instead of silently charging/discharging on stale cell data forever. */
-uint64_t BatteryData_GetCellDataAgeTicks(void);
-bool     BatteryData_IsCellDataStale(const uint64_t maxAgeTicks);
+uint64_t Cell_GetDataAgeTicks(void);
+bool     Cell_IsDataStale(const uint64_t maxAgeTicks);
 
 //----------------------------------------------------------------------------------------------------
 /* ---- Pack-level (full battery) data ---- */
-const FullBatteryData_t* getFullBatteryData(void);
-uint16_t getFullBatteryData_Volts(void);
-uint16_t getFullBatteryData_SOC(void);
-uint16_t getFullBatteryData_Res(void);
-void setFullBatteryData_Volts(const uint16_t Volt);
-void setFullBatteryData_SOC(const uint16_t SOC);
-void setFullBatteryData_Res(const uint16_t Res);
-void setFullBatteryData(const FullBatteryData_t * FullBatteryData);
+const FullBatteryData_t* Pack_GetData(void);
+float Pack_GetVolt(void);
+float Pack_GetSOC(void);
+float Pack_GetRes(void);
+void Pack_SetVolt(const float Volt);
+void Pack_SetSOC(const float SOC);
+void Pack_SetRes(const float Res);
+void Pack_SetData(const FullBatteryData_t * FullBatteryData);
 /* NOTE: signature changed - Current is no longer part of this struct (fix
- * #4), so it's no longer a parameter here either. Use SetBatteryCurrentVal()
+ * #4), so it's no longer a parameter here either. Use Pack_SetCurrent()
  * for current. Update any existing callers accordingly. */
-void setFullBatteryData_split(const uint16_t Volt, const uint16_t SOC, const uint16_t Res);
+void Pack_SetAll(const float Volt, const float SOC, const float Res);
 
 //----------------------------------------------------------------------------------------------------
-/* ---- IMD / ecap ---- */
-void          SetEcapIMDData(const ecapIMDData_t ecapIMDData);
-ecapIMDData_t GetEcapIMDData(void);
+/* ---- IMD /  ---- */
+void      IMD_SetData(const IMDData_t ecapIMDData);
+IMDData_t IMD_GetData(void);
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_BATTERYDATA_H_ */

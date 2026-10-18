@@ -5,117 +5,136 @@
  *      Author: tanjo
  */
 #include <stdint.h>
-#include <stdbool.h>
-#include "string.h"
-#include "SlaveCommunation_Hardware.h"
-#include "BatteryCell_Hardware.h"
-#include "FullBattery_Hardware.h"
-#include "PhantomHelpers.h"
-
-#include "BatteryData.h"
+#include <math.h>
 #include "Balance.h"
+#include "SlaveCommunation_Hardware.h"
 
+#define PWM_NIBBLE_MAX 0xF   // LTC6811: duty = nibble / 15
+#define DRAIN_OHMS     (RES_DRAIN_OHMS + RES_ON_OHMS)
 
-//static inline uint8_t Percent2Nibble(uint8_t){
-//
-//}
+static uint8_t GetNibble(const uint8_t pwm[], const uint8_t cell){
+    return (pwm[cell / 2] >> ((cell % 2) * 4)) & 0xF;
+}
+
+static void SetNibble(uint8_t pwm[], const uint8_t cell, const uint8_t nibble){
+    const uint8_t shift = (cell % 2) * 4;
+    pwm[cell / 2] = (uint8_t)((pwm[cell / 2] & ~(0xF << shift)) | (nibble << shift));
+}
+
+// ratio 0..1 -> nibble 0..15. Out of range is clamped, NaN gives 0.
+static uint8_t RatioToNibble(const float ratio){
+    if(!(ratio > 0.0f))
+        return 0;
+    if(ratio >= 1.0f)
+        return PWM_NIBBLE_MAX;
+    return (uint8_t)lroundf(ratio * PWM_NIBBLE_MAX);
+}
+
+// Ramps 0 -> 15 from startVolts to fullVolts. Once running it keeps the lowest duty
+// until the value is below startVolts - hysteresis, so it doesn't flicker on/off.
+static uint8_t RampNibble(const float value, const float startVolts, const float fullVolts,
+                          const float hysteresis, const uint8_t prevNibble){
+
+    const uint8_t nibble = RatioToNibble((value - startVolts) / (fullVolts - startVolts));
+    const bool holding = (prevNibble > 0) && (value > startVolts - hysteresis);   // NaN -> false
+
+    return (nibble == 0 && holding) ? 1 : nibble;
+}
+
+// 1.0 = full drain, 0.0 = none. Unknown temperature means no drain.
+static float TempDerate(const float dieTempC){
+    if(isnan(dieTempC))
+        return 0.0f;
+    const float derate = mapRange_f(dieTempC, DIE_TEMP_DERATE_START_C, DIE_TEMP_DERATE_STOP_C, 1.0f, 0.0f);
+    return (float)clampValue(derate, 0.0, 1.0);
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
-static inline uint8_t CalcTargetPWMNibble_SlowDrain(const uint16_t cellVolt){
-    const uint16_t offset = cellVolt - CELL_CHARGING_TARGET_SLAVE_ADC;
-    const uint16_t scaled = offset << 4;
-    const uint8_t Nibble = scaled / SLOW_DRAIN_BAND_SLAVE_ADC;
+void Balance_GetPWM(const float cellVolts[NUMBER_OF_CELLS_SERIES],
+                    const float minCellVolt,
+                    const float dieTempC[NUMBER_OF_SLAVE_BOARDS_TOTAL],
+                    uint8_t pwm[NUMBER_OF_CELLS_SERIES_PAIRS]){
+    uint8_t slave;
+    for(slave = 0; slave < NUMBER_OF_SLAVE_BOARDS_TOTAL; slave++){
 
-    return MIN_VAL(Nibble, 0xF);
+        const float derate = TempDerate(dieTempC[slave]);
+        uint8_t i;
+        for(i = 0; i < CELLS_PER_SLAVE_BOARD; i++){
+
+            const uint8_t cell = slave * CELLS_PER_SLAVE_BOARD + i;
+            if(cell >= NUMBER_OF_CELLS_SERIES)
+                break;
+
+            const float cellVolt = cellVolts[cell];
+            const uint8_t prevNibble = GetNibble(pwm, cell);
+
+            uint8_t nibble = RampNibble(cellVolt, DRAIN_START_VOLTS, DRAIN_FULL_VOLTS,
+                                        DRAIN_HYSTERESIS_VOLTS, prevNibble);
+
+            if(BALANCE_WHILE_CHARGING){
+                const uint8_t balanceNibble = RampNibble(cellVolt - minCellVolt, BALANCE_START_DIFF_VOLTS,
+                                                         BALANCE_FULL_DIFF_VOLTS, BALANCE_HYSTERESIS_VOLTS, prevNibble);
+                nibble = MAX_VAL(nibble, balanceNibble);
+            }
+
+            SetNibble(pwm, cell, (uint8_t)lroundf(nibble * derate));
+        }
+    }
 }
-static uint8_t CalcTargetPWMNibble(const uint16_t cellVolt){
 
-    if(cellVolt < CELL_CHARGING_TARGET_SLAVE_ADC)
-        return 0x0;
+void Balance_GetDCC(const uint8_t pwm[NUMBER_OF_CELLS_SERIES_PAIRS], uint16_t dcc[NUMBER_OF_SLAVE_BOARDS_TOTAL]){
+    uint8_t slave;
+    for(slave = 0; slave < NUMBER_OF_SLAVE_BOARDS_TOTAL; slave++){
 
+        dcc[slave] = 0;
+        uint8_t i;
+        for(i = 0; i < CELLS_PER_SLAVE_BOARD; i++){
 
-    else if(cellVolt > FULL_DRAIN_THESHOLD_SLAVE_ADC)
-        return 0xF;
+            const uint8_t cell = slave * CELLS_PER_SLAVE_BOARD + i;
+            if(cell >= NUMBER_OF_CELLS_SERIES)
+                break;
 
-    else
-        return CalcTargetPWMNibble_SlowDrain(cellVolt);
-}
-//----------------------------------------------------------------------------------
-static inline uint8_t CalcBalancePWMNibble_SlowDrain(const uint16_t V_diff){
-    const uint16_t offset = V_diff - BALANCE_NO_DRAIN_THESHOLD_SLAVE_ADC_DIFF;
-    const uint16_t scaled = offset << 4;
-    const uint8_t Nibble = scaled / BALANCE_SLOW_DRAIN_BAND_SLAVE_ADC_DIFF;
-
-    return MIN_VAL(Nibble, 0xF);
+            if(GetNibble(pwm, cell) > 0)
+                BIT_SET(dcc[slave], i);
+        }
+    }
 }
 
-static uint8_t CalcBalancePWMNibble(const uint16_t V_diff, const uint8_t Pre_PWMNibble){
+//////////////////////////////////////////////////////////////////////////////////////////
+float Balance_GetDrainAmps(const float cellVolts[NUMBER_OF_CELLS_SERIES],
+                           const uint8_t pwm[NUMBER_OF_CELLS_SERIES_PAIRS],
+                           float cellAmps[NUMBER_OF_CELLS_SERIES]){
 
-    if(V_diff < BALANCE_NO_DRAIN_THESHOLD_SLAVE_ADC_DIFF)
-        return 0x0;
-
-    else if(V_diff > BALANCE_FULL_DRAIN_THESHOLD_SLAVE_ADC_DIFF)
-        return 0xF;
-
-    else if(Pre_PWMNibble == 0 && V_diff > BALANCE_SLOW_DRAIN_THESHOLD_SLAVE_ADC_DIFF)
-        return 0x0;
-
-    else
-        return CalcBalancePWMNibble_SlowDrain(V_diff);
+    float totalAmps = 0.0f;
+    uint8_t cell;
+    for(cell = 0; cell < NUMBER_OF_CELLS_SERIES; cell++){
+        const float duty = (float)GetNibble(pwm, cell) / PWM_NIBBLE_MAX;
+        cellAmps[cell] = duty * cellVolts[cell] / DRAIN_OHMS;
+        totalAmps += cellAmps[cell];
+    }
+    return totalAmps;
 }
-//----------------------------------------------------------------------------------
- void GetDrainPWMNibbles(const uint16_t allVolts[NUMBER_OF_CELLS_SERIES], uint8_t * PWMNibbles){
-      uint8_t i, j;
-      const uint16_t min = array16_min(allVolts, NUMBER_OF_CELLS_SERIES);
 
-      for(i=0; i<NUMBER_OF_CELLS_SERIES/2; i++){
+//////////////////////////////////////////////////////////////////////////////////////////
+// Charge limit for one cell voltage. Never goes up when the volts go up.
+static float ChargeLimitAt(const float cellVolt, const float drainAmps){
+    const float ratio = (cellVolt - CHARGE_LIMIT_START_VOLTS) / (CHARGE_LIMIT_FULL_VOLTS - CHARGE_LIMIT_START_VOLTS);
+    return lerp_f(MAX_CHARGE_AMPS, drainAmps, (float)clampValue(ratio, 0.0, 1.0));
+}
 
-          uint8_t byte = 0;
-          uint8_t * const PWMByte_prt = PWMNibbles++;
+float Balance_GetMaxChargeAmps(const float maxCellVolt, const float maxDieTempC, const float prevLimitAmps){
 
-          for(j=0; j<NIBBLE2BYTES; j++){
+    if(isnan(maxCellVolt))
+        return 0.0f;    // can't see the cells, don't charge
 
-              const uint16_t cellVolt = allVolts[i*NIBBLE2BYTES + j];
+    // what the drain can take at full duty (hot slaves drain less)
+    const float drainAmps = MIN_VAL(MAX_CHARGE_AMPS,
+            CHARGE_LIMIT_DRAIN_MARGIN * TempDerate(maxDieTempC) * maxCellVolt / DRAIN_OHMS);
 
-              const uint8_t targetDrainNibble = CalcTargetPWMNibble(cellVolt);
+    const float limit = ChargeLimitAt(maxCellVolt, drainAmps);
 
-#if BALANCE_WHILE_CHARGING
-              const uint8_t Pre_PWMNibble = ((*PWMByte_prt) >> (j*4)) & 0xF;
-              const uint8_t balanceDrainNibble = CalcBalancePWMNibble(cellVolt - min, Pre_PWMNibble);
+    // hysteresis: the old limit holds until the volts are HYSTERESIS below where it was set
+    const float heldLimit = MAX_VAL(prevLimitAmps, ChargeLimitAt(maxCellVolt + CHARGE_LIMIT_HYSTERESIS_VOLTS, drainAmps));
 
-              const uint8_t Nibble = MAX_VAL(targetDrainNibble, balanceDrainNibble);
-#else
-              const uint8_t Nibble = targetDrainNibble;
-#endif
-
-//              MIN_VAL(Nibble, 0xF);
-              byte |= Nibble<<(j*4);
-          }
-          *PWMByte_prt = byte;
-      }
-
-//----------------------------------------------------------------------------------
-#if NUMBER_OF_CELLS_SERIES%2 == 1
-
-  uint8_t byte = 0;
-  uint8_t * const PWMByte_prt = PWMNibbles++;
-  j=0;
-
-  const uint16_t cellVolt = allVolts[i*NIBBLE2BYTES + j];
-
-  const uint8_t targetDrainNibble = CalcTargetPWMNibble(cellVolt);
-#if BALANCE_WHILE_CHARGING
-  const uint8_t Pre_PWMNibble = ((*PWMByte_prt)) & 0xF;
-  const uint8_t balanceDrainNibble = CalcBalancePWMNibble(cellVolt - min, Pre_PWMNibble);
-
-  const uint8_t Nibble = MAX_VAL(targetDrainNibble, balanceDrainNibble);
-#else
-  const uint8_t Nibble = targetDrainNibble;
-#endif
-
-//              MIN_VAL(Nibble, 0xF);
-  byte |= Nibble<<(j*4);
-
-  *PWMByte_prt = byte;
-
-#endif
-  }
+    return MIN_VAL(limit, heldLimit);
+}
