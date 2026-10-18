@@ -15,7 +15,8 @@
 #define CURRENT2SAVED_SCALE (500.0f)
 
 uint64_t GetLastMeasure_tick();
-void MeasureAndSaveCurrent();
+float MeasureCurrent();
+void MeasureAndSetCurrent();
 float GetCurrent_f();
 
 

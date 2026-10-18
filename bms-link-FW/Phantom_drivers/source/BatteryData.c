@@ -7,7 +7,7 @@
  *  See BatteryData.h for the full list of fixes/changes. Summary of what
  *  changed in THIS file specifically:
  *   - The single global `struct BatteryData_t BatteryData` is replaced by
- *     five smaller, file-static globals (CellData, FullBattery, EcapIMD,
+ *     five smaller, file-static globals (CellData, FullBattery, IMData,
  *     BatteryCurrent, BMS_State), each reachable only through the
  *     accessors declared in BatteryData.h - nothing outside this file can
  *     poke at them directly anymore, which also means the staleness
@@ -48,46 +48,50 @@
 //----------------------------------------------------------------------------------------------------
 // Private data (fix: replaces the single monolithic BatteryData global)
 //----------------------------------------------------------------------------------------------------
+#warning "CellData is not static - any file can write to it directly and bypass the setters (staleness tracking, future fault checks). Make it static once nothing else references it."
 CellData_t         CellData;
+#warning "FullBattery is not static - same problem as CellData."
 FullBatteryData_t  FullBattery;
-static ecapIMDData_t      EcapIMD;
-static int16_t            BatteryCurrent;
+#warning "CellData.CellTempData is never read or written (no accessor, nothing fills it from thermistors[]). It is sized per cell while thermistors[] is per sensor, so a thermistor->cell mapping is still needed."
+static IMDData_t      IMD_Data;
+static float              BatteryCurrent;
+/* Per-thermistor temperatures (history rows), kept outside CellData_t. */
+static float              thermistors[NUMBER_OF_TEMP_SAMPLES_SAVED][NUMBER_OF_THERMISTORS_TOTAL];
 static BMSState_t         BMS_State = BMS_INIT;
 
 static BMSFaults_t        s_BMSFaults = BMS_FAULT_NONE;
-static ContactorState_t   s_Contactors = { false, false };
+static ContactorState_t   s_Contactors = CONTACTORS_OPEN;
 
-/* Tick at which CellData.CellVolt was last refreshed via SetCellVolt(). Used
- * by BatteryData_IsCellDataStale() to catch a stalled slave-board link. */
+/* Tick at which CellData.CellVolt was last refreshed via Cell_SetVolt(). Used
+ * by Cell_IsDataStale() to catch a stalled slave-board link. */
 static uint64_t           s_CellDataUpdateTick = 0;
 
 //----------------------------------------------------------------------------------------------------
 // Init
 //----------------------------------------------------------------------------------------------------
-void initBatteryData(void){
+void BatteryData_Init(void){
     memset(&CellData, 0, sizeof(CellData));
     memset(&FullBattery, 0, sizeof(FullBattery));
-    memset(&EcapIMD, 0, sizeof(EcapIMD));
-    BatteryCurrent = 0;
+    memset(&IMD_Data, 0, sizeof(IMD_Data));
+    memset(thermistors, 0, sizeof(thermistors));
+    BatteryCurrent = 0.0f;
     s_BMSFaults = BMS_FAULT_NONE;
-    s_Contactors.MainContactorClosed = false;
-    s_Contactors.PrechargeContactorClosed = false;
+    s_Contactors = CONTACTORS_OPEN;
     s_CellDataUpdateTick = getNow_tick();
 
-    /* Fixed: used to jump straight to BMS_CHARGING on every boot regardless
-     * of whether a charger was even connected. BMS_INIT lets
-     * BMS_StateMachine() decide where to actually go from a self-test. */
-#warning Change to BMS_INIT
+    /* Should boot into BMS_INIT so BMS_UpdateStateMachine() can decide where to go
+     * after a self-test. Still BMS_CHARGING for now. */
+#warning "BatteryData_Init() boots into BMS_CHARGING instead of BMS_INIT - every power-on looks like charging, even with no charger connected."
     BMS_State = BMS_CHARGING;
 }
 
 //----------------------------------------------------------------------------------------------------
 // BMS state
 //----------------------------------------------------------------------------------------------------
-void setBMS_State(const BMSState_t State){
+void BMS_SetState(const BMSState_t State){
     BMS_State = State;
 }
-BMSState_t getBMS_State(void){
+BMSState_t BMS_GetState(void){
     return BMS_State;
 }
 bool BMS_IsCharging(void){
@@ -98,13 +102,6 @@ bool BMS_IsRunning(void){
 }
 bool BMS_IsFaulted(void){
     return BMS_State == BMS_FAULT;
-}
-
-/* Fix: was a wrapper around a second, independent "Charging" bool that could
- * drift out of sync with BMS_State. Now derived, so there's one source of
- * truth. */
-bool GetChargingStatus(void){
-    return BMS_IsCharging();
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -129,10 +126,10 @@ BMSFaults_t BMS_GetFaultFlags(void){
 //----------------------------------------------------------------------------------------------------
 // Contactor state
 //----------------------------------------------------------------------------------------------------
-void SetContactorState(const ContactorState_t state){
+void BMS_SetContactorState(const ContactorState_t state){
     s_Contactors = state;
 }
-ContactorState_t GetContactorState(void){
+ContactorState_t BMS_GetContactorState(void){
     return s_Contactors;
 }
 
@@ -146,9 +143,9 @@ ContactorState_t GetContactorState(void){
 // hasFault / VCUFault / a latched internal fault flag forces BMS_FAULT
 // immediately, same idea as Charger_UpdateStateMachine()'s fault check.
 //----------------------------------------------------------------------------------------------------
-#warning "BMS_StateMachine() is a TODO skeleton - review every case (and the fault-detection conditions) before relying on this on real hardware."
-void BMS_StateMachine(const bool shouldCharge, const bool clearFault, const bool RunBMS, const bool VCUFault, const bool hasFault){
-    const BMSState_t currentState = getBMS_State();
+#warning "BMS_UpdateStateMachine() is a TODO skeleton - review every case (and the fault-detection conditions) before relying on this on real hardware."
+void BMS_UpdateStateMachine(const bool shouldCharge, const bool clearFault, const bool RunBMS, const bool VCUFault, const bool hasFault){
+    const BMSState_t currentState = BMS_GetState();
     BMSState_t newState = currentState;
 
     /* TODO: consider whether every fault source here should be equally
@@ -156,7 +153,7 @@ void BMS_StateMachine(const bool shouldCharge, const bool clearFault, const bool
      * before latching BMS_FAULT, whereas an isolation fault probably
      * shouldn't. */
     if (hasFault || VCUFault || (BMS_GetFaultFlags() != BMS_FAULT_NONE)) {
-        setBMS_State(BMS_FAULT);
+        BMS_SetState(BMS_FAULT);
         return;
     }
 
@@ -179,9 +176,10 @@ void BMS_StateMachine(const bool shouldCharge, const bool clearFault, const bool
             break;
 
         case BMS_PRECHARGE:
+#warning "BMS_PRECHARGE has no exit transition - the state machine sits here forever once entered."
             /* TODO: close the precharge contactor, wait for bus voltage to
              * converge with pack voltage within tolerance, then close the
-             * main contactor (SetContactorState(...)) and move to
+             * main contactor (BMS_SetContactorState(...)) and move to
              * BMS_RUNNING. Needs its own timeout back to BMS_FAULT if the
              * bus never converges (likely BMS_FAULT_CONTACTOR). */
             break;
@@ -203,11 +201,13 @@ void BMS_StateMachine(const bool shouldCharge, const bool clearFault, const bool
             break;
 
         case BMS_DONE_CHARGING:
+#warning "BMS_DONE_CHARGING has no exit transition - the state machine sits here forever once entered."
             /* TODO: stay here while the charger is still connected; move to
              * BMS_IDLE once it's unplugged (however that's detected). */
             break;
 
         case BMS_LOW_VOLTAGE_CUTOFF:
+#warning "Nothing ever transitions INTO BMS_LOW_VOLTAGE_CUTOFF (no cutoff check in BMS_RUNNING), so this case is unreachable."
             /* TODO: only leave this state once actually back on a charger -
              * don't let RunBMS alone pull it out of cutoff. */
             if (shouldCharge) {
@@ -216,6 +216,7 @@ void BMS_StateMachine(const bool shouldCharge, const bool clearFault, const bool
             break;
 
         case BMS_SLEEPING:
+#warning "Nothing ever transitions INTO BMS_SLEEPING (no idle timeout in BMS_IDLE), so this case is unreachable."
             /* TODO: wake periodically on a timer even with nothing asking
              * for it, so a slowly-drifting fault still gets caught. */
             if (RunBMS || shouldCharge) {
@@ -239,119 +240,131 @@ void BMS_StateMachine(const bool shouldCharge, const bool clearFault, const bool
             break;
     }
 
-    setBMS_State(newState);
+    BMS_SetState(newState);
 }
 
 //----------------------------------------------------------------------------------------------------
 // Pack current (its own global - see BatteryData.h fix #4)
 //----------------------------------------------------------------------------------------------------
-void SetBatteryCurrentVal(const int16_t Current_Val){
+void Pack_SetCurrent(const float Current_Val){
     BatteryCurrent = Current_Val;
 }
-int16_t GetBatteryCurrentVal(void){
+float Pack_GetCurrent(void){
     return BatteryCurrent;
 }
 
 //----------------------------------------------------------------------------------------------------
-// IMD / ecap
+// IMD
 //----------------------------------------------------------------------------------------------------
-void SetEcapIMDData(const ecapIMDData_t ecapIMDData){
-    EcapIMD = ecapIMDData;
+void IMD_SetData(const IMDData_t IMDData){
+    IMD_Data = IMDData;
 }
-ecapIMDData_t GetEcapIMDData(void){
-    return EcapIMD;
+IMDData_t IMD_GetData(void){
+    return IMD_Data;
 }
 
 //----------------------------------------------------------------------------------------------------
 // Bulk row-buffer read pointers
 //----------------------------------------------------------------------------------------------------
-const uint16_t* GetCellVoltReadPrt(const uint8_t index){
+#warning "The index argument of the *ReadPtr functions is not bounds-checked - it must be < the matching NUMBER_OF_*_SAMPLES_SAVED."
+const float* Cell_GetVoltReadPtr(const uint8_t index){
     return CellData.CellVolt[index];
 }
-const uint16_t* GetCellTempReadPrt(const uint8_t index){
-    return CellData.CellTemp[index];
+const float* Thermistor_GetReadPtr(const uint8_t index){
+    return thermistors[index];
 }
-const uint16_t* GetCellResReadPrt(const uint8_t index){
+const float* Cell_GetResReadPtr(const uint8_t index){
     return CellData.CellRes[index];
 }
-const uint16_t* GetCellSOCReadPrt(const uint8_t index){
+const float* Cell_GetSOCReadPtr(const uint8_t index){
     return CellData.CellSOC[index];
 }
-const uint8_t* GetBalancePWM_NibblesReadPrt(void){
+const uint8_t* Cell_GetBalanceNibblesReadPtr(void){
     return CellData.BalancePWM_Nibbles;
 }
-const CellData_t* GetCellDataPrt(void){
+const uint16_t* Cell_GetBalanceDCCReadPtr(void){
+    return CellData.BalanceDCC;
+}
+const CellData_t* Cell_GetDataPtr(void){
     return &CellData;
 }
 
 //----------------------------------------------------------------------------------------------------
 // Bulk row-buffer write pointers
 //----------------------------------------------------------------------------------------------------
-uint16_t* GetCellVoltWritePrt(void){
-    return (uint16_t*)getRowBufWritePrt(CellData.CellVolt, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_VOLT_SAMPLES_SAVED);
+#warning "Cell_GetVoltWritePtr() does not refresh s_CellDataUpdateTick - data written through this pointer never counts as fresh for Cell_IsDataStale()."
+float* Cell_GetVoltWritePtr(void){
+    return (float*)getRowBufWritePrt(CellData.CellVolt, sizeof(float)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_VOLT_SAMPLES_SAVED);
 }
-uint16_t* GetCellTempWritePrt(void){
-    return (uint16_t*)getRowBufWritePrt(CellData.CellTemp, sizeof(uint16_t)*NUMBER_OF_THERMISTORS_TOTAL, NUMBER_OF_TEMP_SAMPLES_SAVED);
+float* Thermistor_GetWritePtr(void){
+    return (float*)getRowBufWritePrt(thermistors, sizeof(float)*NUMBER_OF_THERMISTORS_TOTAL, NUMBER_OF_TEMP_SAMPLES_SAVED);
 }
-uint8_t* GetBalancePWM_NibblesWritePrt(void){
+uint8_t* Cell_GetBalanceNibblesWritePtr(void){
     return CellData.BalancePWM_Nibbles;
 }
-uint16_t* GetCellResWritePrt(void){
-    return (uint16_t*)getRowBufWritePrt(CellData.CellRes, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_RES_SAMPLES_SAVED);
+uint16_t* Cell_GetBalanceDCCWritePtr(void){
+    return CellData.BalanceDCC;
 }
-uint16_t* GetCellSOCWritePrt(void){
-    return (uint16_t*)getRowBufWritePrt(CellData.CellSOC, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_SOC_SAMPLES_SAVED);
+float* Cell_GetResWritePtr(void){
+    return (float*)getRowBufWritePrt(CellData.CellRes, sizeof(float)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_RES_SAMPLES_SAVED);
+}
+float* Cell_GetSOCWritePtr(void){
+    return (float*)getRowBufWritePrt(CellData.CellSOC, sizeof(float)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_SOC_SAMPLES_SAVED);
 }
 
 //----------------------------------------------------------------------------------------------------
 // Set (prepend a fresh row)
 //----------------------------------------------------------------------------------------------------
-void SetCellVolt(const uint16_t* CellVolt){
-    prePendRowIntoBuf(CellData.CellVolt, CellVolt, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_VOLT_SAMPLES_SAVED);
+void Cell_SetVolt(const float* CellVolt){
+    prePendRowIntoBuf(CellData.CellVolt, CellVolt, sizeof(float)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_VOLT_SAMPLES_SAVED);
     s_CellDataUpdateTick = getNow_tick();
+#warning "Cell_SetVolt() does no over/under-voltage check - BMS_FAULT_CELL_OVERVOLTAGE / UNDERVOLTAGE are never set."
     /* TODO: check the new row against OV/UV thresholds and BMS_SetFault(...)
      * accordingly (BMS_FAULT_CELL_OVERVOLTAGE / BMS_FAULT_CELL_UNDERVOLTAGE). */
 }
-void SetCellTemp(const uint16_t* CellTemp){
-    prePendRowIntoBuf(CellData.CellTemp, CellTemp, sizeof(uint16_t)*NUMBER_OF_THERMISTORS_TOTAL, NUMBER_OF_TEMP_SAMPLES_SAVED);
+void Thermistor_Set(const float* temps){
+    prePendRowIntoBuf(thermistors, temps, sizeof(float)*NUMBER_OF_THERMISTORS_TOTAL, NUMBER_OF_TEMP_SAMPLES_SAVED);
+#warning "Thermistor_Set() does no over/under-temperature check - BMS_FAULT_OVERTEMP / UNDERTEMP are never set."
     /* TODO: check the new row against OT/UT thresholds and BMS_SetFault(...). */
 }
-void SetCellRes(const uint16_t *CellRes){
-    prePendRowIntoBuf(CellData.CellRes, CellRes, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_RES_SAMPLES_SAVED);
+void Cell_SetRes(const float *CellRes){
+    prePendRowIntoBuf(CellData.CellRes, CellRes, sizeof(float)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_RES_SAMPLES_SAVED);
 }
-void SetCellSOC(const uint16_t *CellSOC){
-    prePendRowIntoBuf(CellData.CellSOC, CellSOC, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_SOC_SAMPLES_SAVED);
+void Cell_SetSOC(const float *CellSOC){
+    prePendRowIntoBuf(CellData.CellSOC, CellSOC, sizeof(float)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_SOC_SAMPLES_SAVED);
 }
 
 //----------------------------------------------------------------------------------------------------
 // Get (peek the most recent row)
 //----------------------------------------------------------------------------------------------------
-void GetCellVolt(uint16_t* const CellVolt){
-    peekRowBuf(CellData.CellVolt, CellVolt, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES);
+void Cell_GetVolt(float* const CellVolt){
+    peekRowBuf(CellData.CellVolt, CellVolt, sizeof(float)*NUMBER_OF_CELLS_SERIES);
 }
-void GetCellTemp(uint16_t* const CellTemp){
+void Thermistor_Get(float* const temps){
     /* Fixed (see header fix #7): used to copy NUMBER_OF_CELLS_SERIES
      * elements here, silently dropping the last 2 of 8 thermistor readings. */
-    peekRowBuf(CellData.CellTemp, CellTemp, sizeof(uint16_t)*NUMBER_OF_THERMISTORS_TOTAL);
+    peekRowBuf(thermistors, temps, sizeof(float)*NUMBER_OF_THERMISTORS_TOTAL);
 }
-void GetCellRes(uint16_t* const CellRes){
-    peekRowBuf(CellData.CellRes, CellRes, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES);
+void Cell_GetRes(float* const CellRes){
+    peekRowBuf(CellData.CellRes, CellRes, sizeof(float)*NUMBER_OF_CELLS_SERIES);
 }
-void GetCellSOC(uint16_t* const CellSOC){
-    peekRowBuf(CellData.CellSOC, CellSOC, sizeof(uint16_t)*NUMBER_OF_CELLS_SERIES);
+void Cell_GetSOC(float* const CellSOC){
+    peekRowBuf(CellData.CellSOC, CellSOC, sizeof(float)*NUMBER_OF_CELLS_SERIES);
 }
 
 //----------------------------------------------------------------------------------------------------
-void SetBalancePWM_Nibbles(const uint8_t* BalancePWM_Nibbles){
+void Cell_SetBalanceNibbles(const uint8_t* BalancePWM_Nibbles){
     /* Fixed (see header fix #8): was NUMBER_OF_CELLS_SERIES/2, which can
      * disagree with the array's own (NUMBER_OF_CELLS_SERIES+1)/2 sizing for
      * an odd cell count. sizeof() can't drift out of sync with the array. */
     memcpy(CellData.BalancePWM_Nibbles, BalancePWM_Nibbles, sizeof(CellData.BalancePWM_Nibbles));
 }
-void GetBalancePWM_Nibbles(uint8_t* const BalancePWM_Nibbles){
+
+void Cell_GetBalanceNibbles(uint8_t* const BalancePWM_Nibbles){
     memcpy(BalancePWM_Nibbles, CellData.BalancePWM_Nibbles, sizeof(CellData.BalancePWM_Nibbles));
 }
-void BatteryData_SetCellBalancePWM(const uint8_t cellIndex, const uint8_t dutyNibble){
+#warning "Cell_SetBalancePWM()/Cell_GetBalancePWM() do not bounds-check cellIndex - an index >= NUMBER_OF_CELLS_SERIES reads/writes past BalancePWM_Nibbles[]."
+void Cell_SetBalancePWM(const uint8_t cellIndex, const uint8_t dutyNibble){
     const uint8_t byteIdx = cellIndex / 2;
     uint8_t b = CellData.BalancePWM_Nibbles[byteIdx];
     if ((cellIndex % 2u) == 0u) {
@@ -361,7 +374,7 @@ void BatteryData_SetCellBalancePWM(const uint8_t cellIndex, const uint8_t dutyNi
     }
     CellData.BalancePWM_Nibbles[byteIdx] = b;
 }
-uint8_t BatteryData_GetCellBalancePWM(const uint8_t cellIndex){
+uint8_t Cell_GetBalancePWM(const uint8_t cellIndex){
     const uint8_t byteIdx = cellIndex / 2;
     const uint8_t b = CellData.BalancePWM_Nibbles[byteIdx];
     return ((cellIndex % 2u) == 0u) ? (uint8_t)(b & 0x0Fu) : (uint8_t)((b >> 4) & 0x0Fu);
@@ -370,121 +383,96 @@ uint8_t BatteryData_GetCellBalancePWM(const uint8_t cellIndex){
 //----------------------------------------------------------------------------------------------------
 // Aggregate cell stats
 //----------------------------------------------------------------------------------------------------
-uint16_t GetAvgCellVolt_SlaveADC(void){
-    return array16_avg(GetCellVoltReadPrt(0), NUMBER_OF_CELLS_SERIES);
+size_t Cell_GetMaxVoltIndex(void){
+    size_t idx;
+    arr_f_max(Cell_GetVoltReadPtr(0), NUMBER_OF_CELLS_SERIES, NULL, idx);
+    return idx;
 }
-uint16_t GetMaxCellVolt_SlaveADC(void){
-    return array16_max(GetCellVoltReadPrt(0), NUMBER_OF_CELLS_SERIES);
+size_t Cell_GetMinVoltIndex(void){
+    size_t idx;
+    arr_f_min(Cell_GetVoltReadPtr(0), NUMBER_OF_CELLS_SERIES, NULL, idx);
+    return idx;
 }
-uint16_t GetMinCellVolt_SlaveADC(void){
-    return array16_min(GetCellVoltReadPrt(0), NUMBER_OF_CELLS_SERIES);
+float Cell_GetAvgVolt(void){
+    const float val = arr_f_avg(Cell_GetVoltReadPtr(0), NUMBER_OF_CELLS_SERIES);
+    return val;
 }
-uint8_t GetMaxCellVolt_Index(void){
-    const uint16_t* cells = GetCellVoltReadPrt(0);
-    uint8_t maxIdx = 0;
-    uint8_t i;
-    for (i = 1; i < NUMBER_OF_CELLS_SERIES; i++) {
-        if (cells[i] > cells[maxIdx]) maxIdx = i;
-    }
-    return maxIdx;
+float Cell_GetMaxVolt(void){
+    float val;
+    arr_f_max(Cell_GetVoltReadPtr(0), NUMBER_OF_CELLS_SERIES, &val, NULL);
+    return val;
 }
-uint8_t GetMinCellVolt_Index(void){
-    const uint16_t* cells = GetCellVoltReadPrt(0);
-    uint8_t minIdx = 0;
-    uint8_t i;
-    for (i = 1; i < NUMBER_OF_CELLS_SERIES; i++) {
-        if (cells[i] < cells[minIdx]) minIdx = i;
-    }
-    return minIdx;
-}
-float GetAvgCellVolt_float(void){
-    return SLAVE_ADC2VOLTS(GetAvgCellVolt_SlaveADC());
-}
-float GetMaxCellVolt_float(void){
-    return SLAVE_ADC2VOLTS(GetMaxCellVolt_SlaveADC());
-}
-float GetMinCellVolt_float(void){
-    return SLAVE_ADC2VOLTS(GetMinCellVolt_SlaveADC());
+float Cell_GetMinVolt(void){
+    float val;
+    arr_f_min(Cell_GetVoltReadPtr(0), NUMBER_OF_CELLS_SERIES, &val, NULL);
+    return val;
 }
 //----------------------------------------------------------------------------------------------------
-uint16_t GetAvgCellTemp_SlaveADC(void){
-    return array16_avg(GetCellTempReadPrt(0), NUMBER_OF_THERMISTORS_TOTAL);
+size_t Thermistor_GetMaxTempIndex(void){
+    size_t idx;
+    arr_f_max(Thermistor_GetReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL, NULL, idx);
+    return idx;
 }
-uint16_t GetMaxCellTemp_SlaveADC(void){
-    return array16_max(GetCellTempReadPrt(0), NUMBER_OF_THERMISTORS_TOTAL);
+size_t Thermistor_GetMinTempIndex(void){
+    size_t idx;
+    arr_f_min(Thermistor_GetReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL, NULL, idx);
+    return idx;
 }
-uint16_t GetMinCellTemp_SlaveADC(void){
-    return array16_min(GetCellTempReadPrt(0), NUMBER_OF_THERMISTORS_TOTAL);
+float Thermistor_GetAvgTemp(void){
+    return arr_f_avg(Thermistor_GetReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL);
 }
-uint8_t GetMaxCellTemp_Index(void){
-    const uint16_t* temps = GetCellTempReadPrt(0);
-    uint8_t maxIdx = 0;
-    uint8_t i;
-    for (i = 1; i < NUMBER_OF_THERMISTORS_TOTAL; i++) {
-        if (temps[i] > temps[maxIdx]) maxIdx = i;
-    }
-    return maxIdx;
+float Thermistor_GetMaxTemp(void){
+    float val;
+    arr_f_max(Thermistor_GetReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL, &val, NULL);
+    return val;
 }
-uint8_t GetMinCellTemp_Index(void){
-    const uint16_t* temps = GetCellTempReadPrt(0);
-    uint8_t minIdx = 0;
-    uint8_t i;
-    for (i = 1; i < NUMBER_OF_THERMISTORS_TOTAL; i++) {
-        if (temps[i] < temps[minIdx]) minIdx = i;
-    }
-    return minIdx;
-}
-#warning "GetAvg/Max/MinCellTemp_float() are still stubs (return 0) - need a real thermistor ADC->Celsius curve; the old Slave_ADC2Celcius this might have used was removed as dead/unimplemented code (see BatteryData.h fix #5)."
-float GetAvgCellTemp_float(void){
-    return 0.0f;
-}
-float GetMaxCellTemp_float(void){
-    return 0.0f;
-}
-float GetMinCellTemp_float(void){
-    return 0.0f;
+float Thermistor_GetMinTemp(void){
+    float val;
+    arr_f_min(Thermistor_GetReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL, &val, NULL);
+    return val;
 }
 
-void BatteryData_UpdatePackSOCFromCells(void){
-    FullBattery.SOC = array16_avg(GetCellSOCReadPrt(0), NUMBER_OF_CELLS_SERIES);
+void Pack_UpdateSOCFromCells(void){
+    float val;
+    arr_f_avg(Cell_GetSOCReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL);
 }
 
-uint64_t BatteryData_GetCellDataAgeTicks(void){
+uint64_t Cell_GetDataAgeTicks(void){
     return getNow_tick() - s_CellDataUpdateTick;
 }
-bool BatteryData_IsCellDataStale(const uint64_t maxAgeTicks){
-    return BatteryData_GetCellDataAgeTicks() > maxAgeTicks;
+bool Cell_IsDataStale(const uint64_t maxAgeTicks){
+    return Cell_GetDataAgeTicks() > maxAgeTicks;
 }
 
 //----------------------------------------------------------------------------------------------------
 // Pack-level (full battery) data
 //----------------------------------------------------------------------------------------------------
-const FullBatteryData_t* getFullBatteryData(void){
+const FullBatteryData_t* Pack_GetData(void){
     return &FullBattery;
 }
-uint16_t getFullBatteryData_Volts(void){
+float Pack_GetVolt(void){
     return FullBattery.Volt;
 }
-uint16_t getFullBatteryData_SOC(void){
+float Pack_GetSOC(void){
     return FullBattery.SOC;
 }
-uint16_t getFullBatteryData_Res(void){
+float Pack_GetRes(void){
     return FullBattery.Res;
 }
-void setFullBatteryData_Volts(const uint16_t Volt){
+void Pack_SetVolt(const float Volt){
     FullBattery.Volt = Volt;
 }
-void setFullBatteryData_SOC(const uint16_t SOC){
+void Pack_SetSOC(const float SOC){
     FullBattery.SOC = SOC;
 }
-void setFullBatteryData_Res(const uint16_t Res){
+void Pack_SetRes(const float Res){
     FullBattery.Res = Res;
 }
-void setFullBatteryData(const FullBatteryData_t * FullBatteryDataIn){
+void Pack_SetData(const FullBatteryData_t * FullBatteryDataIn){
     memcpy(&FullBattery, FullBatteryDataIn, sizeof(FullBatteryData_t));
 }
-void setFullBatteryData_split(const uint16_t Volt, const uint16_t SOC, const uint16_t Res){
-    setFullBatteryData_Volts(Volt);
-    setFullBatteryData_SOC(SOC);
-    setFullBatteryData_Res(Res);
+void Pack_SetAll(const float Volt, const float SOC, const float Res){
+    Pack_SetVolt(Volt);
+    Pack_SetSOC(SOC);
+    Pack_SetRes(Res);
 }

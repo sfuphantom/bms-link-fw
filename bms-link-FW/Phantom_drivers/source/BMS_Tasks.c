@@ -42,7 +42,7 @@ void enableAllInterrupts(){
 //----------------------------------------------------------------------------------------------------
 void restart_BMS_system(){
     init_fans();
-    ClearAllFaults();
+    Fault_ClearAll();
     initLink();
 
 }
@@ -64,8 +64,8 @@ void init_BMS_system(){
     initPhantomTimers();
     rtiStartCounter(rtiCOUNTER_BLOCK0);
 
-    init_BMS_Faults();
-    initBatteryData();
+    Fault_Init();
+    BatteryData_Init();
     Charger_Init();
 
     restart_BMS_system();
@@ -119,7 +119,8 @@ void TaskSuperLoop(Task_t AllTasks[], uint8_t NumOfTasks){
 
 //        now = getNow_tick();
 //        if(hasTimeElapsed(currentTask.LastDone, currentTask.Period)){
-        if(!hasPeriodExpired_rti(currentTask.Period, &currentTask.LastDone)){
+        Periodic_t TaskTiming = {currentTask.Period, currentTask.LastDone};
+        if(!periodic_due(&TaskTiming)){
 //        if(now - currentTask.LastDone < currentTask.Period){
             continue;
         }
@@ -131,13 +132,14 @@ void TaskSuperLoop(Task_t AllTasks[], uint8_t NumOfTasks){
 //----------------------------------------------------------------------------------------------------
 Task_t BMSTask[] =   {
                          {CellVoltageControlRoutine     ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK, 0, is_SPI_free},
+                         {SetCellBalancersRoutine       ,CELL_BALANCER_CONTROL_TASK_PERIOD_TICK, 0, is_SPI_free},
 //                                     {MonitorCellTempRoutine    ,CELL_VOLTAGE_CONTROL_TASK_PERIOD_US, 0, is_SPI_free},
                          {SlaveFlagsRoutine             ,SLAVE_FLAG_CHECK_TASK_PERIOD_TICK, 0, is_SPI_free},
 //                                     {MeasureCellResistanceRoutine  ,CELL_RESISTANCE_MONITOR_TASK_PERIOD_TICK, 0, is_SPI_free},
 //                                     {MonitorFullBatteryDataRoutine ,FULL_BATTERY_MONITOR_TASK_PERIOD_TICK, 0, is_SPI_free},
-                         {keepSlavesAwakeRoutine        ,KEEP_SLAVES_AWAKE_TASK_PERIOD_TICK, 0, is_SPI_free},
+//                         {keepSlavesAwakeRoutine        ,KEEP_SLAVES_AWAKE_TASK_PERIOD_TICK, 0, is_SPI_free},
                          {SendChargerControlsRoutine    ,SEND_CHARGER_CONTROL_TASK_PERIOD_TICK, 0, returnTrue},
-                         {SendDataRoutine_Serial        ,SEND_DATA_SERIAL_TASK_PERIOD_TICK,     0, returnTrue},
+//                         {SendDataRoutine_Serial        ,SEND_DATA_SERIAL_TASK_PERIOD_TICK,     0, returnTrue},
                         };
 
 const uint8_t NUMBER_OF_TASKS = sizeof(BMSTask)/sizeof(Task_t);

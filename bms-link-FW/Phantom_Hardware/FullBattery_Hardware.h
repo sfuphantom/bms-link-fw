@@ -50,6 +50,7 @@
 #define NUMBER_OF_FANS_TOTAL           (NUMBER_OF_FANS_PER_MODULE * NUMBER_OF_MODULES_SERIES)
 #define NUMBER_OF_SLAVE_BOARDS_TOTAL   (NUMBER_OF_SLAVE_BOARDS_PER_MODULE * NUMBER_OF_MODULES_SERIES)
 
+#define NUMBER_OF_CELLS_SERIES_PAIRS ((NUMBER_OF_CELLS_SERIES+1)/2)
 //////////////////////////////////////////////////////////////
 // VOLTAGE (series stacking of modules: voltages ADD)
 //////////////////////////////////////////////////////////////

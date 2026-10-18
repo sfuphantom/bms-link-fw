@@ -225,10 +225,10 @@ void init_PEC15_Table(){
              data_Rx[j] = ReadOneReg[j];
 #endif
 
-         swap_word_bytes_arr(ReadOneReg, ReadOneReg_Swap, WORDS_PER_REG_GROUP);
+         swapBytes16_arr(ReadOneReg, ReadOneReg_Swap, WORDS_PER_REG_GROUP);
 
          Rx_Pec_Calc = pec15_calc(WORDS_PER_REG_GROUP, ReadOneReg_Swap);
-         Rx_Pec_Calc = swap_word_bytes(Rx_Pec_Calc);
+         Rx_Pec_Calc = swapBytes16(Rx_Pec_Calc);
          Pec_Equal &= (Rx_Pec_Mesg == Rx_Pec_Calc);
          if(!Pec_Equal){
              break;
@@ -273,7 +273,7 @@ void init_PEC15_Table(){
          WriteRegGroup(W_cmd, W_data);
          ReadRegGroup(R_cmd, R_data);
 
-         RW_EQ = array16_eq_all(W_data, R_data, NUMBER_OF_REG_WORDS_PER_CMD);
+         RW_EQ = arr_u16_equal(W_data, R_data, NUMBER_OF_REG_WORDS_PER_CMD);
 
          if(RW_EQ){return true;}
      }
@@ -368,7 +368,7 @@ void init_PEC15_Table(){
          SendCMD2Slave_alone(cmd_clear);
          PecEQ = ReadRegGroup(cmd_check, Reg);
 
-         if(array16_eq_every(Reg, 0xFFFF, NUMBER_OF_REG_WORDS_PER_CMD) && PecEQ){
+         if(arr_u16_all(Reg, SPI_DUMMY_DATA_WORD, isEqual, NUMBER_OF_REG_WORDS_PER_CMD) && PecEQ){
              cleared = TRUE;
              break;
          }
@@ -379,14 +379,14 @@ void init_PEC15_Table(){
  }
  //---------------------------------------------------------------------------------------------------------
  void WriteBytes2RegGroup(const uint16_t cmd, const uint8_t* Bytes){
-     bytes2words_arr(Bytes , SubDataWords  , NUMBER_OF_REG_WORDS_PER_CMD, BigEndian);
+     bytes_to_u16_BE(Bytes , SubDataWords  , NUMBER_OF_REG_WORDS_PER_CMD);
 
      WriteRegGroup(cmd, SubDataWords);
  }
  bool ReadBytesFromRegGroup(const uint16_t cmd, uint8_t* Bytes){
      uint16_t PecEq = ReadRegGroup(cmd, SubDataWords);
 
-     words2bytes_arr(SubDataWords, Bytes, NUMBER_OF_REG_WORDS_PER_CMD, BigEndian);
+     u16_to_bytes_BE(SubDataWords, Bytes, NUMBER_OF_REG_WORDS_PER_CMD);
      return PecEq;
  }
 
@@ -400,7 +400,7 @@ void init_PEC15_Table(){
          WriteBytes2RegGroup(W_cmd, W_data);
          ReadBytesFromRegGroup(R_cmd, R_data);
 
-         RW_EQ = array8_eq_all(W_data, R_data, NUMBER_OF_REG_BYTES_PER_CMD);
+         RW_EQ = arr_u8_equal(W_data, R_data, NUMBER_OF_REG_BYTES_PER_CMD);
 
          if(RW_EQ){return true;}
      }

@@ -67,7 +67,8 @@
 #define VOLTS2SLAVE_ADC(V)                  ((uint16_t)(V/ADC2VOLTS))
 #define Temp2SLAVE_ADC(T)                   (VOLTS2SLAVE_ADC((T+ITMP_KELVIN_2_CELCIUS) * ITMP_MILLI_VOLTS_2_CELCIUS / 1000))
 //////////////////////////////////////////////////////////////////
-#define RES_ON_OHMS                     33
+#define RES_DRAIN_OHMS                  33.0f
+#define RES_ON_OHMS                     40.0f
 
 #define DCC_MAX_CURRENT_mA              100
 #define DCC_MAX_CURRENT_A               (1000*DCC_MAX_CURRENT_mA)

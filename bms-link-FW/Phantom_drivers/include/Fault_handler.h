@@ -1,131 +1,90 @@
 /*
  * Fault_handler.h
  *
- *  Created on: Jun 23, 2026
- *      Author: tanjo
+ * Fault_Handler() does NOT check for faults, only call it after a fault was recorded.
+ * Use the Fault_Raise*() functions, they record the fault, call Fault_Handler() and then
+ * run the routine that belongs to that specific fault.
  */
+#ifndef PHANTOM_DRIVERS_INCLUDE_FAULT_HANDLER_H_
+#define PHANTOM_DRIVERS_INCLUDE_FAULT_HANDLER_H_
 
-#ifndef PHANTOM_DRIVERS_INCLUDE_Fault_HANDLER_H_
-#define PHANTOM_DRIVERS_INCLUDE_Fault_HANDLER_H_
-
-//#include "gio.h"
-//#include "reg_gio.h"
+#include <stdint.h>
+#include <stdbool.h>
 
 //--------------------------------------------------------------------------
-//#define GIO_PORT_A gioPORTA
-//#define GIO_PORT_B gioPORTB
-
-//#define GIO_MAX_PERIOD_US 3
-//--------------------------------------------------------------------------
-//enum Gio_Bits {
-//                GIO_DEGUBING_BIT1        = 2,
-//
-//                GIO_IMD_FAULT_BIT        = 6,
-//                GIO_BMS_FAULT_BIT        = 7,
-//
-//                GIO_START_CHARGING_BIT   = 5,
-//
-////                GIO_DEGUBING_BIT1        = 25,
-////
-////                GIO_IMD_FAULT_BIT        = 2,
-////                GIO_BMS_FAULT_BIT        = 5,
-////
-////                GIO_START_CHARGING_BIT   = 7,
-//};
-//#define (sizeof(Gio_Bits)/sizeof(Gio_Bits[1]))
-//typedef enum{GIO_LOW, GIO_HIGH, GIO_FALLING_EGDE, GIO_RISING_EGDE} Gio_State_t;
-//--------------------------------------------------------------------------
-
-// ENUMS FOR IMD MESSAGE MAPPING
-// IMD State Enum
-// message names are taken from IMD Datasheet
-typedef enum{
+// IMD message names are taken from the IMD datasheet
+typedef enum {
     Normal_Condition,
     Short_Circuit,
     Undervoltage_Condition,
-    Speed_Start_Measurement_Good, // related to start-up
-    Speed_Start_Measurement_Bad, // related to start-up
+    Speed_Start_Measurement_Good,
+    Speed_Start_Measurement_Bad,
     Device_Error,
     Connection_Fault_Earth,
     Bad_Info,
     Undefined_Fault
-}IMDStateEnum;
+} IMDStateEnum;
 
-//// Isolation State Enum
-//typedef enum{
-//    Normal, // When Duty Cycle 5-10%
-//    Normal_75, // Usually when Duty Cycle 10-30%
-//    Normal_50, // Usually when Duty Cycle 30-60%
-//    Normal_25, // Usually when Duty Cycle 60-90%
-//    Isolation_Failure, //When Duty Cycle is 90-95%
-//    Unknown // Duty Cycle is outside of range (5-95%)
-//}IsolationStateEnum;
-// IMDData Struct which contains the status of the IMD and Isolation
-typedef struct{
-    IMDStateEnum IMDState;
-//    IsolationStateEnum IsolationState;
-    uint8_t IsolationState;
-}IMDData_t;
-
+#define ISOLATION_UNKNOWN   0xFFu
 
 //--------------------------------------------------------------------------
-#define SLAVE_NO_FAULT_VAL      0
-//#define ISOLATION_NO_FAULT_VAL  Normal
-#define ISOLATION_MIN_NO_FAULT_VAL  75
-#define ISOLATION_MAX_NO_FAULT_VAL  100
+// Each value is a bit number in the matching fault word. Add new faults before the COUNT.
+typedef enum {
+    BAD_TEMP_flags, BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL,
+    BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND,
+    NUM_SLAVE_FAULTS
+} Slave_Faults;
 
-#define IMD_NO_FAULT_VAL        Normal_Condition
-#define BMS_NO_FALUT_VAL        0
-#define CHARGER_NO_FALUT_VAL    0
-//--------------------------------------------------------------------------
-typedef struct{
-        IMDData_t IMD_Faults;
-        uint16_t Slave_Faults;
-        uint8_t  BMS_Faults;
-//        uint8_t  Charger_Faults;
-}BMSFaultsData_t;
-//--------------------------------------------------------------------------
-//Gio_State_t gioGetBitHelper(const uint8_t bit);
-//Gio_State_t gioSetBitHelper(const uint8_t bit, const Gio_State_t NewState);
-//Gio_State_t gioToggleBitHelper(const uint8_t bit);
-//--------------------------------------------------------------------------
-typedef enum {BAD_TEMP_flags, BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL, BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND}Slave_Faults;
-typedef enum {DEBUG_FLAG, BAD_HV_VOLT_FLAG, CHARGER_COMMS_FAULT, BAD_SLAVE_CONNECTION_FLAG}BMS_Faults;
-//----------------------------------------------------------------------------------------------------
- void SetAllSlaveFaults(const uint16_t NewSlaveFaults);
- void AddSlaveFaults(const uint16_t NewSlaveFaults);
- void ClearAllSlaveFaults();
- uint16_t GetAllSlaveFaults();
- bool AnySlaveFaults();
- void SetSlaveFault(const uint8_t Val, const uint8_t bitSize, const Slave_Faults Fault);
- void SetSlaveFault_bool(const bool Val, const Slave_Faults Fault);
- void SetSlaveFault_bool_HIGH(const Slave_Faults Fault);
- bool GetSlaveFault_bool(const Slave_Faults Fault);
+typedef enum {
+    DEBUG_FLAG, BAD_HV_VOLT_FLAG, CHARGER_COMMS_FAULT, BAD_SLAVE_CONNECTION_FLAG,
+    CELL_OVERVOLT_FLAG, CELL_UNDERVOLT_FLAG, OVERTEMP_FLAG, UNDERTEMP_FLAG,
+    IMD_FAULT_FLAG, CONTACTOR_FAULT_FLAG, EXTERNAL_FAULT_FLAG,
+    NUM_BMS_FAULTS
+} BMS_Faults;
 
- //----------------------------------------------------------------------------------------------------
- void SetBMSFault(const uint8_t Val, const uint8_t bitSize, const BMS_Faults Fault);
- void AddBMSFaults(const uint16_t NewBMSFaults);
-  void SetBMSFault_bool(const bool Val, const BMS_Faults Fault);
-  void SetBMSFault_bool_HIGH(const BMS_Faults Fault);
- //----------------------------------------------------------------------------------------------------
- void SetIMDFaults(const IMDData_t * const IMDdata);
- void ClearIMDFaults();
- bool AnyIMDFaults();
 //--------------------------------------------------------------------------
-//bool clearIMDFaults();
-bool clearSlaveFaults();
-bool clearOtherBMSFaults();
-//bool clear_AllFault();
-void init_BMS_Faults();
-void ClearAllFaults();
-//--------------------------------------------------------------------------
-bool AnyFaults();
-//--------------------------------------------------------------------------
-void Fault_Handler();
-//--------------------------------------------------------------------------
-BMSFaultsData_t* GetBMSFaultsData();
-//--------------------------------------------------------------------------
-BMSFaultsData_t BMSFaultsData;
+// Everything about the faults, 8 bytes max (checked at compile time in the .c)
+// FirstFault: FIRST_FAULT_NONE, a BMS_Faults value, or FIRST_FAULT_SLAVE_BIT | a Slave_Faults value
+// TripCount:  how many faults were newly set since the last clear (stops at 255)
+#define FIRST_FAULT_NONE        0xFFu
+#define FIRST_FAULT_SLAVE_BIT   0x80u
 
+typedef struct {
+    uint16_t Slave_Faults;
+    uint16_t BMS_Faults;
+    uint8_t  IMDState;          // IMDStateEnum when the IMD fault was raised
+    uint8_t  IsolationState;    // isolation percent when the IMD fault was raised
+    uint8_t  FirstFault;
+    uint8_t  TripCount;
+} BMSFaultsData_t;
 
-#endif /* PHANTOM_DRIVERS_INCLUDE_Fault_HANDLER_H_ */
+//--------------------------------------------------------------------------
+void Fault_Init(void);          // call after CAN and the charger are initialized
+void Fault_Handler(void);       // fault line low, charger off, send over CAN. No checking!
+
+void Fault_RaiseBMS(const BMS_Faults fault);
+void Fault_RaiseSlave(const Slave_Faults fault);
+void Fault_RaiseSlaveMask(const uint16_t mask);     // a mask of 0 does nothing
+void Fault_RaiseIMD(const IMDStateEnum state, const uint8_t isolation);
+
+void Fault_ClearBMS(const BMS_Faults fault);
+void Fault_ClearSlave(const uint16_t mask);
+void Fault_ClearAll(void);      // fault line only goes high again when nothing is left set
+
+bool Fault_Any(void);
+bool Fault_AnyBMS(void);
+bool Fault_AnySlave(void);
+bool Fault_IsBMSSet(const BMS_Faults fault);
+bool Fault_IsSlaveSet(const Slave_Faults fault);
+uint16_t Fault_GetBMSFlags(void);
+uint16_t Fault_GetSlaveFlags(void);
+BMSFaultsData_t Fault_Get(void);        // copy, safe to read while interrupts raise faults
+
+bool Fault_SendCAN(void);
+bool Fault_ReceiveCAN(BMSFaultsData_t* const data);
+
+// GIO interrupt callbacks
+void Debug_GIO_Notification(void);
+void IMD_FAULT_GIO_Notification(void);
+
+#endif /* PHANTOM_DRIVERS_INCLUDE_FAULT_HANDLER_H_ */

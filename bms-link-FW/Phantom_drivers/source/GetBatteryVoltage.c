@@ -15,9 +15,11 @@
 #include "SlaveCommunation_Functions.h"
 
 #endif
+
 #include "GetBatteryVoltage.h"
 #include "FullBattery_Hardware.h"
 #include "BatteryData.h"
+#include "PhantomHelpers.h"
 
 //  bool transmit_BMS2VCU_Data(HV_Volts, IMD_Data);
 
@@ -32,14 +34,6 @@
  * So on a 16-clock transfer, the shift register (MSB-first) layout is:
  *   [15:14] = 00, [13:2] = 12-bit code, [1:0] = 00
  * ------------------------------------------------------------------------ */
-uint16_t BateryVolts2Saved(const float BatVolt){
-    const float BatVolt_scaled = BatVolt * VOLT2SAVED_SCALE;
-    return (uint16_t)BatVolt_scaled;
-}
-float Saved2BateryVolts(const uint16_t Saved){
-    const float BatVolt= ((float)Saved) / VOLT2SAVED_SCALE;
-    return BatVolt;
-}
 ///////////////////////////////////////////////////////////////////////////
 #if USE_HV_BOARD
 uint16_t Get_HV_Data_Raw(){
@@ -61,10 +55,11 @@ float HV_ADC2VOLTS(const uint16_t HV_ADC){
 }
 #endif
 
-bool MeasureAndSaveBatteryVoltage(){
+float MeasureBatteryVoltage(){
     int i;
 
 #if USE_HV_BOARD
+#warning there might be a hardware problem, check if it is fix and remove this warning
     const uint16_t HV_DataRaw = Get_HV_Data_Raw();
     const float BatVolt = HV_ADC2VOLTS(HV_DataRaw);
 #else
@@ -76,10 +71,25 @@ bool MeasureAndSaveBatteryVoltage(){
     }
 
 #endif
-    const uint16_t BatVolt_SaveVal = BateryVolts2Saved(BatVolt);
-    setFullBatteryData_Volts(BatVolt_SaveVal);
+    return BatVolt;
+}
+bool MeasureAndSetVoltage(){
+    int i;
 
-#warning this doesn't use HV board, change that
+#if USE_HV_BOARD
+#warning there might be a hardware problem, check if it is fix and remove this warning
+    const uint16_t HV_DataRaw = Get_HV_Data_Raw();
+    const float BatVolt = HV_ADC2VOLTS(HV_DataRaw);
+#else
+
+    float boardSC[NUMBER_OF_SLAVE_BOARDS_TOTAL];
+    getStatus_SC(boardSC);
+
+    const float BatVolt = arr_f_sum(boardSC, NUMBER_OF_SLAVE_BOARDS_TOTAL);
+#endif
+    Pack_SetVolt(BatVolt);
+
+#warning this should use HV board, change that, currently hardware problem
 #if USE_HV_BOARD
     return HV_DataRaw != SPI_DUMMY_DATA_WORD;
 #else
@@ -87,8 +97,7 @@ bool MeasureAndSaveBatteryVoltage(){
 #endif
 
 }
-float GetBatteryVoltage_float(){
-    const uint16_t BatVolt_SaveVal = getFullBatteryData_Volts();
-    const float BatVolt = Saved2BateryVolts(BatVolt_SaveVal);
+float GetBatteryVoltage(){
+    const float BatVolt = Pack_GetVolt();
     return BatVolt;
 }

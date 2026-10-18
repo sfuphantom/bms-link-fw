@@ -57,17 +57,18 @@ void main(void)
 
     volatile int i;
 
-    volatile const uint64_t debug_period_tick = MIN_SEC_MS_US_TICK_2_TICK(0,1,0,0,0);
-    volatile uint64_t last_debug_tick = 0;
+//    const uint64_t debug_period_tick = ticks_make(0,1,0,0,0);
+//    uint64_t last_debug_tick = 0;
+    Periodic_t debug_tick = { ticks_make(2,0,0,0,0), 0};
+    volatile float avgCellVolt;
 
     while(1){
         restart_BMS_system();
 
-        while(! AnyFaults()){
+        while(!Fault_Any()){
             Do_BMS_Tasks();
-            if(hasPeriodExpired_rti(debug_period_tick, &last_debug_tick)){
-                int a=0;
-                a++;
+            if(periodic_due(&debug_tick)){
+                avgCellVolt = Cell_GetAvgVolt();
             }
         }
 

@@ -31,7 +31,7 @@ enum Gio_Bits {
 //                GIO_START_CHARGING_BIT   = 7,
 };
 //--------------------------------------------------------------------------
-typedef enum{GIO_LOW, GIO_HIGH, GIO_FALLING_EGDE, GIO_RISING_EGDE} Gio_State_t;
+//typedef enum{GIO_LOW, GIO_HIGH, GIO_FALLING_EGDE, GIO_RISING_EGDE} Gio_State_t;
 //--------------------------------------------------------------------------
 bool gioGetBitHelper(const uint8_t bit);
 void gioSetBitHelper(const uint8_t bit, const bool NewState);

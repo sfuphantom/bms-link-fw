@@ -9,6 +9,7 @@
 #define PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_FUNCTIONS_H_
 #include <stdint.h>
 #include <stdbool.h>
+#include "string.h"
 #include "ltc6811_commands.h"
 #include "SlaveCommunation_Hardware.h"
 #include "FullBattery_Hardware.h"
@@ -19,8 +20,23 @@
 
 //------------------------------------------------------------------------
 #define DUMMY_CMD LTC6811_PLADC
-////////////////////////////////////////////////////////////////////
+//------------------------------------------------------------------------
+//Fault Flag Data
+#define MAX_INTERNAL_DIE_TEMPERATURE_FLAG  Temp2SLAVE_ADC(120.0f)
+#define MIN_INTERNAL_DIE_TEMPERATURE_FLAG  Temp2SLAVE_ADC(-40.0f)
 
+#define MAX_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG  VOLTS2SLAVE_ADC(5.5f)//55000
+#define MIN_ANALOG_POWER_SUPPLY_VOLTAGE_FLAG  VOLTS2SLAVE_ADC(4.5f)//45000
+#define MAX_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG VOLTS2SLAVE_ADC(3.6f)//36000
+#define MIN_DIGITAL_POWER_SUPPLY_VOLTAGE_FLAG VOLTS2SLAVE_ADC(2.7f)//27000
+#define MAX_2ND_REFERENCE_VOLTAGE_FLAG        VOLTS2SLAVE_ADC(3.01f)//30100
+#define MIN_2ND_REFERENCE_VOLTAGE_FLAG        VOLTS2SLAVE_ADC(2.99f)//29900
+//------------------------------------------------------------------------
+// config Data
+#define OVER_VOLTAGE_FLAG       VOLTS2SLAVE_ADC(CELL_VOLT_100_FULL_F)
+#define UNDER_VOLTAGE_FLAG      VOLTS2SLAVE_ADC(CELL_VOLT_0_FULL_F)
+#define OVER_VOLTAGE_CONFIG     (OVER_VOLTAGE_FLAG>>4)
+#define UNDER_VOLTAGE_CONFIG    ((UNDER_VOLTAGE_FLAG>>4)-1)
  //---------------------------------------------------------------------------------------------------------
 typedef struct {
     bool     adcopt; // ADC Mode Option Bit
@@ -128,16 +144,24 @@ void SetAllConfig_DCC(const uint16_t DCC);
 void SetAllHigh_DCC(const uint16_t DCC);
 void SetConfig_gpio(const uint8_t* gpio);
 //---------------------------------------------------------------------------------------------------------
+void getStatus_SC(float * SC);
+void getStatus_BoardTempC(float * BoardTempC);
+void getStatus_RefVolt2nd(float * RefVolt2nd);
+//---------------------------------------------------------------------------------------------------------
 void initConfig();
+void wakeup_sleep_and_SetConfig();
 //---------------------------------------------------------------------------------------------------------
 void SendDummyCMD();
 void waitDummyCMD(const uint32_t WaitPeriod_ms, const uint32_t WaitPeriod_us, uint16_t WaitSends);
 //---------------------------------------------------------------------------------------------------------
 void initLink();
 //---------------------------------------------------------------------------------------------------------
-bool MeasureCellVoltage(uint16_t* CellVolt);
+bool MeasureCellVoltage_16(uint16_t* CellVolt);
+ bool MeasureAUXVoltage16(uint16_t* GPIO_Data);
+
+bool MeasureCellVoltage(float* CellVolt, const size_t NumberOfRealValues);
 bool MeasureRef2ndVoltage();
- bool MeasureAUXVoltage(uint16_t* GPIO_DataOut);
+ bool MeasureAUXVoltage(float* GPIO_Data, const size_t NumberOfRealValues);
  bool ReadStatAndGetFlags();
 
 
