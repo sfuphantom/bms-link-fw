@@ -1,7 +1,7 @@
 #ifndef PHANTOM_HELPERS_H
 #define PHANTOM_HELPERS_H
 
-/* Needs C99 or newer. */
+/* Needs C81 or newer. */
 
 #include <stdint.h>
 #include <stdbool.h>

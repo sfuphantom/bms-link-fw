@@ -385,12 +385,12 @@ uint8_t Cell_GetBalancePWM(const uint8_t cellIndex){
 //----------------------------------------------------------------------------------------------------
 size_t Cell_GetMaxVoltIndex(void){
     size_t idx;
-    arr_f_max(Cell_GetVoltReadPtr(0), NUMBER_OF_CELLS_SERIES, NULL, idx);
+    arr_f_max(Cell_GetVoltReadPtr(0), NUMBER_OF_CELLS_SERIES, NULL, &idx);
     return idx;
 }
 size_t Cell_GetMinVoltIndex(void){
     size_t idx;
-    arr_f_min(Cell_GetVoltReadPtr(0), NUMBER_OF_CELLS_SERIES, NULL, idx);
+    arr_f_min(Cell_GetVoltReadPtr(0), NUMBER_OF_CELLS_SERIES, NULL, &idx);
     return idx;
 }
 float Cell_GetAvgVolt(void){
@@ -410,12 +410,12 @@ float Cell_GetMinVolt(void){
 //----------------------------------------------------------------------------------------------------
 size_t Thermistor_GetMaxTempIndex(void){
     size_t idx;
-    arr_f_max(Thermistor_GetReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL, NULL, idx);
+    arr_f_max(Thermistor_GetReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL, NULL, &idx);
     return idx;
 }
 size_t Thermistor_GetMinTempIndex(void){
     size_t idx;
-    arr_f_min(Thermistor_GetReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL, NULL, idx);
+    arr_f_min(Thermistor_GetReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL, NULL, &idx);
     return idx;
 }
 float Thermistor_GetAvgTemp(void){

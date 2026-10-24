@@ -1,48 +1,28 @@
 /*
  * BMS_Tasks.h
  *
- *  Created on: Jun 19, 2026
- *      Author: tanjo
+ * Task periods live here, the task table itself is in BMS_Tasks.c.
+ * Period 0 means "every pass of the main loop".
  */
-
 #ifndef PHANTOM_DRIVERS_INCLUDE_BMS_TASKS_H_
 #define PHANTOM_DRIVERS_INCLUDE_BMS_TASKS_H_
-//---------------------------------------------------------------------------------------------------------
+
+#include <stdbool.h>
 #include "PhantomTimers.h"
 
-#define CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK         MAKE_TICK(2, 0,0,0,0)
-#define CELL_BALANCER_CONTROL_TASK_PERIOD_TICK        MAKE_TICK(2, 0,0,0,0)
-#define CELL_TEMP_MONITOR_TASK_PERIOD_TICK            MAKE_TICK(0, 0,0,0,0)
-#define SLAVE_FLAG_CHECK_TASK_PERIOD_TICK             MAKE_TICK(2, 0,0,0,0)
-#define FULL_BATTERY_MONITOR_TASK_PERIOD_TICK         MAKE_TICK(0, 0,0,0,0)
-#define CELL_RESISTANCE_MONITOR_TASK_PERIOD_TICK      MAKE_TICK(50,0,0,0,0)
-#define SEND_CHARGER_CONTROL_TASK_PERIOD_TICK         MAKE_TICK(0, 0,0,0,0)
-//#define KEEP_SLAVES_AWAKE_TASK_PERIOD_TICK            MAKE_TICK(0, 0,500,0,0)
+//                                                         MIN, SEC, MS, US, TICK
+#warning The first argument of MAKE_TICK is MINUTES: these 2 mean 2 minutes between cell voltage reads. Was that the intent?
+#define CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK       MAKE_TICK(2,  0, 0, 0, 0)
+#define CELL_BALANCER_CONTROL_TASK_PERIOD_TICK      MAKE_TICK(2,  0, 0, 0, 0)
+#define SLAVE_FLAG_CHECK_TASK_PERIOD_TICK           MAKE_TICK(2,  0, 0, 0, 0)
+#define CELL_RESISTANCE_MONITOR_TASK_PERIOD_TICK    MAKE_TICK(50, 0, 0, 0, 0)
+#define PACK_VOLTAGE_TASK_PERIOD_TICK               MAKE_TICK(0,  0, 0, 0, 0)
+#warning SEND_CHARGER_CONTROL period is 0 (every loop), that sends CAN as fast as the loop runs. Set a real period.
+#define SEND_CHARGER_CONTROL_TASK_PERIOD_TICK       MAKE_TICK(0,  0, 0, 0, 0)
 
-#define SEND_DATA_SERIAL_TASK_PERIOD_TICK             MAKE_TICK(0,30,0,0,0)
 //---------------------------------------------------------------------------------------------------------
-typedef struct {
-    void (*RoutineFunction)(void);
-    ticks_t Period;
-    ticks_t LastDone;
-
-//    void (*TimeFailFunction)(void);
-    bool (*AllowFunction)(void);
-
-}Task_t;
-//---------------------------------------------------------------------------------------------------------
-
-enum{CellVoltageControl_ID, MonitorCellTemp_ID, SlaveFlagsCheck_ID, MonitorBatterySOC_ID, CommunacateWithOthers_ID}Task_ID;
-//---------------------------------------------------------------------------------------------------------
-void init_BMS_system();
-void restart_BMS_system();
-void DoNothing();
-//---------------------------------------------------------------------------------------------------------
-bool CellVoltageControlTask();
-bool MonitorCellTempTask();
-bool SlaveFlagsCheckTasks();
-//---------------------------------------------------------------------------------------------------------
-void Do_BMS_Tasks();
-
+void init_BMS_system(void);
+void restart_BMS_system(void);      // clears faults, restarts fans, slave link and task timers
+void Do_BMS_Tasks(void);            // call from the main loop
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_BMS_TASKS_H_ */
