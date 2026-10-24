@@ -12,7 +12,7 @@
 #include "PhantomTimers.h"
 
 //----------------------------------------------------------------------------------------
-// Clock: the RTI free running counter is only 32 bit (wraps every ~429 s at 10 MHz).
+// Clock: the RTI free running counter is only 32 bit (wraps every 2^32 ticks, ~107 s at 40 MHz).
 // An interrupt counts the wraps, so the full time is (wraps << 32) | counter.
 //----------------------------------------------------------------------------------------
 static volatile uint32_t rti_overflowCount = 0;
@@ -63,14 +63,9 @@ ticks_t timer_toc_us(const ticks_t tic){
     return TICKS_TO_US(timer_toc_tick(tic));
 }
 
-
 ticks_t ticks_make(const uint32_t min, const uint32_t sec, const uint32_t ms,
                    const uint32_t us, const uint32_t tick){
-    const ticks_t total_us = (ticks_t)min * US_PER_MIN
-                           + (ticks_t)sec * US_PER_SEC
-                           + (ticks_t)ms  * US_PER_MS
-                           + us;
-    return US_TO_TICKS(total_us) + tick;
+    return MAKE_TICK(MIN, SEC, MS, US, TICK);
 }
 
 //----------------------------------------------------------------------------------------
@@ -92,7 +87,7 @@ void delay_ticks(ticks_t ticks){
 }
 
 void delay_ms_us(const uint32_t ms, const uint32_t us){
-    delay_ticks(ticks_make(0,0,ms,us,0));
+    delay_ticks(US_TO_TICKS((ticks_t)ms * 1000U + us));
 }
 
 //----------------------------------------------------------------------------------------
@@ -152,6 +147,75 @@ uint32_t doUntilTimeLimit(VoidFunc Callable, const ticks_t timeLimit_tick){
         calls++;
     }
     return calls;
+}
+
+//----------------------------------------------------------------------------------------
+// Waiting for a condition
+//----------------------------------------------------------------------------------------
+// Starts the wait on the first call, and runs Condition if a check is due.
+static bool waitConditionMet(WaitUntil_t * const w, BoolFunc Condition, const ticks_t checkPeriod){
+    const ticks_t now = getNow_tick();
+
+    if (!w->started){
+        w->started = true;
+        w->start   = now;
+        w->checks  = 0;
+    }
+
+    if (w->checks > 0 && (now - w->lastCheck) < checkPeriod){
+        return false;
+    }
+
+    w->lastCheck = now;
+    w->checks++;
+    return Condition();
+}
+
+static WaitResult_t waitFinish(WaitUntil_t * const w, const WaitResult_t result){
+    if (result != WAIT_CONTINUE){
+        w->started = false;     // next call starts a new wait
+    }
+    return result;
+}
+
+WaitResult_t waitUntil_nonblocking_count(WaitUntil_t * const w, BoolFunc Condition,
+                                         const uint32_t maxChecks, const ticks_t checkPeriod){
+    if (waitConditionMet(w, Condition, checkPeriod)){
+        return waitFinish(w, WAIT_DONE);
+    }
+    const bool timedOut = (maxChecks > 0) && (w->checks >= maxChecks);
+    return waitFinish(w, timedOut ? WAIT_TIMEOUT : WAIT_CONTINUE);
+}
+
+WaitResult_t waitUntil_nonblocking_time(WaitUntil_t * const w, BoolFunc Condition,
+                                        const ticks_t maxWait, const ticks_t checkPeriod){
+    if (waitConditionMet(w, Condition, checkPeriod)){
+        return waitFinish(w, WAIT_DONE);
+    }
+    const bool timedOut = (maxWait > 0) && hasTimeElapsed(w->start, maxWait);
+    return waitFinish(w, timedOut ? WAIT_TIMEOUT : WAIT_CONTINUE);
+}
+
+bool waitUntil_blocking_count(BoolFunc Condition, const uint32_t maxChecks, const ticks_t checkPeriod){
+    WaitUntil_t  w = {0};
+    WaitResult_t result;
+
+    do {
+        result = waitUntil_nonblocking_count(&w, Condition, maxChecks, checkPeriod);
+    } while (result == WAIT_CONTINUE);
+
+    return result == WAIT_DONE;
+}
+
+bool waitUntil_blocking_time(BoolFunc Condition, const ticks_t maxWait, const ticks_t checkPeriod){
+    WaitUntil_t  w = {0};
+    WaitResult_t result;
+
+    do {
+        result = waitUntil_nonblocking_time(&w, Condition, maxWait, checkPeriod);
+    } while (result == WAIT_CONTINUE);
+
+    return result == WAIT_DONE;
 }
 
 //----------------------------------------------------------------------------------------
@@ -245,4 +309,57 @@ bool waitForInput(bool (*readInput)(void), const bool level,
         }
     }
     return false;
+}
+
+//----------------------------------------------------------------------------------------
+// Edge detection
+//----------------------------------------------------------------------------------------
+bool detectEdge(const bool input, bool * const last, const EdgeMode_t mode){
+    const bool rising  = input && !*last;
+    const bool falling = !input && *last;
+    *last = input;
+
+    switch (mode){
+        case EDGE_DETECT_RISING:  return rising;
+        case EDGE_DETECT_FALLING: return falling;
+        default:                  return rising || falling;
+    }
+}
+
+//----------------------------------------------------------------------------------------
+// How long has an input been true
+//----------------------------------------------------------------------------------------
+bool trueTimer_update(TrueTimer_t * const t, const bool input, ticks_t * const trueFor){
+    const ticks_t now = getNow_tick();
+
+    if (detectEdge(input, &t->last, EDGE_DETECT_RISING)){
+        t->since = now;
+    }
+
+    *trueFor = input ? (now - t->since) : 0;
+    return input;
+}
+
+bool trueTimer_updateFunc(TrueTimer_t * const t, BoolFunc Input, ticks_t * const trueFor){
+    return trueTimer_update(t, Input(), trueFor);
+}
+
+//----------------------------------------------------------------------------------------
+// Software PWM
+//----------------------------------------------------------------------------------------
+bool pwmSignalGen(const ticks_t period, const float duty, ticks_t * const periodStart){
+    if (period == 0){
+        return false;
+    }
+
+    const ticks_t now = getNow_tick();
+    ticks_t elapsed = now - *periodStart;
+
+    if (elapsed >= period){
+        *periodStart += elapsed - (elapsed % period);   // move to the start of the current period
+        elapsed = elapsed % period;
+    }
+
+    const ticks_t onTicks = (ticks_t)(clampValue(duty, 0.0, 1.0) * (double)period);
+    return elapsed < onTicks;
 }

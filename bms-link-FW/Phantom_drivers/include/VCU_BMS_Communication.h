@@ -11,10 +11,12 @@
 
 //----------------------------------------------------------------------------------------------------
 
-typedef enum {CLAER_FAULTS, CHARGE, START, } VCU_FLAGS_bits;
-
 typedef struct{
-    uint8_t VCU_FLAGS;
+    uint8_t start: 1;
+    uint8_t chargeNdischarge: 1;
+    uint8_t CLEAR_FAULTS: 1;
+    uint8_t has_fault;
+
 }VCU2BMS_t;
 
 //----------------------------------------------------------------------------------------------------

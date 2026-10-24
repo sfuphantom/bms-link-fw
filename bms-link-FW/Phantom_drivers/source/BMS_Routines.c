@@ -151,13 +151,13 @@ void SendChargerControlsRoutine(){
       Fault_RaiseSlave(Flags);
   }
 
- void MeasureBatteryVoltageRoutine(){
-     SubRoutine_ErrorHandler_Decorator(MeasureAndSetVoltage, BAD_HV_VOLT_FLAG);
- }
+// void MeasureBatteryVoltageRoutine(){
+//     SubRoutine_ErrorHandler_Decorator(MeasureAndSetVoltage, BAD_HV_VOLT_FLAG);
+// }
 
-void keepSlavesAwakeRoutine(){
-    SendDummyCMD();
-}
+//void keepSlavesAwakeRoutine(){
+//    SendDummyCMD();
+//}
 
 //void SendDataRoutine_Serial(){
 //    SendCellVoltage_Serial();

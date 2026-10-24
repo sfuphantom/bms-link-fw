@@ -11,7 +11,6 @@
 #include "Fans.h"
 #include "Phantom_Can.h"
 
-#define FAULT_FAN_DUTY      99
 #define FAULT_CAN_BYTES     8
 
 // Map these to interrupt disable / enable if faults are raised from interrupts AND the main loop.
@@ -30,11 +29,8 @@ static bool handling = false;
 // Extra routines, one per fault. A fault without one only gets Fault_Handler().
 typedef void (*FaultRoutine_t)(void);
 
-static void FansMax(void){
-    SetAllFansDuty(FAULT_FAN_DUTY);
-}
 static void OverVoltageRoutine(void){
-    FansMax();
+    Fans_SetFault();
 }
 static void UnderVoltageRoutine(void){
     // nothing extra yet, kept separate from over voltage on purpose
@@ -43,7 +39,7 @@ static void UnderVoltageRoutine(void){
 static const FaultRoutine_t BMSFaultRoutines[NUM_BMS_FAULTS] = {
     [CELL_OVERVOLT_FLAG]  = OverVoltageRoutine,
     [CELL_UNDERVOLT_FLAG] = UnderVoltageRoutine,
-    [OVERTEMP_FLAG]       = FansMax,
+//    [OVERTEMP_FLAG]       = Fans_SetFault,
 };
 
 //----------------------------------------------------------------------------------------------------
@@ -166,7 +162,7 @@ void Fault_RaiseSlaveMask(const uint16_t mask){
     Fault_Handler();
 
     if (BIT_IS_SET(valid, BAD_TEMP_flags)){
-        FansMax();
+        Fans_SetFault();
     }
 }
 void Fault_RaiseSlave(const Slave_Faults fault){
