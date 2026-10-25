@@ -10,16 +10,14 @@
 #include "sys_common.h"
 #include "ecap.h"
 #include "system.h"
-
-#include "BatteryData.h"
-#include "Fault_handler.h"
+#include "IMD_hardware.h"
+#include "PhantomTimers.h"
 
 //---------------------------------------------------------------------------------------------------------
 #define IMD_ECAP_REG            ecapREG6
 #define ECAP_COUNTS_PER_SEC     ((float)(VCLK4_FREQ * 1E6))
 #define VALID_FLAG_MASK         0x00FF
 #define VALID_FLAG_VAL          0x000E
-
 //---------------------------------------------------------------------------------------------------------
 // Fault limits
 // TODO: check these against EV.7.6.3 in the 2024 V1 rulebook (500 ohm/V)
@@ -28,12 +26,15 @@
 #define MAX_IMD_ISOLATION_PERCENT   100.0f
 #define MAX_IMD_DUTY_PERCENT        50.0f
 #define IMD_RESISTANCE_MAX_KOHM     1E6f    // "infinite" resistance (duty <= 5%) is capped to this
-
+//---------------------------------------------------------------------------------------------------------
+uint32_t get_IMD_interupt_data_high();
+uint32_t get_IMD_interupt_data_period();
+ticks_t get_IMD_interupt_data_last_interupt_tick();
+void IMD_init();
 //---------------------------------------------------------------------------------------------------------
 IMDStateEnum IMD_CalcState(const float duty, const float freq);
 uint8_t      IMD_CalcIsolation(const float duty);   // percent, ISOLATION_UNKNOWN if duty is out of range
 float        IMD_CalcResistance(const float duty);  // kOhm
-IMDData_t    IMD_CalcData(const float duty, const float freq);
-bool         IMD_HasFault(const IMDData_t* const data, const IMDStateEnum state);
-
+bool         IMD_HasFault(const float duty, const float freq, const float resistance, const float isolation, const IMDStateEnum state);
+//---------------------------------------------------------------------------------------------------------
 #endif /* SOURCE_IMD_H_ */

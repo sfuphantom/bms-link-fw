@@ -18,7 +18,8 @@
 #ifndef PHANTOM_HARDWARE_BATTERYCELL_HARDWARE_H_
 #define PHANTOM_HARDWARE_BATTERYCELL_HARDWARE_H_
 
-#include "BatteryCell_DataSheetSpec.h"
+#include <BatteryCell_DataSheetSpec.h>
+#include "hal_stdtypes.h"
 
 //////////////////////////////////////////////////////////////
 // 1. USER PLACEHOLDERS (none of these are on the datasheet)

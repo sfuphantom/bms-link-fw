@@ -39,7 +39,7 @@
 
 ///////////////////////////////////////////////////////////////////
 // Drain cells near the charge target, 0% at START up to 100% at FULL
-#define DRAIN_UP_N_DOWN             true    // true: 100% at the target (starts draining before it)
+#define DRAIN_UP_N_DOWN             false    // true: 100% at the target (starts draining before it)
                                             // false: starts at the target, 100% above it
 #define DRAIN_BAND_VOLTS            0.2f
 #define DRAIN_HYSTERESIS_VOLTS      0.02f   // keep above the ADC error (about 3 mV)

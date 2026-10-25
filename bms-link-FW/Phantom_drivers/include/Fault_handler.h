@@ -10,35 +10,16 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
-//--------------------------------------------------------------------------
-// IMD message names are taken from the IMD datasheet
-typedef enum {
-    Normal_Condition,
-    Short_Circuit,
-    Undervoltage_Condition,
-    Speed_Start_Measurement_Good,
-    Speed_Start_Measurement_Bad,
-    Device_Error,
-    Connection_Fault_Earth,
-    Bad_Info,
-    Undefined_Fault
-} IMDStateEnum;
-
-#define ISOLATION_UNKNOWN   0xFFu
+#include "SlaveCommunation_Hardware.h"
+#include "IMD_hardware.h"
 
 //--------------------------------------------------------------------------
 // Each value is a bit number in the matching fault word. Add new faults before the COUNT.
-typedef enum {
-    BAD_TEMP_flags, BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL,
-    BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND,
-    NUM_SLAVE_FAULTS
-} Slave_Faults;
 
 typedef enum {
     DEBUG_FLAG, BAD_HV_VOLT_FLAG, CHARGER_COMMS_FAULT, BAD_SLAVE_CONNECTION_FLAG,
     CELL_OVERVOLT_FLAG, CELL_UNDERVOLT_FLAG, OVERTEMP_FLAG, UNDERTEMP_FLAG,
-    IMD_FAULT_FLAG, CONTACTOR_FAULT_FLAG, EXTERNAL_FAULT_FLAG,
+    IMD_FAULT_FLAG, CONTACTOR_FAULT_FLAG, EXTERNAL_FAULT_FLAG, IMD_FAULT,
     NUM_BMS_FAULTS
 } BMS_Faults;
 
@@ -53,7 +34,7 @@ typedef struct {
     uint16_t Slave_Faults;
     uint16_t BMS_Faults;
     uint8_t  IMDState;          // IMDStateEnum when the IMD fault was raised
-    uint8_t  IsolationState;    // isolation percent when the IMD fault was raised
+//    uint8_t  IsolationState;    // isolation percent when the IMD fault was raised
     uint8_t  FirstFault;
     uint8_t  TripCount;
 } BMSFaultsData_t;
@@ -65,7 +46,9 @@ void Fault_Handler(void);       // fault line low, charger off, send over CAN. N
 void Fault_RaiseBMS(const BMS_Faults fault);
 void Fault_RaiseSlave(const Slave_Faults fault);
 void Fault_RaiseSlaveMask(const uint16_t mask);     // a mask of 0 does nothing
-void Fault_RaiseIMD(const IMDStateEnum state, const uint8_t isolation);
+
+void set_IMD_fault_state(const float isolation, const IMDStateEnum state);
+void Fault_RaiseIMD();
 
 void Fault_ClearBMS(const BMS_Faults fault);
 void Fault_ClearSlave(const uint16_t mask);

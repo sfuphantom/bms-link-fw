@@ -27,7 +27,8 @@ static uint8_t RatioToNibble(const float ratio){
         return 0;
     if(ratio >= 1.0f)
         return PWM_NIBBLE_MAX;
-    return (uint8_t)lroundf(ratio * PWM_NIBBLE_MAX);
+    return (uint8_t)ceilf(ratio * PWM_NIBBLE_MAX);
+//    return (uint8_t)lroundf(ratio * PWM_NIBBLE_MAX);
 }
 
 // Ramps 0 -> 15 from startVolts to fullVolts. Once running it keeps the lowest duty
@@ -36,8 +37,8 @@ static uint8_t RampNibble(const float value, const float startVolts, const float
                           const float hysteresis, const uint8_t prevNibble){
 
     const uint8_t nibble = RatioToNibble((value - startVolts) / (fullVolts - startVolts));
-    const bool holding = (prevNibble > 0) && (value > startVolts - hysteresis);   // NaN -> false
-
+//    const bool holding = (prevNibble > 0) && (value > startVolts - hysteresis);   // NaN -> false
+    const bool holding = false;
     return (nibble == 0 && holding) ? 1 : nibble;
 }
 
@@ -76,6 +77,7 @@ void Balance_GetPWM(const float cellVolts[NUMBER_OF_CELLS_SERIES],
                                                          BALANCE_FULL_DIFF_VOLTS, BALANCE_HYSTERESIS_VOLTS, prevNibble);
                 nibble = MAX_VAL(nibble, balanceNibble);
             }
+//            SetNibble(pwm, cell, (uint8_t)ceilf(nibble * derate));
 
             SetNibble(pwm, cell, (uint8_t)lroundf(nibble * derate));
         }

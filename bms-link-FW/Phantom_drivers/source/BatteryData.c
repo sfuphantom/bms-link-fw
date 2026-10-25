@@ -36,9 +36,9 @@
 #include <stdbool.h>
 #include "string.h"
 
-#include "SlaveCommunation_Hardware.h"
-//#include "BatteryCell_Hardware.h"
+//#include "SlaveCommunation_Hardware.h"
 #include "FullBattery_Hardware.h"
+#include "IMD_hardware.h"
 
 #include "PhantomHelpers.h"
 #include "PhantomTimers.h"   /* getNow_tick() - for cell-data staleness tracking */
@@ -433,8 +433,7 @@ float Thermistor_GetMinTemp(void){
 }
 
 void Pack_UpdateSOCFromCells(void){
-    float val;
-    arr_f_avg(Cell_GetSOCReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL);
+    FullBattery.SOC = arr_f_avg(Cell_GetSOCReadPtr(0), NUMBER_OF_THERMISTORS_TOTAL);
 }
 
 uint64_t Cell_GetDataAgeTicks(void){

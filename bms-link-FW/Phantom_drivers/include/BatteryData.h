@@ -123,7 +123,7 @@
 #include <stdbool.h>
 #include "strings.h"
 #include "FullBattery_Hardware.h"
-
+#include "IMD_hardware.h"
 //////////////////////////////////////////////////////////////
 /* Currently unused anywhere in this module - if this is meant to be a
  * global "compile the driver out" switch, it needs to actually gate
@@ -172,6 +172,7 @@ typedef struct {
     float freq;
     float isolation;
     float resistance;
+    IMDStateEnum state;
 } IMDData_t;
 
 typedef struct {

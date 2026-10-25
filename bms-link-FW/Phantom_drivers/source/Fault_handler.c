@@ -2,7 +2,7 @@
  * Fault_handler.c
  */
 #include <string.h>
-#include "het.h"
+#include <math.h>
 #include "GIO_helpers.h"
 
 #include "Fault_handler.h"
@@ -10,6 +10,9 @@
 #include "Charger.h"
 #include "Fans.h"
 #include "Phantom_Can.h"
+
+#include "IMD_hardware.h"
+#include "SlaveCommunation_Hardware.h"
 
 #define FAULT_CAN_BYTES     8
 
@@ -22,7 +25,7 @@
 // compile error if the fault data grows past what one CAN frame holds
 typedef char FaultData_must_fit_8_bytes[(sizeof(BMSFaultsData_t) <= FAULT_CAN_BYTES) ? 1 : -1];
 
-static BMSFaultsData_t Faults = {0u, 0u, Normal_Condition, ISOLATION_UNKNOWN, FIRST_FAULT_NONE, 0u};
+static BMSFaultsData_t Faults = {0u, 0u, 0x40, FIRST_FAULT_NONE, 0u};
 static bool handling = false;
 
 //----------------------------------------------------------------------------------------------------
@@ -47,18 +50,16 @@ static const FaultRoutine_t BMSFaultRoutines[NUM_BMS_FAULTS] = {
 static void Pack(const BMSFaultsData_t* const f, uint8_t* const out){
     write_u16_BE(&out[0], f->Slave_Faults);
     write_u16_BE(&out[2], f->BMS_Faults);
-    out[4] = f->IMDState;
-    out[5] = f->IsolationState;
-    out[6] = f->FirstFault;
-    out[7] = f->TripCount;
+    out[5] = f->IMDState;
+    out[5] = f->FirstFault;
+    out[6] = f->TripCount;
 }
 static void Unpack(const uint8_t* const in, BMSFaultsData_t* const f){
     f->Slave_Faults   = read_u16_BE(&in[0]);
     f->BMS_Faults     = read_u16_BE(&in[2]);
-    f->IMDState       = in[4];
-    f->IsolationState = in[5];
-    f->FirstFault     = in[6];
-    f->TripCount      = in[7];
+    f->IMDState       = in[5];
+    f->FirstFault     = in[5];
+    f->TripCount      = in[6];
 }
 
 bool Fault_SendCAN(void){
@@ -171,12 +172,14 @@ void Fault_RaiseSlave(const Slave_Faults fault){
     }
 }
 
-void Fault_RaiseIMD(const IMDStateEnum state, const uint8_t isolation){
+void set_IMD_fault_state(const float isolation, const IMDStateEnum state){
     FAULT_LOCK();
-    Faults.IMDState       = (uint8_t)state;
-    Faults.IsolationState = isolation;
+    const uint8_t compress_iso   = (((uint8_t) roundf(isolation/100*8)) & 0xF) | (isolation>100 ? 0x8 : 0x0);
+    const uint8_t compress_state = ((uint8_t) state) & 0xF;
+    Faults.IMDState       = compress_iso<<4 | compress_state;
     FAULT_UNLOCK();
-
+}
+void Fault_RaiseIMD(){
     Fault_RaiseBMS(IMD_FAULT_FLAG);
 }
 
@@ -206,8 +209,6 @@ void Fault_ClearAll(void){
     FAULT_LOCK();
     Faults.Slave_Faults   = 0u;
     Faults.BMS_Faults     = 0u;
-    Faults.IMDState       = Normal_Condition;
-    Faults.IsolationState = ISOLATION_UNKNOWN;
     Faults.FirstFault     = FIRST_FAULT_NONE;
     Faults.TripCount      = 0u;
     FAULT_UNLOCK();
@@ -219,7 +220,7 @@ void Debug_GIO_Notification(void){
     Fault_RaiseBMS(DEBUG_FLAG);
 }
 void IMD_FAULT_GIO_Notification(void){
-    Fault_RaiseIMD(Undefined_Fault, ISOLATION_UNKNOWN);
+    set_IMD_fault_state(ISOLATION_UNKNOWN, Undefined_Fault);
 }
 
 void Fault_Init(void){
