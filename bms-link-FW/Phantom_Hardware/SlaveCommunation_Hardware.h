@@ -9,6 +9,8 @@
 #define PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_HARDWARE_H_
 #include <stdint.h>
 #include <stdbool.h>
+#include "hal_stdtypes.h"
+
 
 #include "BatteryCell_Hardware.h"
 #include "FullBattery_Hardware.h"
@@ -72,7 +74,11 @@
 
 #define DCC_MAX_CURRENT_mA              100
 #define DCC_MAX_CURRENT_A               (1000*DCC_MAX_CURRENT_mA)
-
-
+//////////////////////////////////////////////////////////////////
+typedef enum {
+    BAD_TEMP_flags, BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL,
+    BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND,
+    NUM_SLAVE_FAULTS
+} Slave_Faults;
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_HARDWARE_H_ */

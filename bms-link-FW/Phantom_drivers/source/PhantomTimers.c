@@ -65,7 +65,7 @@ ticks_t timer_toc_us(const ticks_t tic){
 
 ticks_t ticks_make(const uint32_t min, const uint32_t sec, const uint32_t ms,
                    const uint32_t us, const uint32_t tick){
-    return MAKE_TICK(MIN, SEC, MS, US, TICK);
+    return MAKE_TICK(min, sec, ms, us, tick);
 }
 
 //----------------------------------------------------------------------------------------

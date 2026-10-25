@@ -11,18 +11,18 @@
 #include "string.h"
 #include "ltc6811_commands.h"
 #include "SlaveCommunation_Hardware.h"
-#include "spi.h"
+//#include "spi.h"
 #include "spi_helpers.h"
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Functions.h"
 #include "PhantomHelpers.h"
 #include "PhantomTimers.h"
-#include "Fault_handler.h"
+//#include "Fault_handler.h"
 
 static ConfigReg_t ConfigRegWriteData[NUMBER_OF_SLAVE_BOARDS_TOTAL];
 //ConfigReg ConfigRegReadData[NUMBER_OF_SLAVE_BOARDS];
 static StatusReg_t StatusRegData[NUMBER_OF_SLAVE_BOARDS_TOTAL];
-static uint16_t SlaveStatusFaults = 0u;
+//static uint16_t SlaveStatusFaults = 0u;
 
 //---------------------------------------------------------------------------------------------------------
 static float Slave_ADC2Volt(const uint16_t ADCVaule){

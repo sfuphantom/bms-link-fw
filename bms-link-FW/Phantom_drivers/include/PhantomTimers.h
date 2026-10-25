@@ -20,6 +20,9 @@ extern "C" {
 // -----------------------------------------
 #define RTI_CLOCK_MEG_HZ    40U     // 40 MHz
 #define TICKS_PER_US        (RTI_CLOCK_MEG_HZ)
+#define US_PER_MS            1E3
+#define US_PER_SEC           1E6
+#define US_PER_MIN           6E7
 
 typedef uint64_t ticks_t;           // 64 bit: the 32 bit RTI counter + an overflow count
 typedef void (*VoidFunc)(void);
@@ -27,11 +30,11 @@ typedef bool (*BoolFunc)(void);
 
 // Work for constants and variables. The argument is cast first, so there is no 32 bit overflow.
 #define US_TO_TICKS(us)     ((ticks_t)(us) * TICKS_PER_US)
-#define MS_TO_TICKS(ms)     US_TO_TICKS((ticks_t)(ms) * 1000U)
-#define SEC_TO_TICKS(sec)   MS_TO_TICKS((ticks_t)(sec) * 1000U)
+#define MS_TO_TICKS(ms)     US_TO_TICKS((ticks_t)(ms)  * 1000000U)
+#define SEC_TO_TICKS(sec)   US_TO_TICKS((ticks_t)(sec) * US_PER_SEC)
 
-#define TICKS_TO_US(ticks)  ((ticks_t)(ticks) / TICKS_PER_US)
-#define TICKS_TO_MS(ticks)  (TICKS_TO_US(ticks) / 1000U)
+#define TICKS_TO_US(ticks)  ((ticks_t)(ticks)   / TICKS_PER_US)
+#define TICKS_TO_MS(ticks)  (TICKS_TO_US(ticks) / US_PER_MS)
 
 ticks_t ticks_make(const uint32_t min, const uint32_t sec, const  uint32_t ms, const uint32_t us, const uint32_t tick);
 #define MAKE_TICK(MIN, SEC, MS, US, TICK)    US_TO_TICKS( (ticks_t)MIN * US_PER_MIN \

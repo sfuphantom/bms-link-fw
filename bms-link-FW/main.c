@@ -59,7 +59,7 @@ void main(void)
 
 //    const uint64_t debug_period_tick = ticks_make(0,1,0,0,0);
 //    uint64_t last_debug_tick = 0;
-    Periodic_t debug_tick = { ticks_make(2,0,0,0,0), 0};
+    Periodic_t debug_tick = { ticks_make(0,1,0,0,0), 0};
     volatile float avgCellVolt;
 
     while(1){

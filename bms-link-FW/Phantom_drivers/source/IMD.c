@@ -3,9 +3,51 @@
  */
 #include <math.h>
 #include "IMD.h"
-#include "BatteryData.h"
-#include "Fault_handler.h"
 #include "PhantomHelpers.h"
+#include "PhantomTimers.h"
+#include "IMD_hardware.h"
+
+
+typedef struct {
+    uint32_t high;
+    uint32_t period;
+    ticks_t last_interupt_tick;
+}IMD_interupt_data_t;
+
+static IMD_interupt_data_t IMD_interupt_data = {0,0,0};
+
+static void set_IMD_interupt_data_high(const uint32_t high){
+    IMD_interupt_data.high=high;
+}
+static void set_IMD_interupt_data_period(const uint32_t period){
+    IMD_interupt_data.period=period;
+}
+static void set_IMD_interupt_data_last_interupt_tick(){
+    IMD_interupt_data.last_interupt_tick = getNow_tick();
+}
+//---------------------------------------------------------------------------------------------
+uint32_t get_IMD_interupt_data_high(){
+    return IMD_interupt_data.high;
+}
+uint32_t get_IMD_interupt_data_period(){
+    return IMD_interupt_data.period;
+}
+ticks_t get_IMD_interupt_data_last_interupt_tick(){
+    return IMD_interupt_data.last_interupt_tick;
+}
+
+//float get_IMD_interupt_data_high_f(){
+//    return (float)IMD_interupt_data.high;
+//}
+//float get_IMD_interupt_data_period_f(){
+//    return (float)IMD_interupt_data.period;
+//}
+//---------------------------------------------------------------------------------------------
+void IMD_init(){
+    set_IMD_interupt_data_high(0);
+    set_IMD_interupt_data_period(0);
+    set_IMD_interupt_data_last_interupt_tick();
+}
 
 // Frequency picks the state (10 Hz steps, bounds are the middle between them). The duty only
 // matters for the 30/40/50 Hz states. Duty limits are the datasheet ones with some tolerance.
@@ -44,25 +86,25 @@ float IMD_CalcResistance(const float duty){
     return fminf(kohm, IMD_RESISTANCE_MAX_KOHM);
 }
 
-IMDData_t IMD_CalcData(const float duty, const float freq){
-    IMDData_t data;
-    data.duty       = duty;
-    data.freq       = freq;
-    data.resistance = IMD_CalcResistance(duty);
-    data.isolation  = IMD_CalcIsolation(duty);
-    return data;
-}
+//IMDData_t IMD_CalcData(const float duty, const float freq){
+//    IMDData_t data;
+//    data.duty       = duty;
+//    data.freq       = freq;
+//    data.resistance = IMD_CalcResistance(duty);
+//    data.isolation  = IMD_CalcIsolation(duty);
+//    return data;
+//}
 
 //---------------------------------------------------------------------------------------------------------
-bool IMD_HasFault(const IMDData_t* const data, const IMDStateEnum state){
+bool IMD_HasFault(const float duty, const float freq, const float resistance, const float isolation, const IMDStateEnum state){
     // only these two states are OK, change here if undervoltage should not be a fault
     if (state != Normal_Condition && state != Speed_Start_Measurement_Good){
         return true;
     }
-    return  data->isolation  < MIN_IMD_ISOLATION_PERCENT ||
-            data->isolation  > MAX_IMD_ISOLATION_PERCENT ||     // also catches ISOLATION_UNKNOWN
-            data->duty       > MAX_IMD_DUTY_PERCENT      ||
-            data->resistance < MIN_IMD_RESISTANCE_KOHM;
+    return  isolation  < MIN_IMD_ISOLATION_PERCENT ||
+            isolation  > MAX_IMD_ISOLATION_PERCENT ||     // also catches ISOLATION_UNKNOWN
+            duty       > MAX_IMD_DUTY_PERCENT      ||
+            resistance < MIN_IMD_RESISTANCE_KOHM;
 }
 
 //---------------------------------------------------------------------------------------------------------
@@ -81,15 +123,9 @@ void ecapNotification(ecapBASE_t *ecap, uint16 flags)
     const uint32 period = C3 - C1;
     if (high == 0u || high >= period) {return;}     // bad capture, would divide by 0 or give duty > 100%
 
-    const float duty = 100.0f * (float)high / (float)period;
-    const float freq = ECAP_COUNTS_PER_SEC / (float)period;
-
-    const IMDData_t    data  = IMD_CalcData(duty, freq);
-    const IMDStateEnum state = IMD_CalcState(duty, freq);
-
-    IMD_SetData(data);
-
-    if (IMD_HasFault(&data, state)){
-        Fault_RaiseIMD(state, (uint8_t)data.isolation);
-    }
+    set_IMD_interupt_data_high(high);
+    set_IMD_interupt_data_period(period);
+    set_IMD_interupt_data_last_interupt_tick();
 }
+
+

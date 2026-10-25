@@ -20,6 +20,7 @@
 #include "Fault_handler.h"
 #include "SendDataSerial.h"
 #include "Balance.h"
+#include "IMD.h"
 #include <time.h>
 
 
@@ -48,7 +49,7 @@ void waitBatterySettle_helper(){
  }
  //----------------------------------------------------------------------------------------------------
  bool MeasureCellVoltage_SubRoutine(){
-     wakeup_sleep_and_SetConfig();
+//     wakeup_sleep_and_SetConfig();
 
      float * CellVolt = Cell_GetVoltWritePtr();
 
@@ -61,7 +62,7 @@ void waitBatterySettle_helper(){
  }
 
  bool SetBalanceRate_SubRoutine(){
-     wakeup_sleep_and_SetConfig();
+//     wakeup_sleep_and_SetConfig();
 
      uint8_t * BalanceNibbles = Cell_GetBalanceNibblesWritePtr();
      uint16_t* BalanceDCC = Cell_GetBalanceDCCWritePtr();
@@ -120,6 +121,9 @@ void SendChargerControlsRoutine(){
  void CellVoltageControlRoutine(){
     SubRoutine_ErrorHandler_Decorator(MeasureCellVoltage_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
 
+    if(BMS_GetState() == BMS_CHARGING){
+        SubRoutine_ErrorHandler_Decorator(SetBalanceRate_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
+    }
 //    const uint16_t * allVolts = GetCellVoltReadPrt(0);
 
 
@@ -127,9 +131,9 @@ void SendChargerControlsRoutine(){
  }
 
  void SetCellBalancersRoutine(){
-     if(BMS_GetState() == BMS_CHARGING){
-         SubRoutine_ErrorHandler_Decorator(SetBalanceRate_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
-     }
+//     if(BMS_GetState() == BMS_CHARGING){
+//         SubRoutine_ErrorHandler_Decorator(SetBalanceRate_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
+//     }
  }
 
 
@@ -140,15 +144,15 @@ void SendChargerControlsRoutine(){
 
  void SlaveFlagsRoutine(){
  //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
-     wakeup_sleep_and_SetConfig();
+//     wakeup_sleep_and_SetConfig();
 
 #if !USE_ANILOG_GPIO
      SubRoutine_ErrorHandler_Decorator(MeasureRef2ndVoltage, BAD_SLAVE_CONNECTION_FLAG);
 #endif
      SubRoutine_ErrorHandler_Decorator(ReadStatAndGetFlags, BAD_SLAVE_CONNECTION_FLAG);
 
-      const uint32_t Flags = checkStatFlags();
-      Fault_RaiseSlave(Flags);
+      const uint16_t Flags = checkStatFlags();
+      Fault_RaiseSlaveMask(Flags);
   }
 
 // void MeasureBatteryVoltageRoutine(){
@@ -218,6 +222,34 @@ void MeasureCellResistanceRoutine(){
          const float Vdiff =  NoCurrentVolts[i] - CurrentVolts[i];
          res_f[i] = Vdiff / Idiff;
      }
+}
+
+bool IMD_MonitorRoutine(){
+    const uint32 high = get_IMD_interupt_data_high();
+    const uint32 period = get_IMD_interupt_data_high();
+
+    if (high == 0u || high >= period) {return false;}
+
+#warning this can be helper functions, check if it already exist in PhantomHelper or PhantomTimers, else add them
+    const float duty = 100.0f * (float)high / (float)period;
+    const float freq = ECAP_COUNTS_PER_SEC / (float)period;
+
+    IMDData_t IMDData;
+    IMDData.duty       = duty;
+    IMDData.freq       = freq;
+    IMDData.resistance = IMD_CalcResistance(duty);
+    IMDData.isolation  = IMD_CalcIsolation(duty);
+    IMDData.state      = IMD_CalcState(duty, freq);
+
+//    const IMDStateEnum state = IMD_CalcState(duty, freq);
+
+    IMD_SetData(IMDData);
 
 
+    set_IMD_fault_state(IMDData.isolation, IMDData.state);
+    if (IMD_HasFault(IMDData.duty, IMDData.freq, IMDData.resistance, IMDData.isolation, IMDData.state)){
+        Fault_RaiseIMD();
+    }
+
+    return true;
 }
