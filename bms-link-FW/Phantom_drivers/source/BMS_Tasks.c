@@ -30,14 +30,16 @@
 // Task table
 //----------------------------------------------------------------------------------------------------
 typedef struct {
-    const char   *name;         // shows up in the debugger
+//    const char   *name;         // shows up in the debugger
+//    task_id_t      task_id;
     VoidFunc      run;
     bool        (*allowed)(void);   // NULL = always allowed
     Periodic_t    timing;       // period 0 = every loop
     TimingStats_t stats;        // how long run() takes, in ticks (check max against the other periods)
 } Task_t;
 
-#define TASK(fn, period, allow)     { #fn, (fn), (allow), { (period), 0 }, {0} }
+//#define TASK(fn, period, allow)     { #fn, (fn), (allow), { (period), 0 }, {0} }
+#define TASK(fn, period, allow)     {(fn), (allow), { (period), 0 }, {0} }
 
 // After a fault the fault handler turned the charger off. Do not let the state machine turn it back on.
 static bool allowIfNoFault(void)

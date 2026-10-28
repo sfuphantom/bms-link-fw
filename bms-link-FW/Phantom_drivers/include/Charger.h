@@ -545,6 +545,10 @@ float Charger_GetOutputVoltage(void);
 float Charger_GetOutputCurrent(void);
 uint8_t Charger_GetStatusFlags(void);
 ChargerState_t Charger_GetState(void);
+//----------------------------------------------------------------------------------------------------
+uint16_t Charger_GetOutputVoltage16(void);
+int16_t Charger_GetOutputCurrent16(void);
+//----------------------------------------------------------------------------------------------------
 
 /* Query helpers */
 bool Charger_IsCharging(void);      /* true if state is CC, CV, or trickle */

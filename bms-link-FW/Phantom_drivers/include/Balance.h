@@ -35,14 +35,14 @@
 
 #define BALANCE_START_DIFF_VOLTS    0.2f    // starts draining above this difference
 #define BALANCE_FULL_DIFF_VOLTS     0.5f    // 100% drain at this difference
-#define BALANCE_HYSTERESIS_VOLTS    0.1f    // keeps draining down to START - HYSTERESIS
+#define BALANCE_HYSTERESIS_VOLTS    0.025f    // keeps draining down to START - HYSTERESIS
 
 ///////////////////////////////////////////////////////////////////
 // Drain cells near the charge target, 0% at START up to 100% at FULL
 #define DRAIN_UP_N_DOWN             false    // true: 100% at the target (starts draining before it)
                                             // false: starts at the target, 100% above it
-#define DRAIN_BAND_VOLTS            0.2f
-#define DRAIN_HYSTERESIS_VOLTS      0.02f   // keep above the ADC error (about 3 mV)
+#define DRAIN_BAND_VOLTS            0.05f
+#define DRAIN_HYSTERESIS_VOLTS      0.005f   // keep above the ADC error (about 3 mV)
 
 #if DRAIN_UP_N_DOWN
 #define DRAIN_START_VOLTS           (MAX_CELL_CHARGING_VOLTAGE_TARGET_F - DRAIN_BAND_VOLTS)
@@ -53,7 +53,7 @@
 
 // Slave die temperature (ITMP): full drain below START, no drain at STOP
 #define DIE_TEMP_DERATE_START_C     65.0f
-#define DIE_TEMP_DERATE_STOP_C      85.0f
+#define DIE_TEMP_DERATE_STOP_C      95.0f
 
 ///////////////////////////////////////////////////////////////////
 // Charge current limit from the highest cell:

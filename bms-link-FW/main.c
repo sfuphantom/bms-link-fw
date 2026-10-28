@@ -54,7 +54,6 @@ void main(void)
 
 //    const sciBASE_t * UARTReg = sciREG;
     volatile uint32_t tic, toc;
-
     volatile int i;
 
 //    const uint64_t debug_period_tick = ticks_make(0,1,0,0,0);
