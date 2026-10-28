@@ -121,9 +121,9 @@ void SendChargerControlsRoutine(){
  void CellVoltageControlRoutine(){
     SubRoutine_ErrorHandler_Decorator(MeasureCellVoltage_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
 
-    if(BMS_GetState() == BMS_CHARGING){
-        SubRoutine_ErrorHandler_Decorator(SetBalanceRate_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
-    }
+//    if(BMS_GetState() == BMS_CHARGING){
+//        SubRoutine_ErrorHandler_Decorator(SetBalanceRate_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
+//    }
 //    const uint16_t * allVolts = GetCellVoltReadPrt(0);
 
 
@@ -131,9 +131,9 @@ void SendChargerControlsRoutine(){
  }
 
  void SetCellBalancersRoutine(){
-//     if(BMS_GetState() == BMS_CHARGING){
-//         SubRoutine_ErrorHandler_Decorator(SetBalanceRate_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
-//     }
+     if(BMS_GetState() == BMS_CHARGING){
+         SubRoutine_ErrorHandler_Decorator(SetBalanceRate_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
+     }
  }
 
 

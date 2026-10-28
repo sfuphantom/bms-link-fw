@@ -18,6 +18,7 @@
 #include "PhantomHelpers.h"
 #include "PhantomTimers.h"
 #include "Phantom_Can.h"
+#include "Charger.h"
 
 #define FRAME_HEADER_LEN    4           // SOH, id, length (2)
 #define TICK_LEN            8
