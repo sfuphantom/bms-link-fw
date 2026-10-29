@@ -23,7 +23,8 @@ void main(void)
 
     while(1)
     {  
-        float current = get_currentOnce(ADC_MODULE, adcGROUP1);
+        get_currentOnce(ADC_MODULE, adcGROUP1);
+        uint32_t getCurrentUint32();
     };
 }
 /* USER CODE END */

@@ -120,7 +120,7 @@ void adcInit(void)
     *     - Enable/Disable channel id in conversion result
     *     - Enable/Disable continuous conversion
     */
-    adcREG1->GxMODECR[1U] = (uint32)ADC_10_BIT
+    adcREG1->GxMODECR[1U] = (uint32)ADC_12_BIT
                           | (uint32)0x00000000U
                           | (uint32)0x00000000U
                           | (uint32)0x00000000U;
@@ -133,7 +133,7 @@ void adcInit(void)
                    | (uint32)ADC1_EVENT;
 
     /** - Setup group 1 sample window */
-    adcREG1->G1SAMP = 1U;
+    adcREG1->G1SAMP = 2U;
 
     /** - Setup group 1 sample discharge 
     *     - Setup discharge prescaler
@@ -251,9 +251,9 @@ static const uint32 s_adcSelect[2U][3U] =
     0x00000000U |
     0x00000000U |
     0x00000000U |
-    0x00080000U |
     0x00000000U |
     0x00000000U |
+    0x00200000U |
     0x00000000U |
     0x00000000U,
     0x00000000U |
@@ -334,7 +334,7 @@ static const uint32 s_adcSelect[2U][3U] =
 static const uint32 s_adcFiFoSize[2U][3U] =
 {
     {16U,
-    1U,
+    6U,
     16U},
     {16U,
     1U,

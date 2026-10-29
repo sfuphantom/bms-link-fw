@@ -2,15 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "bms-link-FW",
-            "type": "ccs-debug",
-            "request": "launch",
-            "projectInfo": {
-                "name": "bms-link-FW",
-                "resourceId": "/bms-link-FW"
-            }
-        },
-        {
             "name": "bms-link-FW-CurrentTransducer",
             "type": "ccs-debug",
             "request": "launch",
