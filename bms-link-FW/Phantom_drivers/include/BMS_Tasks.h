@@ -12,8 +12,8 @@
 
 //                                                         MIN, SEC, MS, US, TICK
 #warning The first argument of MAKE_TICK is MINUTES: these 2 mean 2 minutes between cell voltage reads. Was that the intent?
-#define CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK       MAKE_TICK(0,  0, 50, 0, 0)
-#define CELL_BALANCER_CONTROL_TASK_PERIOD_TICK      MAKE_TICK(0,  1, 0, 0, 0)
+#define CELL_VOLTAGE_MEASURE_TASK_PERIOD_TICK       MAKE_TICK(0,  0, 50, 0, 0)
+#define CELL_BALANCER_CONTROL_TASK_PERIOD_TICK      MAKE_TICK(0,  0, 100, 0, 0)
 #define SLAVE_FLAG_CHECK_TASK_PERIOD_TICK           MAKE_TICK(0,  0, 50, 0, 0)
 //#define CELL_RESISTANCE_MONITOR_TASK_PERIOD_TICK    MAKE_TICK(50, 0, 0, 0, 0)
 #define PACK_VOLTAGE_TASK_PERIOD_TICK               MAKE_TICK(0,  0, 10, 0, 0)

@@ -113,7 +113,7 @@ void Fault_Handler(void){
     }
     handling = true;
 
-    gio_write(GIO_IMD_FAULT_PIN, GIO_LOW);    // first, nothing before it can stop it
+    gio_write((GioName_t)GIO_IMD_FAULT_PIN, GIO_LOW);    // first, nothing before it can stop it
     Charger_FaultShutdown();
     Fault_SendCAN();
 

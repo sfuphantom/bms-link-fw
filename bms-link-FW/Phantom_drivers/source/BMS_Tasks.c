@@ -32,14 +32,14 @@
 typedef struct {
 //    const char   *name;         // shows up in the debugger
 //    task_id_t      task_id;
-    VoidFunc      run;
-    bool        (*allowed)(void);   // NULL = always allowed
+    BoolFunc_t      run;
+    bool            enable;   //
     Periodic_t    timing;       // period 0 = every loop
     TimingStats_t stats;        // how long run() takes, in ticks (check max against the other periods)
 } Task_t;
 
-//#define TASK(fn, period, allow)     { #fn, (fn), (allow), { (period), 0 }, {0} }
-#define TASK(fn, period, allow)     {(fn), (allow), { (period), 0 }, {0} }
+//#define TASK(fn, period, enable)     { #fn, (fn), (enable), { (period), 0 }, {0} }
+#define TASK(fn, period, enable)     {(fn), (enable), { (period), 0 }, {0} }
 
 // After a fault the fault handler turned the charger off. Do not let the state machine turn it back on.
 static bool allowIfNoFault(void)
@@ -50,18 +50,34 @@ static bool allowIfNoFault(void)
 // To add a task: write a void(void) routine in BMS_Routines.c, add its period in BMS_Tasks.h, add a row here.
 // Rows run in this order, one routine at a time.
 static Task_t BMSTask[] = {
-    TASK(CellVoltageControlRoutine,  CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK,  spi_isFree),
-    TASK(SetCellBalancersRoutine,    CELL_BALANCER_CONTROL_TASK_PERIOD_TICK, spi_isFree),
-    TASK(SlaveFlagsRoutine,          SLAVE_FLAG_CHECK_TASK_PERIOD_TICK,      spi_isFree),
-    TASK(SendChargerControlsRoutine, SEND_CHARGER_CONTROL_TASK_PERIOD_TICK,  allowIfNoFault),
+    TASK(MeasureCellVoltage_Routine,  CELL_VOLTAGE_MEASURE_TASK_PERIOD_TICK,  true),
+    TASK(SetBalanceRate_Routine,    CELL_BALANCER_CONTROL_TASK_PERIOD_TICK,   true),
+    TASK(CheckSlaveFlags_Routine,          SLAVE_FLAG_CHECK_TASK_PERIOD_TICK, true),
 
     // Written but not scheduled (they were not scheduled in the old code either). Uncomment to use:
-    // TASK(MeasureCellResistanceRoutine, CELL_RESISTANCE_MONITOR_TASK_PERIOD_TICK, is_SPI_free),
     // TASK(MeasureBatteryVoltageRoutine, PACK_VOLTAGE_TASK_PERIOD_TICK,            is_SPI_free),
     // TASK(MonitorCellTempRoutine,       <add a period>,                           is_SPI_free),
 };
 #warning MeasureBatteryVoltageRoutine is not scheduled. Pack_GetVolt() (used by the charger) only updates if something else calls it.
 
+//----------------------------------------------------------------------------------------------------
+static void Routine_ErrorHandler_Decorator(bool (*Routine_prt)(void), const BMS_Faults ErrorFault){
+    int repeat_idx;
+    bool Valid;
+
+    for(repeat_idx=0; repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
+#warning add logic if there is already a fault
+//         if(anyFaluts()){
+//            return;
+//         }
+
+        Valid = Routine_prt();
+
+        if(Valid){return;}
+    }
+
+    Fault_RaiseBMS(ErrorFault);
+}
 //----------------------------------------------------------------------------------------------------
 static void initTasks(void)
 {
@@ -78,14 +94,15 @@ void Do_BMS_Tasks(void)
     for (i = 0; i < ARRAY_LEN(BMSTask); i++) {
         Task_t * const task = &BMSTask[i];
 
-        if (task->allowed != NULL && !task->allowed()) {
+        if (!task->enable){
             continue;
         }
         // period 0 is handled here so periodic_due() never sees it
         if (task->timing.period != 0 && !periodic_due(&task->timing)) {
             continue;
         }
-        timeFunction_stats(task->run, &task->stats);
+
+        TIME_STATEMENT(&task->stats, task->run());
     }
 }
 

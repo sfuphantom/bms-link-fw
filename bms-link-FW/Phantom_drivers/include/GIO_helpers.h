@@ -216,7 +216,7 @@ typedef enum {
 //--------------------------------------------------------------------------
 typedef enum {
     GIO_DEBUG_PIN           = PIN_A2,
-    GIO_START_CHARGING_PIN  = PIN_A5,
+//    GIO_START_CHARGING_PIN  = PIN_A5,
     GIO_IMD_FAULT_PIN       = PIN_A6,
     GIO_BMS_FAULT_PIN       = PIN_A7,
     GIO_SLAVE_CS_PIN        = PIN_SPI3_CS0,

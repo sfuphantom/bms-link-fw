@@ -39,10 +39,14 @@
 #define NOT_FOUND              SIZE_MAX     // returned by the arr_*_find functions
 
 // ---------------------------------------------------------------------------------------
+typedef bool (*CompareFunc)(double a, double b);
+typedef void (*VoidFunc_t)(void);
+typedef bool (*BoolFunc_t)(void);
+
+// ---------------------------------------------------------------------------------------
 // Comparing single values. Every type is passed as double (floats and 32 bit ints fit exactly),
 // so one function works for all of them. They also fit CompareFunc, which the arrays use.
 // ---------------------------------------------------------------------------------------
-typedef bool (*CompareFunc)(double a, double b);
 
 bool isEqual(double a, double b);
 bool isNotEqual(double a, double b);

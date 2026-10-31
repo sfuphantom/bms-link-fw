@@ -28,27 +28,10 @@ void waitBatterySettle_helper(){
     KeepAlive();
     Charger_SendAllCommands();
     delay_ms_us(500,0);
+
 }
- //---------------------------------------------------------------------------------------------------------
- void SubRoutine_ErrorHandler_Decorator(bool (*SubRoutine_prt)(void), const BMS_Faults ErrorFault){
-     int repeat_idx;
-     bool Valid;
-
-     for(repeat_idx=0; repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
-#warning add logic if there is already a fault
-//         if(anyFaluts()){
-//            return;
-//         }
-
-         Valid = SubRoutine_prt();
-
-         if(Valid){return;}
-     }
-
-     Fault_RaiseBMS(ErrorFault);
- }
  //----------------------------------------------------------------------------------------------------
- bool MeasureCellVoltage_SubRoutine(){
+ bool MeasureCellVoltage_Routine(){
 //     wakeup_sleep_and_SetConfig();
 
      float * CellVolt = Cell_GetVoltWritePtr();
@@ -57,40 +40,46 @@ void waitBatterySettle_helper(){
 //     SetCellVolt(CellVolt);
 
 //     const uint16_t * CellVolt_pre1 = GetCellVoltReadPrt(1);
+     if(!Vaild) {return false;}
 
+
+     //    if(BMS_GetState() == BMS_CHARGING){
+     //        SubRoutine_ErrorHandler_Decorator(SetBalanceRate_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
+     //    }
+     //    const uint16_t * allVolts = GetCellVoltReadPrt(0);
+
+
+          // TODO: check faults
      return Vaild;
  }
 
- bool SetBalanceRate_SubRoutine(){
+ bool SetBalanceRate_Routine(){
 //     wakeup_sleep_and_SetConfig();
 
-     uint8_t * BalanceNibbles = Cell_GetBalanceNibblesWritePtr();
-     uint16_t* BalanceDCC = Cell_GetBalanceDCCWritePtr();
+     float* BalancePWMs = Cell_GetBalancePWMsWritePtr();
      const float * allCellVolts = Cell_GetVoltReadPtr(0);
      const float minCellVolt = Cell_GetMinVolt();
-     float SlaveBoardTemp[NUMBER_OF_SLAVE_BOARDS_TOTAL];
-     getStatus_BoardTempC(SlaveBoardTemp);
 
-     Balance_GetPWM(allCellVolts, minCellVolt, SlaveBoardTemp, BalanceNibbles);
-     Balance_GetDCC(BalanceNibbles, BalanceDCC);
+     if(BMS_GetState() == BMS_CHARGING){
+         uint16_t BalanceDCC[NUMBER_OF_SLAVE_BOARDS_TOTAL];
+         float SlaveBoardTemp[NUMBER_OF_SLAVE_BOARDS_TOTAL];
 
+         getStatus_BoardTempC(SlaveBoardTemp);
+         Balance_Update(allCellVolts, minCellVolt, SlaveBoardTemp, BalancePWMs, BalanceDCC);
 
-     uint8_t SlavePWMBalanceNibbles[NUMBER_OF_CELLS_SLAVES/2] = {0};
-     memset(SlavePWMBalanceNibbles, 0, sizeof(SlavePWMBalanceNibbles));
-     memcpy(SlavePWMBalanceNibbles, BalanceNibbles, sizeof(uint8_t) * NUMBER_OF_CELLS_SERIES_PAIRS);
+         SetConfig_DCC(BalanceDCC);
+     }
+     else{
+         SetAllConfig_DCC(0);
+     }
 
-     wakeup_idle();
-
-     const bool EQ = WriteThenRead_PWM(SlavePWMBalanceNibbles);
-     SetConfig_DCC(BalanceDCC);
      Write_CFGR();
-     return EQ;
+     return true;
  }
 //----------------------------------------------------------------------------------------------------
-void SendChargerControlsRoutine(){
-//    if(BMS_GetState() != BMS_CHARGING)
-//        return;
+bool SendChargerControls_Routine(){
 
+    //BMS_GetState() != BMS_CHARGING
     battery2Charger_t battery2Charger;
 #warning need actual_Ah function and calc
     battery2Charger.actual_Ah = 0;
@@ -113,57 +102,38 @@ void SendChargerControlsRoutine(){
     Charger_UpdateStateMachine(chargerStateFlag);
     Charger_UpdateOutputsFromState();
     Charger_SendAllCommands();
-//    setChargerState(minCellV, AvgCellV, MaxCellV, BatteryVolt);
 
-//    SubRoutine_ErrorHandler_Decorator(SetChargerSettings, CHARGER_COMMS_FAULT);
+    return true;
 }
 
- void CellVoltageControlRoutine(){
-    SubRoutine_ErrorHandler_Decorator(MeasureCellVoltage_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
-
-//    if(BMS_GetState() == BMS_CHARGING){
-//        SubRoutine_ErrorHandler_Decorator(SetBalanceRate_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
-//    }
-//    const uint16_t * allVolts = GetCellVoltReadPrt(0);
-
-
-     // TODO: check faults
- }
-
- void SetCellBalancersRoutine(){
-     if(BMS_GetState() == BMS_CHARGING){
-         SubRoutine_ErrorHandler_Decorator(SetBalanceRate_SubRoutine, BAD_SLAVE_CONNECTION_FLAG);
-     }
- }
-
-
- void MonitorCellTempRoutine(){
+ bool MonitorCellTemp_Routine(){
 //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
 #warning there is nothing here :(
  }
 
- void SlaveFlagsRoutine(){
+ bool CheckSlaveFlags_Routine(){
  //     const uint32_t CS_pollWaitings = waitSPIFree(1000);
 //     wakeup_sleep_and_SetConfig();
 
 #if !USE_ANILOG_GPIO
-     SubRoutine_ErrorHandler_Decorator(MeasureRef2ndVoltage, BAD_SLAVE_CONNECTION_FLAG);
+     MeasureRef2ndVoltage();
 #endif
-     SubRoutine_ErrorHandler_Decorator(ReadStatAndGetFlags, BAD_SLAVE_CONNECTION_FLAG);
+     uint32_t Flags;
+     ReadStatAndGetFlags(&Flags);
 
-      const uint16_t Flags = checkStatFlags();
       Fault_RaiseSlaveMask(Flags);
+      return true;
   }
 
-// void MeasureBatteryVoltageRoutine(){
+// bool MeasureBatteryVoltageRoutine(){
 //     SubRoutine_ErrorHandler_Decorator(MeasureAndSetVoltage, BAD_HV_VOLT_FLAG);
 // }
 
-void keepSlavesAwakeRoutine(){
+bool keepSlavesAwakeRoutine(){
     KeepAlive();
 }
 
-//void SendDataRoutine_Serial(){
+//bool SendDataRoutine_Serial(){
 //    SendCellVoltage_Serial();
 ////    SendCellTemp_Serial();
 ////    SendFanData_Serial();
@@ -175,64 +145,19 @@ void keepSlavesAwakeRoutine(){
 //
 //}
 
-void SendData2VCU(){
+bool SendData2VCU(){
 
 //    SubRoutine_ErrorHandler_Decorator(Send2VCU_direct(BatteryVolts, BatterySOC, BatteryCurrent);
-}
-
-void MeasureCellResistanceRoutine(){
-
-     uint8_t SlavePWMBalanceNibbles[NUMBER_OF_CELLS_SLAVES/2] = {0};
-     float NoCurrentVolts[NUMBER_OF_CELLS_SLAVES];
-     float CurrentVolts[NUMBER_OF_CELLS_SLAVES];
-
-     const float OG_Charing_current_A = Charger_GetTargetCurrent();
-     const float NoCharingCurrent_A = 0;
-     const float ControledCharingCurrent_A = 1;
-
-     bool Vaild = true;
-     memset(SlavePWMBalanceNibbles, 0x00, sizeof(SlavePWMBalanceNibbles));
-     wakeup_idle();
-     Vaild &= WriteThenRead_PWM(SlavePWMBalanceNibbles);
-
-     Charger_SetTargetCurrent(NoCharingCurrent_A);
-
-     doUntilTimeLimit(waitBatterySettle_helper, ticks_make(0,5,0,0,0));
-
-     Vaild &= MeasureCellVoltage(NoCurrentVolts, NUMBER_OF_CELLS_SERIES);
-     //------------------------------------------------------------------------
-     memset(SlavePWMBalanceNibbles, 0xFF, sizeof(SlavePWMBalanceNibbles));
-     Vaild &= WriteThenRead_PWM(SlavePWMBalanceNibbles);
-
-     Charger_SetTargetCurrent(ControledCharingCurrent_A);
-
-     doUntilTimeLimit(waitBatterySettle_helper, ticks_make(0,5,0,0,0));
-
-     Vaild &= MeasureCellVoltage(CurrentVolts, NUMBER_OF_CELLS_SERIES);
-
-     const float Idiff = Charger_GetOutputCurrent() - NoCharingCurrent_A;
-     //------------------------------------------------------------------------
-     // reset slaves and charger
-     Charger_SetTargetCurrent(OG_Charing_current_A);
-     Vaild &= WriteThenRead_PWM(Cell_GetBalanceNibblesReadPtr());
-     //------------------------------------------------------------------------
-     float * res_f = Cell_GetResWritePtr();
-     int i;
-     for(i=0;i<NUMBER_OF_CELLS_SERIES;i++){
-         const float Vdiff =  NoCurrentVolts[i] - CurrentVolts[i];
-         res_f[i] = Vdiff / Idiff;
-     }
 }
 
 bool IMD_MonitorRoutine(){
     const uint32 high = get_IMD_interupt_data_high();
     const uint32 period = get_IMD_interupt_data_high();
 
-    if (high == 0u || high >= period) {return false;}
+    if (peroidFreq_inValid) {return false;}
 
-#warning this can be helper functions, check if it already exist in PhantomHelper or PhantomTimers, else add them
-    const float duty = 100.0f * (float)high / (float)period;
-    const float freq = ECAP_COUNTS_PER_SEC / (float)period;
+    const float freq = get_IMD_freq();
+    const float duty = get_IMD_duty();
 
     IMDData_t IMDData;
     IMDData.duty       = duty;
