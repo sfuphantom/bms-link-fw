@@ -50,9 +50,9 @@ static bool allowIfNoFault(void)
 // To add a task: write a void(void) routine in BMS_Routines.c, add its period in BMS_Tasks.h, add a row here.
 // Rows run in this order, one routine at a time.
 static Task_t BMSTask[] = {
-    TASK(CellVoltageControlRoutine,  CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK,  is_SPI_free),
-    TASK(SetCellBalancersRoutine,    CELL_BALANCER_CONTROL_TASK_PERIOD_TICK, is_SPI_free),
-    TASK(SlaveFlagsRoutine,          SLAVE_FLAG_CHECK_TASK_PERIOD_TICK,      is_SPI_free),
+    TASK(CellVoltageControlRoutine,  CELL_VOLTAGE_CONTROL_TASK_PERIOD_TICK,  spi_isFree),
+    TASK(SetCellBalancersRoutine,    CELL_BALANCER_CONTROL_TASK_PERIOD_TICK, spi_isFree),
+    TASK(SlaveFlagsRoutine,          SLAVE_FLAG_CHECK_TASK_PERIOD_TICK,      spi_isFree),
     TASK(SendChargerControlsRoutine, SEND_CHARGER_CONTROL_TASK_PERIOD_TICK,  allowIfNoFault),
 
     // Written but not scheduled (they were not scheduled in the old code either). Uncomment to use:

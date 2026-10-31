@@ -37,8 +37,7 @@ static uint8_t RampNibble(const float value, const float startVolts, const float
                           const float hysteresis, const uint8_t prevNibble){
 
     const uint8_t nibble = RatioToNibble((value - startVolts) / (fullVolts - startVolts));
-//    const bool holding = (prevNibble > 0) && (value > startVolts - hysteresis);   // NaN -> false
-    const bool holding = false;
+    const bool holding = (prevNibble > 0) && (value > startVolts - hysteresis);   // NaN -> false
     return (nibble == 0 && holding) ? 1 : nibble;
 }
 
