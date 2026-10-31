@@ -138,7 +138,7 @@ bool periodic_due(Periodic_t * const p){
     return true;
 }
 
-uint32_t doUntilTimeLimit(VoidFunc Callable, const ticks_t timeLimit_tick){
+uint32_t doUntilTimeLimit(VoidFunc_t Callable, const ticks_t timeLimit_tick){
     const ticks_t start_tick = getNow_tick();
     uint32_t calls = 0;
 
@@ -153,7 +153,7 @@ uint32_t doUntilTimeLimit(VoidFunc Callable, const ticks_t timeLimit_tick){
 // Waiting for a condition
 //----------------------------------------------------------------------------------------
 // Starts the wait on the first call, and runs Condition if a check is due.
-static bool waitConditionMet(WaitUntil_t * const w, BoolFunc Condition, const ticks_t checkPeriod){
+static bool waitConditionMet(WaitUntil_t * const w, BoolFunc_t Condition, const ticks_t checkPeriod){
     const ticks_t now = getNow_tick();
 
     if (!w->started){
@@ -178,7 +178,7 @@ static WaitResult_t waitFinish(WaitUntil_t * const w, const WaitResult_t result)
     return result;
 }
 
-WaitResult_t waitUntil_nonblocking_count(WaitUntil_t * const w, BoolFunc Condition,
+WaitResult_t waitUntil_nonblocking_count(WaitUntil_t * const w, BoolFunc_t Condition,
                                          const uint32_t maxChecks, const ticks_t checkPeriod){
     if (waitConditionMet(w, Condition, checkPeriod)){
         return waitFinish(w, WAIT_DONE);
@@ -187,7 +187,7 @@ WaitResult_t waitUntil_nonblocking_count(WaitUntil_t * const w, BoolFunc Conditi
     return waitFinish(w, timedOut ? WAIT_TIMEOUT : WAIT_CONTINUE);
 }
 
-WaitResult_t waitUntil_nonblocking_time(WaitUntil_t * const w, BoolFunc Condition,
+WaitResult_t waitUntil_nonblocking_time(WaitUntil_t * const w, BoolFunc_t Condition,
                                         const ticks_t maxWait, const ticks_t checkPeriod){
     if (waitConditionMet(w, Condition, checkPeriod)){
         return waitFinish(w, WAIT_DONE);
@@ -196,7 +196,7 @@ WaitResult_t waitUntil_nonblocking_time(WaitUntil_t * const w, BoolFunc Conditio
     return waitFinish(w, timedOut ? WAIT_TIMEOUT : WAIT_CONTINUE);
 }
 
-bool waitUntil_blocking_count(BoolFunc Condition, const uint32_t maxChecks, const ticks_t checkPeriod){
+bool waitUntil_blocking_count(BoolFunc_t Condition, const uint32_t maxChecks, const ticks_t checkPeriod){
     WaitUntil_t  w = {0};
     WaitResult_t result;
 
@@ -207,7 +207,7 @@ bool waitUntil_blocking_count(BoolFunc Condition, const uint32_t maxChecks, cons
     return result == WAIT_DONE;
 }
 
-bool waitUntil_blocking_time(BoolFunc Condition, const ticks_t maxWait, const ticks_t checkPeriod){
+bool waitUntil_blocking_time(BoolFunc_t Condition, const ticks_t maxWait, const ticks_t checkPeriod){
     WaitUntil_t  w = {0};
     WaitResult_t result;
 
@@ -238,13 +238,13 @@ ticks_t timingStats_avg(const TimingStats_t * const s){
     return (s->count == 0) ? 0 : (s->total / s->count);
 }
 
-uint64_t timeFunction_VoidVoid_us(VoidFunc FuncPtr){
+uint64_t timeFunction_VoidVoid_us(VoidFunc_t FuncPtr){
     const ticks_t tic = timer_tic_tick();
     FuncPtr();
     return timer_toc_us(tic);
 }
 
-ticks_t timeFunction_stats(VoidFunc FuncPtr, TimingStats_t * const stats){
+ticks_t timeFunction_stats(VoidFunc_t FuncPtr, TimingStats_t * const stats){
     const ticks_t tic = timer_tic_tick();
     FuncPtr();
     const ticks_t duration = timer_toc_tick(tic);
@@ -340,7 +340,7 @@ bool trueTimer_update(TrueTimer_t * const t, const bool input, ticks_t * const t
     return input;
 }
 
-bool trueTimer_updateFunc(TrueTimer_t * const t, BoolFunc Input, ticks_t * const trueFor){
+bool trueTimer_updateFunc(TrueTimer_t * const t, BoolFunc_t Input, ticks_t * const trueFor){
     return trueTimer_update(t, Input(), trueFor);
 }
 
@@ -362,4 +362,7 @@ bool pwmSignalGen(const ticks_t period, const float duty, ticks_t * const period
 
     const ticks_t onTicks = (ticks_t)(clampValue(duty, 0.0, 1.0) * (double)period);
     return elapsed < onTicks;
+}
+bool pwmSignalGen_duty100(const ticks_t period, const float duty, ticks_t * const periodStart){
+    return pwmSignalGen(period, duty/100.0, periodStart);
 }

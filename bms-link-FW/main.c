@@ -52,12 +52,8 @@ void main(void)
 
 //    SetChargingStatus(CH);
 
-//    const sciBASE_t * UARTReg = sciREG;
     volatile ticks_t tic, toc;
-    int i;
-    (void)i;
-//    const uint64_t debug_period_tick = ticks_make(0,1,0,0,0);
-//    uint64_t last_debug_tick = 0;
+    volatile int i;
     Periodic_t debug_tick = { ticks_make(0,1,0,0,0), 0};
     volatile float avgCellVolt;
 

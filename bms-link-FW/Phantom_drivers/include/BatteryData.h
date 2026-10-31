@@ -63,7 +63,7 @@
  *      bug (every sibling function - SetCellTemp, GetCellTempWritePrt,
  *      GetCellTempReadPrt - correctly used the thermistor count). Fixed;
  *      always silently dropped the last 2 thermistor readings before.
- *   8. SetBalancePWM_Nibbles()/GetBalancePWM_Nibbles() computed the copy
+ *   8. SetBalancePWM()/GetBalancePWM() computed the copy
  *      length as `NUMBER_OF_CELLS_SERIES/2`, while the array itself is sized
  *      `(NUMBER_OF_CELLS_SERIES+1)/2`. These integer-divide to the same
  *      value for an EVEN cell count (today's 6), so it happened to work, but
@@ -111,6 +111,10 @@
  *      its own, currently unused, per-cell CellTempData. ContactorState_t is
  *      now an enum. The *_SlaveADC getters were removed (no ADC code to return
  *      any more); the old *_float getters replace them.
+ *  15. BALANCE PWM: CellData_t.BalancePWM is now float[NUMBER_OF_CELLS_SERIES]
+ *      (one float per cell, no longer packed 2 cells/byte), and BalanceDCC and
+ *      its get/set pointers were removed. The "PWMs" in the names is now
+ *      historical only.
  *  14. RENAMES / REMOVALS: every public function now follows a Module_Verb
  *      scheme (BatteryData_, BMS_, Pack_, Cell_, Thermistor_, IMD_). Notes 1-13
  *      above still use the OLD names. GetChargingStatus() was removed - use
@@ -187,8 +191,7 @@ typedef struct {
     float CellTempData[NUMBER_OF_TEMP_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];  /* per cell (not per thermistor) - currently unused */
     float CellRes[NUMBER_OF_RES_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];
     float CellSOC[NUMBER_OF_SOC_SAMPLES_SAVED][NUMBER_OF_CELLS_SERIES];
-    uint8_t  BalancePWM_Nibbles[NUMBER_OF_CELLS_SERIES_PAIRS];
-    uint16_t BalanceDCC[NUMBER_OF_SLAVE_BOARDS_TOTAL];
+    float BalancePWM[NUMBER_OF_CELLS_SERIES];  /* one float per cell (no history rows) */
 } CellData_t;
 
 /* New (fix #11): there was nowhere to even record contactor state before. */
@@ -233,15 +236,13 @@ const float*    Cell_GetVoltReadPtr(const uint8_t index);
 const float*    Thermistor_GetReadPtr(const uint8_t index);
 const float*    Cell_GetResReadPtr(const uint8_t index);
 const float*    Cell_GetSOCReadPtr(const uint8_t index);
-const uint8_t*  Cell_GetBalanceNibblesReadPtr(void);
-const uint16_t*  Cell_GetBalanceDCCReadPtr(void);
+const float*    Cell_GetBalancePWMsReadPtr(void);
 const CellData_t* Cell_GetDataPtr(void);
 //----------------------------------------------------------------------------------------------------
 /* ---- Bulk row-buffer write pointers (shifts history, returns row 0) ---- */
 float*    Cell_GetVoltWritePtr(void);
 float*    Thermistor_GetWritePtr(void);
-uint8_t*  Cell_GetBalanceNibblesWritePtr(void);
-uint16_t* Cell_GetBalanceDCCWritePtr(void);
+float*    Cell_GetBalancePWMsWritePtr(void);
 float*    Cell_GetResWritePtr(void);
 float*    Cell_GetSOCWritePtr(void);
 //----------------------------------------------------------------------------------------------------
@@ -253,13 +254,13 @@ void Cell_GetVolt(float* const CellVolt);
 void Thermistor_Get(float* const temps);
 void Cell_GetRes(float* const CellRes);
 void Cell_GetSOC(float* const CellSOC);
-void Cell_SetBalanceNibbles(const uint8_t* BalancePWM_Nibbles);
-void Cell_GetBalanceNibbles(uint8_t* const BalancePWM_Nibbles);
-/* Nice to have (fix #11): per-cell balance duty without hand-rolling the
- * nibble packing. cellIndex must be < NUMBER_OF_CELLS_SERIES (unchecked,
- * consistent with the rest of this file's indexed accessors). */
-void    Cell_SetBalancePWM(const uint8_t cellIndex, const uint8_t dutyNibble);
-uint8_t Cell_GetBalancePWM(const uint8_t cellIndex);
+void Cell_SetBalancePWM(const float* BalancePWM);
+void Cell_GetBalancePWM(float* const BalancePWM);
+/* Per-cell balance duty (float, no nibble packing any more). cellIndex must
+ * be < NUMBER_OF_CELLS_SERIES (unchecked, consistent with the rest of this
+ * file's indexed accessors). */
+void  Cell_SetBalancePWM_signal(const uint8_t cellIndex, const float duty);
+float Cell_GetBalancePWM_signal(const uint8_t cellIndex);
 //----------------------------------------------------------------------------------------------------
 /* ---- Aggregate cell stats (fix #1: now actually declared) ---- */
 size_t  Cell_GetMaxVoltIndex(void);   /* new (fix #11): which cell, not just the value */

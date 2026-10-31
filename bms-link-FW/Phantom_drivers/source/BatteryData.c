@@ -21,7 +21,7 @@
  *     issue on the two functions where it *was* safe to fix that way).
  *   - GetCellTemp()'s copy-length bug (used NUMBER_OF_CELLS_SERIES instead
  *     of NUMBER_OF_THERMISTORS_TOTAL) is fixed.
- *   - SetBalancePWM_Nibbles()/GetBalancePWM_Nibbles() now use sizeof() on
+ *   - SetBalancePWM()/GetBalancePWM() now use sizeof() on
  *     the actual array instead of recomputing the count a second,
  *     inconsistent way.
  *   - BMS_StateMachine() is filled in as a real switch/break/default
@@ -279,11 +279,8 @@ const float* Cell_GetResReadPtr(const uint8_t index){
 const float* Cell_GetSOCReadPtr(const uint8_t index){
     return CellData.CellSOC[index];
 }
-const uint8_t* Cell_GetBalanceNibblesReadPtr(void){
-    return CellData.BalancePWM_Nibbles;
-}
-const uint16_t* Cell_GetBalanceDCCReadPtr(void){
-    return CellData.BalanceDCC;
+const float* Cell_GetBalancePWMsReadPtr(void){
+    return CellData.BalancePWM;
 }
 const CellData_t* Cell_GetDataPtr(void){
     return &CellData;
@@ -299,11 +296,8 @@ float* Cell_GetVoltWritePtr(void){
 float* Thermistor_GetWritePtr(void){
     return (float*)getRowBufWritePrt(thermistors, sizeof(float)*NUMBER_OF_THERMISTORS_TOTAL, NUMBER_OF_TEMP_SAMPLES_SAVED);
 }
-uint8_t* Cell_GetBalanceNibblesWritePtr(void){
-    return CellData.BalancePWM_Nibbles;
-}
-uint16_t* Cell_GetBalanceDCCWritePtr(void){
-    return CellData.BalanceDCC;
+float* Cell_GetBalancePWMsWritePtr(void){
+    return CellData.BalancePWM;
 }
 float* Cell_GetResWritePtr(void){
     return (float*)getRowBufWritePrt(CellData.CellRes, sizeof(float)*NUMBER_OF_CELLS_SERIES, NUMBER_OF_RES_SAMPLES_SAVED);
@@ -353,31 +347,20 @@ void Cell_GetSOC(float* const CellSOC){
 }
 
 //----------------------------------------------------------------------------------------------------
-void Cell_SetBalanceNibbles(const uint8_t* BalancePWM_Nibbles){
-    /* Fixed (see header fix #8): was NUMBER_OF_CELLS_SERIES/2, which can
-     * disagree with the array's own (NUMBER_OF_CELLS_SERIES+1)/2 sizing for
-     * an odd cell count. sizeof() can't drift out of sync with the array. */
-    memcpy(CellData.BalancePWM_Nibbles, BalancePWM_Nibbles, sizeof(CellData.BalancePWM_Nibbles));
+void Cell_SetBalancePWM(const float* BalancePWM){
+    /* sizeof() on the array itself so the copy length can't drift out of sync. */
+    memcpy(CellData.BalancePWM, BalancePWM, sizeof(CellData.BalancePWM));
 }
 
-void Cell_GetBalanceNibbles(uint8_t* const BalancePWM_Nibbles){
-    memcpy(BalancePWM_Nibbles, CellData.BalancePWM_Nibbles, sizeof(CellData.BalancePWM_Nibbles));
+void Cell_GetBalancePWM(float* const BalancePWM){
+    memcpy(BalancePWM, CellData.BalancePWM, sizeof(CellData.BalancePWM));
 }
-#warning "Cell_SetBalancePWM()/Cell_GetBalancePWM() do not bounds-check cellIndex - an index >= NUMBER_OF_CELLS_SERIES reads/writes past BalancePWM_Nibbles[]."
-void Cell_SetBalancePWM(const uint8_t cellIndex, const uint8_t dutyNibble){
-    const uint8_t byteIdx = cellIndex / 2;
-    uint8_t b = CellData.BalancePWM_Nibbles[byteIdx];
-    if ((cellIndex % 2u) == 0u) {
-        b = (uint8_t)((b & 0xF0u) | (dutyNibble & 0x0Fu));
-    } else {
-        b = (uint8_t)((b & 0x0Fu) | ((dutyNibble & 0x0Fu) << 4));
-    }
-    CellData.BalancePWM_Nibbles[byteIdx] = b;
+#warning "Cell_SetBalancePWM()/Cell_GetBalancePWM() do not bounds-check cellIndex - an index >= NUMBER_OF_CELLS_SERIES reads/writes past BalancePWM[]."
+void Cell_SetBalancePWM_signal(const uint8_t cellIndex, const float duty){
+    CellData.BalancePWM[cellIndex] = duty;
 }
-uint8_t Cell_GetBalancePWM(const uint8_t cellIndex){
-    const uint8_t byteIdx = cellIndex / 2;
-    const uint8_t b = CellData.BalancePWM_Nibbles[byteIdx];
-    return ((cellIndex % 2u) == 0u) ? (uint8_t)(b & 0x0Fu) : (uint8_t)((b >> 4) & 0x0Fu);
+float Cell_GetBalancePWM_signal(const uint8_t cellIndex){
+    return CellData.BalancePWM[cellIndex];
 }
 
 //----------------------------------------------------------------------------------------------------

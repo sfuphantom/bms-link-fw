@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "PhantomHelpers.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,8 +26,7 @@ extern "C" {
 #define US_PER_MIN           6E7
 
 typedef uint64_t ticks_t;           // 64 bit: the 32 bit RTI counter + an overflow count
-typedef void (*VoidFunc)(void);
-typedef bool (*BoolFunc)(void);
+
 
 // Work for constants and variables. The argument is cast first, so there is no 32 bit overflow.
 #define US_TO_TICKS(us)     ((ticks_t)(us) * TICKS_PER_US)
@@ -84,7 +84,7 @@ void periodic_init(Periodic_t * const p, const ticks_t period);
 bool periodic_due(Periodic_t * const p);                // true once per period
 
 // Calls Callable until the time is up. Returns how many times it was called.
-uint32_t doUntilTimeLimit(VoidFunc Callable, const ticks_t timeLimit_tick);
+uint32_t doUntilTimeLimit(VoidFunc_t Callable, const ticks_t timeLimit_tick);
 
 // -----------------------------------------
 // Waiting for a condition
@@ -105,14 +105,14 @@ typedef struct {
     bool     started;
 } WaitUntil_t;
 
-WaitResult_t waitUntil_nonblocking_count(WaitUntil_t * const w, BoolFunc Condition,
+WaitResult_t waitUntil_nonblocking_count(WaitUntil_t * const w, BoolFunc_t Condition,
                                          const uint32_t maxChecks, const ticks_t checkPeriod);
-WaitResult_t waitUntil_nonblocking_time(WaitUntil_t * const w, BoolFunc Condition,
+WaitResult_t waitUntil_nonblocking_time(WaitUntil_t * const w, BoolFunc_t Condition,
                                         const ticks_t maxWait, const ticks_t checkPeriod);
 
 // true = Condition became true before the limit
-bool waitUntil_blocking_count(BoolFunc Condition, const uint32_t maxChecks, const ticks_t checkPeriod);
-bool waitUntil_blocking_time(BoolFunc Condition, const ticks_t maxWait, const ticks_t checkPeriod);
+bool waitUntil_blocking_count(BoolFunc_t Condition, const uint32_t maxChecks, const ticks_t checkPeriod);
+bool waitUntil_blocking_time(BoolFunc_t Condition, const ticks_t maxWait, const ticks_t checkPeriod);
 
 // Turns an expression into a bool f(void) so it can be passed to the functions above:
 //     MAKE_BOOL_FUNC(isButtonDown, gioGetBit(gioPORTA, 3) == 0)     // no ; needed
@@ -140,8 +140,8 @@ void    timingStats_reset(TimingStats_t * const s);
 void    timingStats_add(TimingStats_t * const s, const ticks_t duration);
 ticks_t timingStats_avg(const TimingStats_t * const s);
 
-uint64_t timeFunction_VoidVoid_us(VoidFunc FuncPtr);
-ticks_t  timeFunction_stats(VoidFunc FuncPtr, TimingStats_t * const stats);   // returns this run, in ticks
+uint64_t timeFunction_VoidVoid_us(VoidFunc_t FuncPtr);
+ticks_t  timeFunction_stats(VoidFunc_t FuncPtr, TimingStats_t * const stats);   // returns this run, in ticks
 
 // Times any statement, whatever its arguments or return value:
 //     TIME_STATEMENT(&stats, value = readAdc(3));
@@ -203,7 +203,7 @@ typedef struct {
 
 // Returns input. trueFor = time it has been true, 0 if it is false.
 bool trueTimer_update(TrueTimer_t * const t, const bool input, ticks_t * const trueFor);
-bool trueTimer_updateFunc(TrueTimer_t * const t, BoolFunc Input, ticks_t * const trueFor);
+bool trueTimer_updateFunc(TrueTimer_t * const t, BoolFunc_t Input, ticks_t * const trueFor);
 
 // -----------------------------------------
 // PWM from software. Call it often, it returns the output level right now.
@@ -211,6 +211,7 @@ bool trueTimer_updateFunc(TrueTimer_t * const t, BoolFunc Input, ticks_t * const
 // A late call skips the missed periods and keeps the phase. period 0 gives false.
 // -----------------------------------------
 bool pwmSignalGen(const ticks_t period, const float duty, ticks_t * const periodStart);
+bool pwmSignalGen_duty100(const ticks_t period, const float duty, ticks_t * const periodStart);
 
 #ifdef __cplusplus
 }

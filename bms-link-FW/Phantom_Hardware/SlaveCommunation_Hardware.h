@@ -71,6 +71,7 @@
 //////////////////////////////////////////////////////////////////
 #define RES_DRAIN_OHMS                  33.0f
 #define RES_ON_OHMS                     40.0f
+#define DRAIN_OHMS                      (RES_DRAIN_OHMS + RES_ON_OHMS)
 
 #define DCC_MAX_CURRENT_mA              100
 #define DCC_MAX_CURRENT_A               (1000*DCC_MAX_CURRENT_mA)

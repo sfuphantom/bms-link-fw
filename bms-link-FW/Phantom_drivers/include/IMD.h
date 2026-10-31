@@ -30,6 +30,12 @@
 uint32_t get_IMD_interupt_data_high();
 uint32_t get_IMD_interupt_data_period();
 ticks_t get_IMD_interupt_data_last_interupt_tick();
+
+float get_IMD_freq();
+float get_IMD_duty();
+
+bool peroidFreq_inValid();
+
 void IMD_init();
 //---------------------------------------------------------------------------------------------------------
 IMDStateEnum IMD_CalcState(const float duty, const float freq);

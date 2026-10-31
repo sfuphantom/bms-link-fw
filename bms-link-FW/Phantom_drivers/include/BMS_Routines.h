@@ -1,36 +1,28 @@
 /*
- * SlaveCommunation_TaskAndRoutines.h
+ * BMS_Routines.h
  *
- *  Created on: Jun 5, 2026
- *      Author: tanjo
+ * Every routine is one attempt: true = it worked, false = it failed.
+ * Retries, error counting and raising faults are done by the task layer (BMS_Tasks.c).
  */
+#ifndef PHANTOM_DRIVERS_INCLUDE_BMS_ROUTINES_H_
+#define PHANTOM_DRIVERS_INCLUDE_BMS_ROUTINES_H_
 
-#ifndef PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_TASKANDROUTINES_H
-#define PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_TASKANDROUTINES_H
 #include <stdint.h>
 #include <stdbool.h>
-#include "SlaveCommunation_Hardware.h"
 
- //---------------------------------------------------------------------------------------------------------
- #define USE_ANILOG_GPIO        FALSE
+// 1 = temperatures/ref come from the analog GPIO pins, so the 2nd reference is not measured
+#ifndef USE_ANILOG_GPIO
+#define USE_ANILOG_GPIO     0
+#endif
 
- //---------------------------------------------------------------------------------------------------------
- void MeasureCellVoltageSubRoutine();
- void MeasureGPIOVoltageSubRoutine();
- void BalanceCellsSubRoutine();
- void ReadStatAndGetFlagsSubRoutine();
- //---------------------------------------------------------------------------------------------------------
- void CellVoltageControlRoutine();
- void SetCellBalancersRoutine();
- void SlaveFlagsRoutine();
- void MonitorCellTempRoutine();
- void MeasureBatteryVoltageRoutine();
- void MeasureBatteryCurrentRoutine();
- void MeasureCellResistanceRoutine();
- void keepSlavesAwakeRoutine();
- void SendChargerControlsRoutine();
+//---------------------------------------------------------------------------------------------------------
+bool MeasureCellVoltage_Routine(void);
+bool SetBalanceRate_Routine(void);
+bool CheckSlaveFlags_Routine(void);
+bool MeasurePackVoltage_Routine(void);
+bool MonitorIMD_Routine(void);
+bool SendChargerControls_Routine(void);
+bool MonitorCellTemp_Routine(void);         // empty, see the warning in the .c
+bool KeepSlavesAwake_Routine(void);
 
- void SendDataRoutine_Serial();
- //---------------------------------------------------------------------------------------------------------
-
-#endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_TASKANDROUTINES_H_ */
+#endif /* PHANTOM_DRIVERS_INCLUDE_BMS_ROUTINES_H_ */

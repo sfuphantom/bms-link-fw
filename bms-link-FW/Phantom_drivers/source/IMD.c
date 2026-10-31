@@ -36,12 +36,16 @@ ticks_t get_IMD_interupt_data_last_interupt_tick(){
     return IMD_interupt_data.last_interupt_tick;
 }
 
-//float get_IMD_interupt_data_high_f(){
-//    return (float)IMD_interupt_data.high;
-//}
-//float get_IMD_interupt_data_period_f(){
-//    return (float)IMD_interupt_data.period;
-//}
+#warning this can be helper functions, check if it already exist in PhantomHelper or PhantomTimers, else add them
+float get_IMD_freq(){
+    return ECAP_COUNTS_PER_SEC / (float)IMD_interupt_data.period;
+}
+float get_IMD_duty(){
+    return 100.0f * (float)IMD_interupt_data.high / (float)IMD_interupt_data.period;
+}
+bool peroidFreq_inValid(){
+    return (IMD_interupt_data.high == 0u || IMD_interupt_data.high >= IMD_interupt_data.period);
+}
 //---------------------------------------------------------------------------------------------
 void IMD_init(){
     set_IMD_interupt_data_high(0);
