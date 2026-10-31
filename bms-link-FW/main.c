@@ -53,9 +53,9 @@ void main(void)
 //    SetChargingStatus(CH);
 
 //    const sciBASE_t * UARTReg = sciREG;
-    volatile uint32_t tic, toc;
-    volatile int i;
-
+    volatile ticks_t tic, toc;
+    int i;
+    (void)i;
 //    const uint64_t debug_period_tick = ticks_make(0,1,0,0,0);
 //    uint64_t last_debug_tick = 0;
     Periodic_t debug_tick = { ticks_make(0,1,0,0,0), 0};

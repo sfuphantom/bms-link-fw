@@ -113,7 +113,7 @@ void Fault_Handler(void){
     }
     handling = true;
 
-    gioSetBitHelper(GIO_BMS_FAULT_BIT, false);    // first, nothing before it can stop it
+    gio_write(GIO_IMD_FAULT_PIN, GIO_LOW);    // first, nothing before it can stop it
     Charger_FaultShutdown();
     Fault_SendCAN();
 
@@ -186,7 +186,7 @@ void Fault_RaiseIMD(){
 //----------------------------------------------------------------------------------------------------
 static void ReleaseLineIfClear(void){
     if (!Fault_Any()){
-        gioSetBitHelper(GIO_BMS_FAULT_BIT, true);
+        gio_write(GIO_IMD_FAULT_PIN, GIO_HIGH);
     }
 }
 
@@ -226,7 +226,7 @@ void IMD_FAULT_GIO_Notification(void){
 void Fault_Init(void){
     Fault_ClearAll();
 
-    const bool imdPinHigh = gioGetBitHelper(GIO_IMD_FAULT_BIT) & 1;     // IMD pulls it low on a fault
+    const bool imdPinHigh = gio_read(GIO_IMD_FAULT_PIN) & 1;     // IMD pulls it low on a fault
     if (!imdPinHigh){
         IMD_FAULT_GIO_Notification();
     }

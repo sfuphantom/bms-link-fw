@@ -448,15 +448,13 @@ static uint16_t Compress_Charger(uint8_t * const out){
 
 static uint16_t Compress_SlaveState(uint8_t * const out){
     const StatusReg_t * const slave = GetStatusRegData();
-    uint8_t * p = out;
-    int i;
 
-    for (i = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++) {
-        p = Put_U16(p, slave[i].RefVolt2nd);
-        p = Put_U16(p, slave[i].ITMP);
-        p = Put_U16(p, slave[i].SC);
-    }
-    return (uint16_t)(p - out);
+    const uint16_t StatusReg_data_size = sizeof(slave->bytes);
+
+    uint8_t * p = out;
+    memcpy(p, slave->bytes, StatusReg_data_size);
+
+    return (uint16_t)(out + StatusReg_data_size);
 }
 
 static uint16_t Compress_Fans(uint8_t * const out){

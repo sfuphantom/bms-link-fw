@@ -25,7 +25,7 @@
 
 
 void waitBatterySettle_helper(){
-    SendDummyCMD();
+    KeepAlive();
     Charger_SendAllCommands();
     delay_ms_us(500,0);
 }
@@ -159,9 +159,9 @@ void SendChargerControlsRoutine(){
 //     SubRoutine_ErrorHandler_Decorator(MeasureAndSetVoltage, BAD_HV_VOLT_FLAG);
 // }
 
-//void keepSlavesAwakeRoutine(){
-//    SendDummyCMD();
-//}
+void keepSlavesAwakeRoutine(){
+    KeepAlive();
+}
 
 //void SendDataRoutine_Serial(){
 //    SendCellVoltage_Serial();

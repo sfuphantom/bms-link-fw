@@ -2,409 +2,490 @@
 Author: Tanjosh Sidhu
 */
 
-
 #include <stdint.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include "string.h"
+#include <string.h>
 #include "spi_helpers.h"
-
-//#include "spi.h"
+#include "GIO_helpers.h"
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Hardware.h"
+#include "ltc6811_commands.h"
 #include "PhantomHelpers.h"
 #include "PhantomTimers.h"
 
+#define SLAVE_CS_PIN ((GioPin_t)GIO_SLAVE_CS_PIN)
 
-//spiDAT1_t *SPI_LinkConfigData;
-//spiBASE_t* REG_FOR_SPI = REG_FOR_SPI;
-static uint16_t SubDataWords[NUMBER_OF_REG_WORDS_PER_CMD];
+static uint16_t pec15Table[256];
+static bool     pecReady = false;
+static bool     adcFree  = true;
 
+static uint32_t errorCount[SLAVE_STATUS_COUNT];
+static uint8_t  groupScratch[NUMBER_OF_REG_BYTES_PER_CMD];
+static uint8_t  multiScratch[MAX_CMDS_PER_READ * NUMBER_OF_REG_BYTES_PER_CMD];
 
-//CS_Level Current_CS_Level = HIGH;
-bool ADC_is_Free = TRUE;
+//---------------------------------------------------------------------------------------------------------
+// Status
+//---------------------------------------------------------------------------------------------------------
+static const char * const statusText[SLAVE_STATUS_COUNT] = {
+    "ok", "spi error", "spi busy", "spi aborted", "timeout", "pec error",
+    "no data", "read back differs", "asleep", "bit field layout", "bad argument",
+};
 
-#define USE_MEMCPY TRUE
+const char *SlaveStatus_text(const SlaveStatus_t status)
+{
+    return (status < SLAVE_STATUS_COUNT) ? statusText[status] : "unknown";
+}
 
-//----------------------------------------------------------------------------------------
-uint16_t pec15Table[256];
-void init_PEC15_Table(){
-    int i, bit;
-    uint16_t remainder;
-    for (i = 0; i < 256; i++){
-        remainder = i << 7;
-        for (bit = 8; bit > 0; --bit){
-            if (remainder & 0x4000)
-                remainder = (remainder << 1) ^ PEC_CHARACTERISTIC_POLYNOMIAL;
-            else
-                remainder = (remainder << 1);
+uint32_t Slave_ErrorCount(const SlaveStatus_t status)
+{
+    return (status < SLAVE_STATUS_COUNT) ? errorCount[status] : 0U;
+}
 
-        }
-        pec15Table[i] = remainder & 0xFFFF;
+void Slave_ClearErrorCounts(void)
+{
+    memset(errorCount, 0, sizeof(errorCount));
+}
+
+SlaveStatus_t Slave_NoteError(const SlaveStatus_t status)
+{
+    if (status != SLAVE_OK) { errorCount[status]++; }
+    return status;
+}
+
+static SlaveStatus_t fromSpi(const SpiStatus_t status)
+{
+    switch (status) {
+        case SPI_OK:          return SLAVE_OK;
+        case SPI_ERR_TIMEOUT: return SLAVE_ERR_TIMEOUT;
+        case SPI_ERR_ABORTED: return SLAVE_ERR_ABORTED;
+        case SPI_ERR_BUSY:    return SLAVE_ERR_BUSY;
+        default:              return SLAVE_ERR_SPI;
     }
 }
- uint16_t pec15_calc(uint8_t len, const uint16_t *data){
-     if (data == NULL)
-         return SPI_DUMMY_DATA_WORD;
-     uint8_t address, byte;
 
-     uint16_t remainder = PEC_INIT_VALUE;//PEC seed, 16
+//---------------------------------------------------------------------------------------------------------
+// PEC
+//---------------------------------------------------------------------------------------------------------
+void pec15_init(void)
+{
+    uint16_t i;
+    for (i = 0; i < 256U; i++) {
+        uint16_t remainder = (uint16_t)(i << 7);
+        uint8_t  bit;
 
-     int i, j;
-     uint8_t jShift;
-     for (i = 0; i < len; i++){
-         for(j=1; j>=0; j--){
-             jShift = 8*j;
-             byte = (uint8_t) (data[i] >> jShift);
-             address = ((remainder >> 7) ^ byte) & 0xff;//calculate PEC table address
-             remainder = (remainder << 8 ) ^ pec15Table[address];
-         }
-     }
-     return remainder<<1;//The CRC15 has a 0 in the LSB so the final value must be multiplied by 2
- }
- uint16_t calc_cmd_pec15(const uint16_t cmd){
-//     uint8_t cmd8[2] = {cmd>>8,cmd};
-     return pec15_calc(1, &cmd);
- }
- //---------------------------------------------------------------------------------------------------------
- void wakeup_idle(){ //Number of ICs in the system
-     int i;
-     for (i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-         setCS(LOW, SLAVE_CS_PIN_ID);
-         SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE);
-         setCS(HIGH, SLAVE_CS_PIN_ID);
-     }
- }
- void wakeup_sleep() {
-     setCS(LOW, SLAVE_CS_PIN_ID);
-     int i;
-     for (i = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++) {
-         setCS(LOW, SLAVE_CS_PIN_ID);
-         delay_ms_us(0, 2*tWAKE_us);
-         setCS(HIGH, SLAVE_CS_PIN_ID);
-         delay_ms_us(0, 10);
-     }
- }
- //---------------------------------------------------------------------------------------------------------
- void Write_Data(const uint16_t* Tx, uint32 MsgSize){
-      uint16_t Tx_Data;
+        for (bit = 0; bit < 8U; bit++) {
+            if ((remainder & 0x4000U) != 0U) { remainder = (uint16_t)((remainder << 1) ^ PEC_CHARACTERISTIC_POLYNOMIAL); }
+            else                             { remainder = (uint16_t)(remainder << 1); }
+        }
+        pec15Table[i] = remainder;
+    }
+    pecReady = true;
+}
 
-      uint16 tx_Pec = pec15_calc(MsgSize, Tx);
-     while(MsgSize-- && !(REG_FOR_SPI->FLG & 0xFF)){
-         Tx_Data = *Tx++;
+uint16_t pec15_calc(const uint8_t * const data, const size_t len)
+{
+    uint16_t remainder = PEC_INIT_VALUE;
+    size_t   i;
 
-          (void)SPI_SR2Link_WORD(Tx_Data);
+    if (data == NULL) { return SPI_DUMMY_U16; }
+    if (!pecReady)    { pec15_init(); }
 
-      }
-      uint16_t Rx_pec = SPI_SR2Link_WORD(tx_Pec);
-//      return (REG_FOR_SPI->FLG & 0xFF);
- //     return Rx_pec;
-  }
- uint32 Read_Data(uint16_t* Rx, uint32 MsgSize){
-     const uint16_t Tx_Data = SPI_DUMMY_DATA_WORD;
-     const uint16 tx_Pec = SPI_DUMMY_DATA_WORD;
+    for (i = 0; i < len; i++) {
+        const uint8_t address = (uint8_t)(((remainder >> 7) ^ data[i]) & 0xFFU);
+        remainder = (uint16_t)((remainder << 8) ^ pec15Table[address]);
+    }
+    return (uint16_t)(remainder << 1);      // the CRC15 has a 0 in the LSB
+}
 
-     uint16_t Rx_Data;
+uint16_t pec15_cmd(const uint16_t cmd)
+{
+    uint8_t bytes[2];
 
-     while(MsgSize-- && !(REG_FOR_SPI->FLG & 0xFF)){
-          Rx_Data = SPI_SR2Link_WORD(Tx_Data);
+    write_u16_BE(bytes, cmd);
+    return pec15_calc(bytes, sizeof(bytes));
+}
 
-          *Rx++ = Rx_Data;
-      }
-      uint16_t Rx_pec = SPI_SR2Link_WORD(tx_Pec);
-//      return (REG_FOR_SPI->FLG & 0xFF);
-      return Rx_pec;
-  }
+//---------------------------------------------------------------------------------------------------------
+// One message = CS low ... CS high. The pieces below are only used inside a message.
+//---------------------------------------------------------------------------------------------------------
+static SlaveStatus_t beginMsg(void)
+{
+    return fromSpi(spi_begin(SLAVE_SPI_OWNER, SLAVE_CS_PIN, SLAVE_LOCK_WAIT_TICKS));
+}
 
- void SendCmdAndPec2Slave(const uint16_t cmd){
-     uint16_t cmd_pec = calc_cmd_pec15(cmd);
+static void endMsg(void)
+{
+    spi_end(SLAVE_SPI_OWNER, SLAVE_CS_PIN);
+}
 
-     (void)SPI_SR2Link_WORD(cmd);
-     (void)SPI_SR2Link_WORD(cmd_pec);
-//     uint16_t Rx_cmd = SPI_SR2Link_WORD(cmd);
-//     uint16_t Rx_pec = SPI_SR2Link_WORD(cmd_pec);
-//     uint32_t FullCmdRx = (uint32_t)Rx_cmd<<16 | (uint32_t)Rx_pec;
-//     return FullCmdRx;
- }
-#if CUSTOM_POLL_WAIT
-// uint32_t pollAndWait(const uint32_t wait_periods_us){
-//     bool status = FALSE;
-//     uint32_t PollsWaited = 1;
-//
-//     SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
-//
-//     for(PollsWaited=1; PollsWaited < MAX_POLLS_TIMEOUT; PollsWaited++){
-//         status = SPI_SR2Link_2Bits(SPI_DUMMY_DATA_BYTE) & 0x0001;
-//         if(status){
-//             return PollsWaited;
-//         }
-//
-//         delay_ms_us(0,wait_periods_us);
-//     }
-//     return 0;
-//
-// }
+static SlaveStatus_t sendCmd(const uint16_t cmd)
+{
+    SpiStatus_t status = spi_send_u16(cmd, SPI_BIG_ENDIAN);
+
+    if (status == SPI_OK) { status = spi_send_u16(pec15_cmd(cmd), SPI_BIG_ENDIAN); }
+    return fromSpi(status);
+}
+
+static SlaveStatus_t writeGroup(const uint8_t * const data)
+{
+    SpiStatus_t status = spi_send_arr8(data, BYTES_PER_REG_GROUP);
+
+    if (status == SPI_OK) { status = spi_send_u16(pec15_calc(data, BYTES_PER_REG_GROUP), SPI_BIG_ENDIAN); }
+    return fromSpi(status);
+}
+
+static SlaveStatus_t readGroup(uint8_t * const data)
+{
+    uint16_t rxPec = 0U;
+    SpiStatus_t status = spi_receive_arr8(data, BYTES_PER_REG_GROUP);
+
+    if (status == SPI_OK) { status = spi_receive_u16(&rxPec, SPI_BIG_ENDIAN); }
+    if (status != SPI_OK) { return fromSpi(status); }
+
+    return (pec15_calc(data, BYTES_PER_REG_GROUP) == rxPec) ? SLAVE_OK : SLAVE_ERR_PEC;
+}
+
+// After a command, with CS still low: one clock per chip, then clock until a byte has bit 0 set
+static SlaveStatus_t pollDone(void)
+{
+    SpiWait_t w;
+    SpiStatus_t status = spi_receive_arr8(NULL, NUMBER_OF_GARBAGE_BYTES);
+
+    if (status != SPI_OK) { return fromSpi(status); }
+
+    ZERO_STRUCT(w);
+    while (!spi_poll_anyBit(&w, 0x01U, MAX_POLLS_TIMEOUT)) {
+        if (w.done) { return fromSpi(w.status); }
+    }
+    return SLAVE_OK;
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Wake up
+//---------------------------------------------------------------------------------------------------------
+SlaveStatus_t wakeup_idle(void)
+{
+    const uint8_t dummy = SPI_DUMMY_BYTE;
+    uint8_t i;
+
+    for (i = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++) {
+        const SlaveStatus_t status = fromSpi(spi_transact(SLAVE_SPI_OWNER, SLAVE_CS_PIN,
+                                                          SLAVE_LOCK_WAIT_TICKS, &dummy, NULL, 1U));
+        if (status != SLAVE_OK) { return Slave_NoteError(status); }
+    }
+    return SLAVE_OK;
+}
+
+SlaveStatus_t wakeup_sleep(void)
+{
+    SlaveStatus_t status = beginMsg();
+    uint8_t i;
+
+    if (status != SLAVE_OK) { return Slave_NoteError(status); }
+
+    for (i = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL; i++) {
+        if (i > 0U) { spi_csLow(SLAVE_CS_PIN); }
+        delay_ms_us(0, 2 * tWAKE_us);
+        spi_csHigh(SLAVE_CS_PIN);
+        delay_ms_us(0, 10);
+    }
+
+    endMsg();
+    return SLAVE_OK;
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Commands
+//---------------------------------------------------------------------------------------------------------
+SlaveStatus_t SendCmd(const uint16_t cmd)
+{
+    SlaveStatus_t status = beginMsg();
+    if (status != SLAVE_OK) { return Slave_NoteError(status); }
+
+    status = sendCmd(cmd);
+
+    endMsg();
+    return Slave_NoteError(status);
+}
+
+SlaveStatus_t SendCmdAndPoll(const uint16_t cmd)
+{
+    SlaveStatus_t status = beginMsg();
+    if (status != SLAVE_OK) { return Slave_NoteError(status); }
+
+    status = sendCmd(cmd);
+    if (status == SLAVE_OK) { status = pollDone(); }
+
+    endMsg();
+    if (status == SLAVE_OK) { adcFree = true; }
+    return Slave_NoteError(status);
+}
+
+SlaveStatus_t StartADC(const uint16_t cmd)
+{
+    const SlaveStatus_t status = SendCmd(cmd);
+
+    if (status == SLAVE_OK) { adcFree = false; }
+    return status;
+}
+
+SlaveStatus_t PollADC(bool * const free)
+{
+    uint8_t rx = 0U;
+    SlaveStatus_t status = wakeup_idle();
+
+    if (status == SLAVE_OK) { status = beginMsg(); }
+    if (status != SLAVE_OK) { return Slave_NoteError(status); }
+
+    status = sendCmd(LTC6811_PLADC);
+    if (status == SLAVE_OK) { status = fromSpi(spi_receive_arr8(NULL, NUMBER_OF_GARBAGE_BYTES)); }
+    if (status == SLAVE_OK) { status = fromSpi(spi_receive_u8(&rx)); }
+
+    endMsg();
+    if (status != SLAVE_OK) { return Slave_NoteError(status); }
+
+    adcFree = ((rx & 0x01U) != 0U);
+    *free   = adcFree;
+    return SLAVE_OK;
+}
+
+bool isADCFree(void)
+{
+    bool free = false;
+
+    if (adcFree) { return true; }
+    return (PollADC(&free) == SLAVE_OK) && free;
+}
+
+bool isADCBusy(void)
+{
+    return !isADCFree();
+}
+
+SlaveStatus_t waitADCFree(const ticks_t period, const ticks_t timeout)
+{
+    Timeout_t t;
+    bool free = false;
+
+    if (adcFree) { return SLAVE_OK; }
+    timeout_start(&t, timeout);
+
+    for (;;) {
+        const SlaveStatus_t status = PollADC(&free);
+
+        if (status != SLAVE_OK) { return status; }
+        if (free)               { return SLAVE_OK; }
+        if (timeout_expired(&t)) { return Slave_NoteError(SLAVE_ERR_TIMEOUT); }
+
+        delay_ticks(period);                // the SPI is free for others meanwhile
+    }
+}
+
+SlaveStatus_t ConvertADC(const uint16_t cmd)
+{
+    const ticks_t period  = US_TO_TICKS(ADC_CHECK_PERIOD_US);
+    const ticks_t timeout = US_TO_TICKS(ADC_TIMEOUT_US);
+    SlaveStatus_t status  = waitADCFree(period, timeout);       // never start over a running conversion
+
+    if (status != SLAVE_OK) { return status; }
+
+#if ADC_WAIT_FREES_SPI
+    status = StartADC(cmd);
+    if (status == SLAVE_OK) { status = waitADCFree(period, timeout); }
+    return status;
 #else
-  uint32_t pollAndWait(){
-      bool status = FALSE;
-      uint32_t PollsWaited = 1;
-
-      SPI_Clock_BYTES(NUMBER_OF_GARBAGE_BYTES);
-
-      for(PollsWaited=1; PollsWaited < MAX_POLLS_TIMEOUT; PollsWaited++){
-          status = SPI_SR2Link_BYTE(SPI_DUMMY_DATA_BYTE) & 0x0001;
-          if(status){
-              return PollsWaited;
-          }
-
-      }
-      return 0;
-
-  }
+    return SendCmdAndPoll(cmd);
 #endif
- //---------------------------------------------------------------------------------------------------------
- void SendCMD2Slave_alone(const uint16_t cmd){
-     setCS(LOW, SLAVE_CS_PIN_ID);
-     SendCmdAndPec2Slave(cmd);
-     setCS(HIGH, SLAVE_CS_PIN_ID);
- }
-#if CUSTOM_POLL_WAIT
- uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd, const uint32_t wait_periods_us){
-      setCS(LOW, SLAVE_CS_PIN_ID);
+}
 
-      SendCmdAndPec2Slave(cmd);
-      uint32_t PollsWaited = pollAndWait(wait_periods_us);
+//---------------------------------------------------------------------------------------------------------
+// Register groups
+//---------------------------------------------------------------------------------------------------------
 
-      setCS(HIGH, SLAVE_CS_PIN_ID);
+// Reads the first `boards` chips. Stops at the first bad PEC.
+static SlaveStatus_t readOnce(const uint16_t cmd, uint8_t * const data, const uint8_t boards)
+{
+    uint8_t i;
+    SlaveStatus_t status = beginMsg();
+    if (status != SLAVE_OK) { return Slave_NoteError(status); }
 
-      return PollsWaited;
-  }
-#else
- uint32_t SendCMD2Slave_pollAndWait(const uint16_t cmd){
-     setCS(LOW, SLAVE_CS_PIN_ID);
+    status = sendCmd(cmd);
+    for (i = 0; i < boards && status == SLAVE_OK; i++) {
+        status = readGroup(&data[i * BYTES_PER_REG_GROUP]);
+    }
 
-     SendCmdAndPec2Slave(cmd);
-     uint32_t PollsWaited = pollAndWait();
+    endMsg();
+    return Slave_NoteError(status);
+}
 
-     setCS(HIGH, SLAVE_CS_PIN_ID);
+// Only a bad PEC is worth another try
+static SlaveStatus_t readRetry(const uint16_t cmd, uint8_t * const data, const uint8_t boards)
+{
+    SlaveStatus_t status = SLAVE_ERR_PEC;
+    uint8_t attempt;
 
-     return PollsWaited;
- }
-#endif
+    for (attempt = 0; attempt < NUMBER_OF_FAILS_ALLOWED; attempt++) {
+        status = readOnce(cmd, data, boards);
+        if (status != SLAVE_ERR_PEC) { return status; }
+    }
+    return status;
+}
 
- //---------------------------------------------------------------------------------------------------------
+SlaveStatus_t ReadRegGroup(const uint16_t cmd, uint8_t * const data)
+{
+    return readRetry(cmd, data, NUMBER_OF_SLAVE_BOARDS_TOTAL);
+}
 
- bool ReadRegGroup_NoPecCheck(const uint16_t cmd, uint16_t* data){
-     bool Pec_Equal = TRUE;
+// The chips before this one still have to be clocked out, the ones after it do not
+SlaveStatus_t ReadRegGroup_Slave(const uint16_t cmd, const uint8_t board, uint8_t * const data)
+{
+    uint8_t upTo[NUMBER_OF_REG_BYTES_PER_CMD];
+    const SlaveStatus_t status = (board < NUMBER_OF_SLAVE_BOARDS_TOTAL) ? readRetry(cmd, upTo, board + 1U)
+                                                                        : SLAVE_ERR_ARG;
+    if (status == SLAVE_OK) { memcpy(data, &upTo[board * BYTES_PER_REG_GROUP], BYTES_PER_REG_GROUP); }
+    return status;
+}
 
-     int i;
-     uint16_t Rx_Pec_Mesg = SPI_DUMMY_DATA_WORD;
-     uint16_t Rx_Pec_Calc = SPI_DUMMY_DATA_WORD;
+static SlaveStatus_t writeOnce(const uint16_t cmd, const uint8_t * const data)
+{
+    uint8_t i;
+    SlaveStatus_t status = beginMsg();
+    if (status != SLAVE_OK) { return Slave_NoteError(status); }
 
-     uint16 *data_Rx = NULL;
+    status = sendCmd(cmd);
+    for (i = 0; i < NUMBER_OF_SLAVE_BOARDS_TOTAL && status == SLAVE_OK; i++) {
+        const uint8_t board = (uint8_t)(NUMBER_OF_SLAVE_BOARDS_TOTAL - 1U - i);     // the far end goes first
+        status = writeGroup(&data[board * BYTES_PER_REG_GROUP]);
+    }
 
-     uint16_t ReadOneReg[WORDS_PER_REG_GROUP];
-     uint16_t ReadOneReg_Swap[WORDS_PER_REG_GROUP];
+    endMsg();
+    return Slave_NoteError(status);
+}
 
+SlaveStatus_t WriteRegGroup(const uint16_t cmd, const uint8_t * const data)
+{
+    return writeOnce(cmd, data);
+}
 
+SlaveStatus_t WriteThenReadRegGroup(const uint16_t W_cmd, const uint16_t R_cmd, const uint8_t * const W_data)
+{
+    uint8_t R_data[NUMBER_OF_REG_BYTES_PER_CMD];
+    SlaveStatus_t status = SLAVE_ERR_MISMATCH;
+    uint8_t attempt;
 
-     setCS(LOW, SLAVE_CS_PIN_ID);
+    for (attempt = 0; attempt < NUMBER_OF_FAILS_ALLOWED; attempt++) {
+        status = WriteRegGroup(W_cmd, W_data);
+        if (status != SLAVE_OK) { return status; }
 
-     SendCmdAndPec2Slave(cmd);
+        status = ReadRegGroup(R_cmd, R_data);
+        if (status == SLAVE_OK) {
+            if (arr_u8_equal(W_data, R_data, NUMBER_OF_REG_BYTES_PER_CMD)) { return SLAVE_OK; }
+            status = Slave_NoteError(SLAVE_ERR_MISMATCH);
+        }
+        if (status != SLAVE_ERR_PEC && status != SLAVE_ERR_MISMATCH) { return status; }
+    }
+    return status;
+}
 
-     for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-         data_Rx = data + i*WORDS_PER_REG_GROUP;
+//---------------------------------------------------------------------------------------------------------
+// Several commands. In `data`, the groups of one chip are next to each other.
+//---------------------------------------------------------------------------------------------------------
+static size_t slotOffset(const uint8_t numCmds, const uint8_t cmdIdx, const uint8_t board)
+{
+    return ((size_t)board * numCmds + cmdIdx) * BYTES_PER_REG_GROUP;
+}
 
-         Rx_Pec_Mesg = Read_Data(ReadOneReg, WORDS_PER_REG_GROUP);
+// one group of every chip: data -> sub
+static void gatherGroups(uint8_t * const sub, const uint8_t * const data, const uint8_t numCmds, const uint8_t cmdIdx)
+{
+    uint8_t board;
+    for (board = 0; board < NUMBER_OF_SLAVE_BOARDS_TOTAL; board++) {
+        memcpy(&sub[board * BYTES_PER_REG_GROUP], &data[slotOffset(numCmds, cmdIdx, board)], BYTES_PER_REG_GROUP);
+    }
+}
 
-#if USE_MEMCPY
-         memcpy(data_Rx, ReadOneReg, WORDS_PER_REG_GROUP * sizeof(uint16_t));
-#else
-         int j;
-         for(j=0; j < WORDS_PER_REG_GROUP; j++)
-             data_Rx[j] = ReadOneReg[j];
-#endif
+// one group of every chip: sub -> data
+static void scatterGroups(uint8_t * const data, const uint8_t * const sub, const uint8_t numCmds, const uint8_t cmdIdx)
+{
+    uint8_t board;
+    for (board = 0; board < NUMBER_OF_SLAVE_BOARDS_TOTAL; board++) {
+        memcpy(&data[slotOffset(numCmds, cmdIdx, board)], &sub[board * BYTES_PER_REG_GROUP], BYTES_PER_REG_GROUP);
+    }
+}
 
-         swapBytes16_arr(ReadOneReg, ReadOneReg_Swap, WORDS_PER_REG_GROUP);
+SlaveStatus_t ReadMultiRegGroups(const uint16_t * const cmds, const uint8_t numCmds, uint8_t * const data)
+{
+    uint8_t i;
+    for (i = 0; i < numCmds; i++) {
+        SlaveStatus_t status = wakeup_idle();
 
-         Rx_Pec_Calc = pec15_calc(WORDS_PER_REG_GROUP, ReadOneReg_Swap);
-         Rx_Pec_Calc = swapBytes16(Rx_Pec_Calc);
-         Pec_Equal &= (Rx_Pec_Mesg == Rx_Pec_Calc);
-         if(!Pec_Equal){
-             break;
-         }
-     }
+        if (status == SLAVE_OK) { status = ReadRegGroup(cmds[i], groupScratch); }
+        if (status != SLAVE_OK) { return status; }
 
-     setCS(HIGH, SLAVE_CS_PIN_ID);
-     return Pec_Equal;
- }
- bool ReadRegGroup(const uint16_t cmd, uint16_t *data){
-     bool Pec_Eq;
-     int repeat_idx;
+        scatterGroups(data, groupScratch, numCmds, i);
+    }
+    return SLAVE_OK;
+}
 
-     for(repeat_idx=0;repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
-         Pec_Eq = ReadRegGroup_NoPecCheck(cmd, data);
+SlaveStatus_t ReadMultiRegGroups_u16(const uint16_t * const cmds, const uint8_t numCmds, uint16_t * const data)
+{
+    SlaveStatus_t status;
 
-         if(Pec_Eq){return true;}
-     }
-     return false;
-  }
+    if (numCmds > MAX_CMDS_PER_READ) { return SLAVE_ERR_ARG; }
 
- void WriteRegGroup(const uint16_t cmd, const uint16_t *data){
-      int i;
-      uint8_t idx;
-      setCS(LOW, SLAVE_CS_PIN_ID);
-      SendCmdAndPec2Slave(cmd);
+    status = ReadMultiRegGroups(cmds, numCmds, multiScratch);
+    if (status == SLAVE_OK) { bytes_to_u16_LE(multiScratch, data, (size_t)numCmds * NUMBER_OF_REG_WORDS_PER_CMD); }
+    return status;
+}
 
-      for(i=0; i<NUMBER_OF_SLAVE_BOARDS_TOTAL; i++){
-          idx = NUMBER_OF_REG_WORDS_PER_CMD - (i+1)*WORDS_PER_REG_GROUP;
+SlaveStatus_t WriteMultiRegGroups(const uint16_t * const cmds, const uint8_t numCmds, const uint8_t * const data)
+{
+    uint8_t i;
+    for (i = 0; i < numCmds; i++) {
+        SlaveStatus_t status;
 
-          Write_Data(&data[idx], WORDS_PER_REG_GROUP);
-      }
-          setCS(HIGH, SLAVE_CS_PIN_ID);
- }
- bool WriteThenReadRegGroup(const uint16_t W_cmd, const uint16_t R_cmd, const uint16_t *W_data){
-      bool RW_EQ;
-      int repeat_idx;
-      uint16_t R_data[NUMBER_OF_REG_WORDS_PER_CMD];
+        gatherGroups(groupScratch, data, numCmds, i);
 
-      for(repeat_idx=0;repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
+        status = wakeup_idle();
+        if (status == SLAVE_OK) { status = WriteRegGroup(cmds[i], groupScratch); }
+        if (status != SLAVE_OK) { return status; }
+    }
+    return SLAVE_OK;
+}
 
-         WriteRegGroup(W_cmd, W_data);
-         ReadRegGroup(R_cmd, R_data);
+SlaveStatus_t WriteThenReadMultiRegGroups(const uint16_t * const W_cmds, const uint16_t * const R_cmds,
+                                          const uint8_t numCmds, const uint8_t * const data)
+{
+    uint8_t i;
+    for (i = 0; i < numCmds; i++) {
+        SlaveStatus_t status;
 
-         RW_EQ = arr_u16_equal(W_data, R_data, NUMBER_OF_REG_WORDS_PER_CMD);
+        gatherGroups(groupScratch, data, numCmds, i);
 
-         if(RW_EQ){return true;}
-     }
-      return false;
- }
- //---------------------------------------------------------------------------------------------------------
+        status = wakeup_idle();
+        if (status == SLAVE_OK) { status = WriteThenReadRegGroup(W_cmds[i], R_cmds[i], groupScratch); }
+        if (status != SLAVE_OK) { return status; }
+    }
+    return SLAVE_OK;
+}
 
- bool ReadMultiRegGroups(const uint16_t *cmds, uint8_t NumOfCmds, uint16_t *data){
-     int i=0, j=0, idx0=0, idx1=0;
-     bool PecEq = true;
+//---------------------------------------------------------------------------------------------------------
+SlaveStatus_t SendClearThenCheckCMD(const uint16_t cmd_clear, const uint16_t cmd_check)
+{
+    uint8_t reg[NUMBER_OF_REG_BYTES_PER_CMD];
+    SlaveStatus_t status = SLAVE_ERR_MISMATCH;
+    uint8_t attempt;
 
-     for(i=0;i<NumOfCmds;i++){
-         wakeup_idle();
-         PecEq &= ReadRegGroup(cmds[i], SubDataWords);
+    for (attempt = 0; attempt < NUMBER_OF_FAILS_ALLOWED; attempt++) {
+        status = SendCmd(cmd_clear);
+        if (status != SLAVE_OK) { return status; }
 
-         for(j=0;j < NUMBER_OF_REG_WORDS_PER_CMD;j+=WORDS_PER_REG_GROUP){
-             idx0 = WORDS_PER_REG_GROUP * i + NumOfCmds*j;
-             idx1 = j;
-#if USE_MEMCPY
-             memcpy(&data[idx0], &SubDataWords[idx1], WORDS_PER_REG_GROUP * sizeof(uint16_t));
-#else
-             int k;
-             for(k=0;k<WORDS_PER_REG_GROUP; k++){
-                 uint16_t CurrentWord = SubDataWords[idx1+k];
-                 data[idx0+k] = CurrentWord;
-             }
-#endif
-         }
-     }
-     return PecEq;
-  }
- void WriteMultiRegGroups(const uint16_t *cmds, uint8_t NumOfCmds, uint16_t *data){
-     int i=0, j=0, idx0=0, idx1=0;
-
-     for(i=0;i<NumOfCmds;i++){
-         for(j=0;j < NUMBER_OF_REG_WORDS_PER_CMD;j+=WORDS_PER_REG_GROUP){
-             idx0 = WORDS_PER_REG_GROUP * i + NumOfCmds*j;
-             idx1 = j;
-#if USE_MEMCPY
-             memcpy(&SubDataWords[idx1], &data[idx0], WORDS_PER_REG_GROUP * sizeof(uint16_t));
-#else
-             int k;
-             for(k=0;k<WORDS_PER_REG_GROUP; k++){
-                 uint16_t CurrentWord = SubDataWords[idx1+k];
-                 data[idx0+k] = CurrentWord;
-             }
-#endif
-
-         }
-
-         wakeup_idle();
-         WriteRegGroup(cmds[i], SubDataWords);
-
-     }
-  }
-
- bool WriteThenReadMultiRegGroups(const uint16_t *W_cmds, const uint16_t *R_cmds, uint8_t NumOfCmds, uint16_t *data){
-      int i, j, idx0, idx1;
-      bool PecEq = true;
-
-      for(i=0;i<NumOfCmds;i++){
-          for(j=0;j < NUMBER_OF_REG_WORDS_PER_CMD;j+=WORDS_PER_REG_GROUP){
-              idx0 = WORDS_PER_REG_GROUP * i + NumOfCmds*j;
-              idx1 = j;
- #if USE_MEMCPY
-              memcpy(&SubDataWords[idx1], &data[idx0], WORDS_PER_REG_GROUP * sizeof(uint16_t));
- #else
-              int k;
-              for(k=0;k<WORDS_PER_REG_GROUP; k++){
-                  uint16_t CurrentWord = SubDataWords[idx1+k];
-                  data[idx0+k] = CurrentWord;
-              }
- #endif
-          }
-
-          wakeup_idle();
-          PecEq = WriteThenReadRegGroup(W_cmds[i], R_cmds[i], SubDataWords);
-
-          if(!PecEq){return false;}
-
-      }
-      return true;
-   }
-
- bool SendClearThenCheckCMD(const uint16_t cmd_clear, const uint16_t cmd_check){
-     bool cleared = FALSE;
-     bool PecEQ;
-     uint16_t Reg[NUMBER_OF_REG_WORDS_PER_CMD];
-     int repeat_idx;
-
-     for(repeat_idx=0; repeat_idx<NUMBER_OF_FAILS_ALLOWED; repeat_idx++){
-         SendCMD2Slave_alone(cmd_clear);
-         PecEQ = ReadRegGroup(cmd_check, Reg);
-
-         if(arr_u16_all(Reg, SPI_DUMMY_DATA_WORD, isEqual, NUMBER_OF_REG_WORDS_PER_CMD) && PecEQ){
-             cleared = TRUE;
-             break;
-         }
-     }
-
-     if(!cleared){return FALSE;}
-     return TRUE;
- }
- //---------------------------------------------------------------------------------------------------------
- void WriteBytes2RegGroup(const uint16_t cmd, const uint8_t* Bytes){
-     bytes_to_u16_BE(Bytes , SubDataWords  , NUMBER_OF_REG_WORDS_PER_CMD);
-
-     WriteRegGroup(cmd, SubDataWords);
- }
- bool ReadBytesFromRegGroup(const uint16_t cmd, uint8_t* Bytes){
-     uint16_t PecEq = ReadRegGroup(cmd, SubDataWords);
-
-     u16_to_bytes_BE(SubDataWords, Bytes, NUMBER_OF_REG_WORDS_PER_CMD);
-     return PecEq;
- }
-
- bool WriteThenReadRegGroup_Bytes(const uint16_t W_cmd, const uint16_t R_cmd, const uint8_t *W_data){
-      bool RW_EQ;
-      int repeat_idx;
-
-      uint8_t R_data[NUMBER_OF_REG_BYTES_PER_CMD];
-
-      for(repeat_idx=0;repeat_idx<NUMBER_OF_FAILS_ALLOWED;repeat_idx++){
-         WriteBytes2RegGroup(W_cmd, W_data);
-         ReadBytesFromRegGroup(R_cmd, R_data);
-
-         RW_EQ = arr_u8_equal(W_data, R_data, NUMBER_OF_REG_BYTES_PER_CMD);
-
-         if(RW_EQ){return true;}
-     }
-
-      return false;
- }
-
+        status = ReadRegGroup(cmd_check, reg);
+        if (status == SLAVE_OK) {
+            if (arr_u8_all(reg, NUMBER_OF_REG_BYTES_PER_CMD, isEqual, SPI_DUMMY_BYTE)) { return SLAVE_OK; }
+            status = Slave_NoteError(SLAVE_ERR_MISMATCH);
+        }
+        if (status != SLAVE_ERR_PEC && status != SLAVE_ERR_MISMATCH) { return status; }
+    }
+    return status;
+}
