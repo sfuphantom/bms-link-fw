@@ -1,5 +1,5 @@
 /*
- * BatteryData.h
+ * BMS_Data.h
  *
  *  Created on: Jun 8, 2026
  *      Author: tanjo

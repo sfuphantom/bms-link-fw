@@ -14,16 +14,15 @@
 #include "GetBatteryVoltage.h"
 
 #if USE_HV_BOARD
-#include "spi.h"
-#include "spi_helpers.h"
+// #include "spi.h"
+#include "SPI_helpers.h"
 #else
 #include "SlaveCommunation_Hardware.h"
 #include "SlaveCommunation_Functions.h"
 #endif
 
 #include "FullBattery_Hardware.h"
-#include "BatteryData.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 
 
 
@@ -75,10 +74,3 @@ uint16_t CompressVoltage(const float volts){
     return (uint16_t)scaled;
 }
 
-float GetBatteryVoltage(void){
-    return Pack_GetVolt();
-}
-
-uint16_t GetBatteryVoltage_u16(void){
-    return CompressVoltage(Pack_GetVolt());
-}

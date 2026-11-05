@@ -4,7 +4,7 @@
 
 SHELL = cmd.exe
 
-CG_TOOL_ROOT := C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS
+CG_TOOL_ROOT := C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS
 
 GEN_OPTS__FLAG := 
 GEN_CMDS__FLAG := 
@@ -63,10 +63,11 @@ ORDERED_OBJS += \
 "./BMS_Master/source/ti_fee_util.obj" \
 "./BMS_Master/source/ti_fee_writeAsync.obj" \
 "./BMS_Master/source/ti_fee_writeSync.obj" \
+"./Phantom_drivers/source/BMS_Data.obj" \
 "./Phantom_drivers/source/BMS_Routines.obj" \
 "./Phantom_drivers/source/BMS_Tasks.obj" \
 "./Phantom_drivers/source/Balance.obj" \
-"./Phantom_drivers/source/BatteryData.obj" \
+"./Phantom_drivers/source/Can_helpers.obj" \
 "./Phantom_drivers/source/Charger.obj" \
 "./Phantom_drivers/source/Fans.obj" \
 "./Phantom_drivers/source/Fault_handler.obj" \
@@ -74,15 +75,16 @@ ORDERED_OBJS += \
 "./Phantom_drivers/source/GetBatteryVoltage.obj" \
 "./Phantom_drivers/source/GetCurrent.obj" \
 "./Phantom_drivers/source/IMD.obj" \
-"./Phantom_drivers/source/PhantomHelpers.obj" \
+"./Phantom_drivers/source/LogData.obj" \
+"./Phantom_drivers/source/LogHelpers.obj" \
+"./Phantom_drivers/source/LogMessage.obj" \
+"./Phantom_drivers/source/PhantomAlgorithms.obj" \
 "./Phantom_drivers/source/PhantomTimers.obj" \
-"./Phantom_drivers/source/Phantom_Can.obj" \
 "./Phantom_drivers/source/RowBuf.obj" \
-"./Phantom_drivers/source/SendDataSerial.obj" \
+"./Phantom_drivers/source/SPI_helpers.obj" \
 "./Phantom_drivers/source/SlaveCommunation_Functions.obj" \
 "./Phantom_drivers/source/SlaveCommunication_Drivers.obj" \
 "./Phantom_drivers/source/VCU_BMS_Communication.obj" \
-"./Phantom_drivers/source/spi_helpers.obj" \
 "../TMS570LS122xFlashLnk.cmd" \
 $(GEN_CMDS__FLAG) \
 -lrtsv7R4_T_be_v3D16_eabi.lib \
@@ -139,9 +141,6 @@ endif
 ifneq ($(strip $(S64_DEPS)),)
 -include $(S64_DEPS)
 endif
-ifneq ($(strip $(INO_DEPS)),)
--include $(INO_DEPS)
-endif
 ifneq ($(strip $(CLA_DEPS)),)
 -include $(CLA_DEPS)
 endif
@@ -156,9 +155,6 @@ ifneq ($(strip $(C62_DEPS)),)
 endif
 ifneq ($(strip $(C67_DEPS)),)
 -include $(C67_DEPS)
-endif
-ifneq ($(strip $(PDE_DEPS)),)
--include $(PDE_DEPS)
 endif
 ifneq ($(strip $(K_DEPS)),)
 -include $(K_DEPS)
@@ -196,16 +192,10 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXE_OUTPUTS += \
-bms-link-FW.out \
+bms-link-FW.out 
 
 EXE_OUTPUTS__QUOTED += \
-"bms-link-FW.out" \
-
-BIN_OUTPUTS += \
-bms-link-FW.hex \
-
-BIN_OUTPUTS__QUOTED += \
-"bms-link-FW.hex" \
+"bms-link-FW.out" 
 
 
 # All Target
@@ -214,30 +204,20 @@ all: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
 
 # Tool invocations
 bms-link-FW.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
-	@echo 'Building target: "$@"'
-	@echo 'Invoking: ARM Linker'
-	"C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/bin/armcl" -mv7R4 --code_state=32 --float_support=VFPv3D16 -g --diag_warning=225 --diag_wrap=off --display_error_number --enum_type=packed --abi=eabi -z -m"bms-link-FW.map" --heap_size=0x800 --stack_size=0x800 -i"C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/lib" -i"C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include" --reread_libs --diag_wrap=off --display_error_number --warn_sections --xml_link_info="bms-link-FW_linkInfo.xml" --rom_model --be32 -o "bms-link-FW.out" $(ORDERED_OBJS)
-	@echo 'Finished building target: "$@"'
-	@echo ' '
-
-bms-link-FW.hex: $(EXE_OUTPUTS)
-	@echo 'Building files: $(strip $(EXE_OUTPUTS__QUOTED))'
-	@echo 'Invoking: ARM Hex Utility'
-	"C:/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/bin/armhex"  -o "bms-link-FW.hex" $(EXE_OUTPUTS__QUOTED)
-	@echo 'Finished building: $(strip $(EXE_OUTPUTS__QUOTED))'
+	@echo 'ARM Linker: "$@"'
+	"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/bin/armcl" -mv7R4 --code_state=32 --float_support=VFPv3D16 -g --diag_warning=225 --diag_wrap=off --display_error_number --enum_type=packed --abi=eabi -z -m"bms-link-FW.map" --heap_size=0x800 --stack_size=0x800 -i"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/lib" -i"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS/include" --reread_libs --diag_wrap=off --display_error_number --warn_sections --xml_link_info="bms-link-FW_linkInfo.xml" --rom_model --be32 -o "bms-link-FW.out" $(ORDERED_OBJS)
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
+	-$(RM) $(EXE_OUTPUTS__QUOTED)
 	-$(RM) "main.obj" "BMS_Master\source\Device_TMS570LS12.obj" "BMS_Master\source\Fapi_UserDefinedFunctions.obj" "BMS_Master\source\adc.obj" "BMS_Master\source\ajsm.obj" "BMS_Master\source\can.obj" "BMS_Master\source\crc.obj" "BMS_Master\source\dabort.obj" "BMS_Master\source\dcc.obj" "BMS_Master\source\ecap.obj" "BMS_Master\source\emac.obj" "BMS_Master\source\eqep.obj" "BMS_Master\source\errata_SSWF021_45.obj" "BMS_Master\source\esm.obj" "BMS_Master\source\etpwm.obj" "BMS_Master\source\gio.obj" "BMS_Master\source\het.obj" "BMS_Master\source\i2c.obj" "BMS_Master\source\lin.obj" "BMS_Master\source\mdio.obj" "BMS_Master\source\mibspi.obj" "BMS_Master\source\notification.obj" "BMS_Master\source\phy_dp83640.obj" "BMS_Master\source\pinmux.obj" "BMS_Master\source\rti.obj" "BMS_Master\source\sci.obj" "BMS_Master\source\spi.obj" "BMS_Master\source\sys_core.obj" "BMS_Master\source\sys_dma.obj" "BMS_Master\source\sys_intvecs.obj" "BMS_Master\source\sys_mpu.obj" "BMS_Master\source\sys_pcr.obj" "BMS_Master\source\sys_phantom.obj" 
-	-$(RM) "BMS_Master\source\sys_pmm.obj" "BMS_Master\source\sys_pmu.obj" "BMS_Master\source\sys_selftest.obj" "BMS_Master\source\sys_startup.obj" "BMS_Master\source\sys_vim.obj" "BMS_Master\source\system.obj" "BMS_Master\source\ti_fee_Info.obj" "BMS_Master\source\ti_fee_cancel.obj" "BMS_Master\source\ti_fee_cfg.obj" "BMS_Master\source\ti_fee_eraseimmediateblock.obj" "BMS_Master\source\ti_fee_format.obj" "BMS_Master\source\ti_fee_ini.obj" "BMS_Master\source\ti_fee_invalidateblock.obj" "BMS_Master\source\ti_fee_main.obj" "BMS_Master\source\ti_fee_read.obj" "BMS_Master\source\ti_fee_readSync.obj" "BMS_Master\source\ti_fee_shutdown.obj" "BMS_Master\source\ti_fee_util.obj" "BMS_Master\source\ti_fee_writeAsync.obj" "BMS_Master\source\ti_fee_writeSync.obj" "Phantom_drivers\source\BMS_Routines.obj" "Phantom_drivers\source\BMS_Tasks.obj" "Phantom_drivers\source\Balance.obj" "Phantom_drivers\source\BatteryData.obj" "Phantom_drivers\source\Charger.obj" "Phantom_drivers\source\Fans.obj" "Phantom_drivers\source\Fault_handler.obj" 
-	-$(RM) "Phantom_drivers\source\GIO_helpers.obj" "Phantom_drivers\source\GetBatteryVoltage.obj" "Phantom_drivers\source\GetCurrent.obj" "Phantom_drivers\source\IMD.obj" "Phantom_drivers\source\PhantomHelpers.obj" "Phantom_drivers\source\PhantomTimers.obj" "Phantom_drivers\source\Phantom_Can.obj" "Phantom_drivers\source\RowBuf.obj" "Phantom_drivers\source\SendDataSerial.obj" "Phantom_drivers\source\SlaveCommunation_Functions.obj" "Phantom_drivers\source\SlaveCommunication_Drivers.obj" "Phantom_drivers\source\VCU_BMS_Communication.obj" "Phantom_drivers\source\spi_helpers.obj" 
+	-$(RM) "BMS_Master\source\sys_pmm.obj" "BMS_Master\source\sys_pmu.obj" "BMS_Master\source\sys_selftest.obj" "BMS_Master\source\sys_startup.obj" "BMS_Master\source\sys_vim.obj" "BMS_Master\source\system.obj" "BMS_Master\source\ti_fee_Info.obj" "BMS_Master\source\ti_fee_cancel.obj" "BMS_Master\source\ti_fee_cfg.obj" "BMS_Master\source\ti_fee_eraseimmediateblock.obj" "BMS_Master\source\ti_fee_format.obj" "BMS_Master\source\ti_fee_ini.obj" "BMS_Master\source\ti_fee_invalidateblock.obj" "BMS_Master\source\ti_fee_main.obj" "BMS_Master\source\ti_fee_read.obj" "BMS_Master\source\ti_fee_readSync.obj" "BMS_Master\source\ti_fee_shutdown.obj" "BMS_Master\source\ti_fee_util.obj" "BMS_Master\source\ti_fee_writeAsync.obj" "BMS_Master\source\ti_fee_writeSync.obj" "Phantom_drivers\source\BMS_Data.obj" "Phantom_drivers\source\BMS_Routines.obj" "Phantom_drivers\source\BMS_Tasks.obj" "Phantom_drivers\source\Balance.obj" "Phantom_drivers\source\Can_helpers.obj" "Phantom_drivers\source\Charger.obj" "Phantom_drivers\source\Fans.obj" 
+	-$(RM) "Phantom_drivers\source\Fault_handler.obj" "Phantom_drivers\source\GIO_helpers.obj" "Phantom_drivers\source\GetBatteryVoltage.obj" "Phantom_drivers\source\GetCurrent.obj" "Phantom_drivers\source\IMD.obj" "Phantom_drivers\source\LogData.obj" "Phantom_drivers\source\LogHelpers.obj" "Phantom_drivers\source\LogMessage.obj" "Phantom_drivers\source\PhantomAlgorithms.obj" "Phantom_drivers\source\PhantomTimers.obj" "Phantom_drivers\source\RowBuf.obj" "Phantom_drivers\source\SPI_helpers.obj" "Phantom_drivers\source\SlaveCommunation_Functions.obj" "Phantom_drivers\source\SlaveCommunication_Drivers.obj" "Phantom_drivers\source\VCU_BMS_Communication.obj" 
 	-$(RM) "main.d" "BMS_Master\source\Device_TMS570LS12.d" "BMS_Master\source\Fapi_UserDefinedFunctions.d" "BMS_Master\source\adc.d" "BMS_Master\source\can.d" "BMS_Master\source\crc.d" "BMS_Master\source\dcc.d" "BMS_Master\source\ecap.d" "BMS_Master\source\emac.d" "BMS_Master\source\eqep.d" "BMS_Master\source\errata_SSWF021_45.d" "BMS_Master\source\esm.d" "BMS_Master\source\etpwm.d" "BMS_Master\source\gio.d" "BMS_Master\source\het.d" "BMS_Master\source\i2c.d" "BMS_Master\source\lin.d" "BMS_Master\source\mdio.d" "BMS_Master\source\mibspi.d" "BMS_Master\source\notification.d" "BMS_Master\source\phy_dp83640.d" "BMS_Master\source\pinmux.d" "BMS_Master\source\rti.d" "BMS_Master\source\sci.d" "BMS_Master\source\spi.d" "BMS_Master\source\sys_dma.d" "BMS_Master\source\sys_pcr.d" "BMS_Master\source\sys_phantom.d" "BMS_Master\source\sys_pmm.d" "BMS_Master\source\sys_selftest.d" "BMS_Master\source\sys_startup.d" "BMS_Master\source\sys_vim.d" "BMS_Master\source\system.d" "BMS_Master\source\ti_fee_Info.d" "BMS_Master\source\ti_fee_cancel.d" 
-	-$(RM) "BMS_Master\source\ti_fee_cfg.d" "BMS_Master\source\ti_fee_eraseimmediateblock.d" "BMS_Master\source\ti_fee_format.d" "BMS_Master\source\ti_fee_ini.d" "BMS_Master\source\ti_fee_invalidateblock.d" "BMS_Master\source\ti_fee_main.d" "BMS_Master\source\ti_fee_read.d" "BMS_Master\source\ti_fee_readSync.d" "BMS_Master\source\ti_fee_shutdown.d" "BMS_Master\source\ti_fee_util.d" "BMS_Master\source\ti_fee_writeAsync.d" "BMS_Master\source\ti_fee_writeSync.d" "Phantom_drivers\source\BMS_Routines.d" "Phantom_drivers\source\BMS_Tasks.d" "Phantom_drivers\source\Balance.d" "Phantom_drivers\source\BatteryData.d" "Phantom_drivers\source\Charger.d" "Phantom_drivers\source\Fans.d" "Phantom_drivers\source\Fault_handler.d" "Phantom_drivers\source\GIO_helpers.d" "Phantom_drivers\source\GetBatteryVoltage.d" "Phantom_drivers\source\GetCurrent.d" "Phantom_drivers\source\IMD.d" "Phantom_drivers\source\PhantomHelpers.d" "Phantom_drivers\source\PhantomTimers.d" "Phantom_drivers\source\Phantom_Can.d" "Phantom_drivers\source\RowBuf.d" 
-	-$(RM) "Phantom_drivers\source\SendDataSerial.d" "Phantom_drivers\source\SlaveCommunation_Functions.d" "Phantom_drivers\source\SlaveCommunication_Drivers.d" "Phantom_drivers\source\VCU_BMS_Communication.d" "Phantom_drivers\source\spi_helpers.d" 
+	-$(RM) "BMS_Master\source\ti_fee_cfg.d" "BMS_Master\source\ti_fee_eraseimmediateblock.d" "BMS_Master\source\ti_fee_format.d" "BMS_Master\source\ti_fee_ini.d" "BMS_Master\source\ti_fee_invalidateblock.d" "BMS_Master\source\ti_fee_main.d" "BMS_Master\source\ti_fee_read.d" "BMS_Master\source\ti_fee_readSync.d" "BMS_Master\source\ti_fee_shutdown.d" "BMS_Master\source\ti_fee_util.d" "BMS_Master\source\ti_fee_writeAsync.d" "BMS_Master\source\ti_fee_writeSync.d" "Phantom_drivers\source\BMS_Data.d" "Phantom_drivers\source\BMS_Routines.d" "Phantom_drivers\source\BMS_Tasks.d" "Phantom_drivers\source\Balance.d" "Phantom_drivers\source\Can_helpers.d" "Phantom_drivers\source\Charger.d" "Phantom_drivers\source\Fans.d" "Phantom_drivers\source\Fault_handler.d" "Phantom_drivers\source\GIO_helpers.d" "Phantom_drivers\source\GetBatteryVoltage.d" "Phantom_drivers\source\GetCurrent.d" "Phantom_drivers\source\IMD.d" "Phantom_drivers\source\LogData.d" "Phantom_drivers\source\LogHelpers.d" "Phantom_drivers\source\LogMessage.d" 
+	-$(RM) "Phantom_drivers\source\PhantomAlgorithms.d" "Phantom_drivers\source\PhantomTimers.d" "Phantom_drivers\source\RowBuf.d" "Phantom_drivers\source\SPI_helpers.d" "Phantom_drivers\source\SlaveCommunation_Functions.d" "Phantom_drivers\source\SlaveCommunication_Drivers.d" "Phantom_drivers\source\VCU_BMS_Communication.d" 
 	-$(RM) "BMS_Master\source\ajsm.d" "BMS_Master\source\dabort.d" "BMS_Master\source\sys_core.d" "BMS_Master\source\sys_intvecs.d" "BMS_Master\source\sys_mpu.d" "BMS_Master\source\sys_pmu.d" 
-	-@echo 'Finished clean'
 	-@echo ' '
 
 .PHONY: all clean dependents

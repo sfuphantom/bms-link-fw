@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,7 +30,7 @@ typedef uint64_t ticks_t;           // 64 bit: the 32 bit RTI counter + an overf
 
 // Work for constants and variables. The argument is cast first, so there is no 32 bit overflow.
 #define US_TO_TICKS(us)     ((ticks_t)(us) * TICKS_PER_US)
-#define MS_TO_TICKS(ms)     US_TO_TICKS((ticks_t)(ms)  * 1000000U)
+#define MS_TO_TICKS(ms)     US_TO_TICKS((ticks_t)(ms)  * US_PER_MS)
 #define SEC_TO_TICKS(sec)   US_TO_TICKS((ticks_t)(sec) * US_PER_SEC)
 
 #define TICKS_TO_US(ticks)  ((ticks_t)(ticks)   / TICKS_PER_US)

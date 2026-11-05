@@ -40,10 +40,6 @@
 // Raw measurement. Returns false (and leaves *volts_out untouched) if the reading is invalid.
 bool MeasureBatteryVoltage(float *volts_out);
 
-// Last stored pack voltage
-float GetBatteryVoltage(void);          // volts
-uint16_t GetBatteryVoltage_u16(void);   // compressed, for transmission
-
 // float volts -> compressed (rounded, saturated to 0..65535, NaN -> 0)
 uint16_t CompressVoltage(float volts);
 

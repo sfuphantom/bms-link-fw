@@ -1,679 +1,537 @@
-/* Charger.c
+/*
+ * Charger.c
  *
- *  NOTE ON FIXES (see Charger.h for the matching macro-level fixes):
- *   1. Charger_BuildMessageXX() used to cast the wire buffer straight to a
- *      ChargerCmdMsgNN_t* and write the struct fields directly. The CAN
- *      spec's multi-byte fields are Big-Endian ("High Byte" first); a plain
- *      struct overlay writes them in the host's native endianness, which is
- *      little-endian on essentially every likely target. Every multi-byte
- *      field sent to the charger would have been byte-swapped. Rewritten to
- *      pack each byte explicitly, independent of host endianness.
- *   2. The header declared Charger_SetTargetVoltage/Current, Charger_EnableOutput,
- *      Charger_GetTargetVoltage/Current, and Charger_IsOutputEnabled, but this
- *      file only ever defined differently-named functions
- *      (Charger_SetAllowedMaxVoltage/Current, Charger_EnableControl) - any
- *      caller using the declared API would fail to link. Renamed the
- *      implementations to match the header, and added the missing getters.
- *      While renaming, also fixed Charger_EnableControl()'s body: it set
- *      s_chargerControl.disable = enable ? 1 : 0 (inverted), so the old
- *      Charger_DisableOutput() (which called it with false) actually set
- *      disable = 0, i.e. enabled the output. Now enable ? 0 : 1, matching
- *      the field name and every read site (control byte: 0=enable, 1=disable).
- *   3. Charger_UpdateStateMachine() treated ANY nonzero s_chargerStatus.status_flags
- *      bit as an immediate fault, including CHARGER_STATUS_STARTING - which the
- *      charger legitimately asserts while powering up - so a normal start
- *      sequence could fault-shutdown itself. Now masked with
- *      CHARGER_STATUS_FAULT_MASK (excludes STARTING). The magic numbers
- *      0x01/0x02/0x04 for the "flags" argument were also replaced with the
- *      named CHARGER_CTRL_FLAG_* bits added to Charger.h.
- *   4. CHARGER_STATE_RE_CHARGING unconditionally transitioned to
- *      CHARGER_STATE_DONE_CHARGING regardless of its own balance check (both
- *      branches of the if/else reached the same line), so a recharge cycle
- *      never actually resumed charging. Fixed so failing the balance check
- *      keeps it in RE_CHARGING (where Charger_UpdateOutputsFromState() now
- *      commands real, non-zero output for that state - previously it
- *      commanded 0V/0A/disabled, so even a working transition wouldn't have
- *      charged anything).
- *   5. CHARGER_STATE_DONE_CHARGING had no logic at all (comment only) for
- *      detecting the pack sagging from self-discharge and resuming charging -
- *      nothing in the whole file ever transitioned into RE_CHARGING. Added
- *      a check against CHARGER_RECHARGE_HYSTERESIS_V.
- *   6. Charger_UpdateOutputsFromState() (formerly file-local, un-prototyped
- *      "changeChargerControl") had no case for CHARGER_STATE_OVERHEATED_CELL,
- *      silently falling through to `default`. Same end result today, but
- *      it's a trap for the next person who changes `default` - added an
- *      explicit case.
- *   7. CV_CHARGING commanded CHARGER_TRICKLE_CURRENT_A as its current limit,
- *      which does not match "constant voltage, current tapers" (comment in
- *      the original dead code) - clamping the limit to trickle from the
- *      moment CV begins would prevent the charger's own CV loop from ever
- *      supplying more than trickle current. CV_CHARGING now commands the
- *      full CC current as a ceiling (the charger's own CV regulation still
- *      tapers actual current down); the trickle limit is now used for
- *      CHARGER_STATE_EOC_CHARGING instead, matching its own comment ("keep
- *      CV for a short period to ensure saturation") rather than disabling
- *      output outright.
+ *  See Charger.h for usage. Everything that is not part of the API is static.
+ *
+ *  Units: all state is kept as SI floats (V, A, degC, Ah). Values are only
+ *  converted to CAN counts inside the Build/Receive functions below.
  */
+
 #include "Charger.h"
+#include "Charger_Hardware.h"
+#include "PhantomTimers.h"
 #include <string.h>
-#include <math.h>
+
+/*----------------------------------------------------------------------------------------------------
+ * CAN encoding (private). Multi-byte fields are big-endian (high byte first).
+ *----------------------------------------------------------------------------------------------------*/
+#define COUNTS_PER_PACK_VOLT    (10.0f)     /* 0.1 V/bit  */
+#define COUNTS_PER_AMP          (10.0f)     /* 0.1 A/bit  */
+#define COUNTS_PER_AH           (10.0f)     /* 0.1 Ah/bit */
+#define COUNTS_PER_CELL_VOLT    (1000.0f)   /* 1 mV/bit   */
+#define TEMP_OFFSET_C           (100.0f)    /* byte = degC + 100 */
+
+/* Current fields: bit 15 = direction (0 = charging, 1 = discharging), bits 0..14 = magnitude.
+ * This is the reading of the spec in Charger.md ("my reading") - verify on the real unit. */
+#warning "Current direction bit (bit 15) is only a reading of the spec - verify on the real charger"
+#define CURRENT_DIRECTION_BIT   (0x8000U)
+#define CURRENT_MAGNITUDE_MASK  (0x7FFFU)
+
+/* Pages of the BMS -> charger message (CAN data byte 8). Page 5 only for > 255 cells. */
+typedef enum {
+    CHARGER_MSG_PAGE_1 = 1U,    /* Msg 10: voltage / current / control    */
+    CHARGER_MSG_PAGE_2 = 2U,    /* Msg 11: capacity, cell OVP, cell count */
+    CHARGER_MSG_PAGE_3 = 3U,    /* Msg 12: cell max/min, cell UVP, state  */
+    CHARGER_MSG_PAGE_4 = 4U,    /* Msg 13: pack V/I, SOC, temperatures    */
+    CHARGER_MSG_PAGE_5 = 5U     /* Msg 14: 16-bit cell count              */
+} CHARGER_MSG_PAGE_t;
+
+/* Pages sent every cycle: page 5 (16-bit cell count) only when 8 bits are not enough */
+#if NUMBER_OF_CELLS_SERIES > 0xFF
+#define CHARGER_PAGE_COUNT      (5U)
+#else
+#define CHARGER_PAGE_COUNT      (4U)
+#endif
+#if CHARGER_PAGE_COUNT > CAN_MAX_FRAMES
+#error "CHARGER_PAGE_COUNT is larger than CAN_MAX_FRAMES"
+#endif
+
+/* Message 11, byte 7: cell count, 0 = invalid -> use page 5 */
+#define CELL_COUNT_BYTE         ((NUMBER_OF_CELLS_SERIES > 0xFF) ? 0U : (uint8_t)NUMBER_OF_CELLS_SERIES)
+
+/* Message 12, byte 7: battery state bits */
+#define BATTERY_STATE_OV        (1U << 0)
+#define BATTERY_STATE_UV        (1U << 1)
 
 /*----------------------------------------------------------------------------------------------------
  * Private data
  *----------------------------------------------------------------------------------------------------*/
-static ChargerState_t   s_chargerState = CHARGER_STATE_NOT_CHARGING;
-static ChargerStatus_t  s_chargerStatus;          /* last received charger status */
-//static ChargerStatus_t  s_chargerTarget;          /* target values to send */
+static ChargerState_t    s_state = CHARGER_STATE_NOT_CHARGING;
+static uint64_t          s_stateEntryTick = 0U;       /* when s_state was entered, for the timers */
+static battery2Charger_t s_battery;                   /* last data from the application           */
+static float             s_maxCurrent = 0.0f;         /* charge current the BMS allows now (A)    */
 
-/* Battery data cache (set by application) */
-
-
+/* What we ask the charger for. Starts disabled. */
 static struct {
-    uint16_t actual_Ah;
-    uint16_t pack_voltage_V;
-    uint16_t charge_current_A;
-    uint8_t soc;
-    uint8_t  temp_max;
-    uint8_t  temp_min;
-    uint16_t cell_max_V;
-    uint16_t cell_min_V;
-    uint16_t cell_avg_V;
-} s_battery;
+    float volts;
+    float amps;
+    bool  enabled;
+} s_control = { 0.0f, 0.0f, false };
 
-typedef struct {
-    uint16_t MaxOutVolts;
-    int16_t  MaxOutAmps; /* Signed: positive=charging, negative=discharging */
-    bool  disable;
-}s_chargerControl_t;
-static s_chargerControl_t s_chargerControl = {0,0,1};
-
-/* Timers for state machine */
-//static uint32_t s_inhibit_timer_ms = 0;
-//static bool     s_charge_started = false;
-
-static uint64_t start_inhibit_timer_tick = 0;
+/* Last charger broadcast, raw. Written from the CAN interrupt. */
+#warning "s_status is written from the CAN interrupt and read in the main loop with no lock: fields can be from two different messages"
+static volatile struct {
+    uint16_t voltage_raw;
+    uint16_t current_raw;
+    uint8_t  flags;
+} s_status;
 
 /*----------------------------------------------------------------------------------------------------
- * Internal helpers
+ * Helpers
  *----------------------------------------------------------------------------------------------------*/
-
-
-/* Convert float to CAN unit with saturation */
-
-static uint16_t BatteryAmps2ChargerAmps(const float A) {
-    if (A < 0.0f) return 0;
-    return CHARGER_CURRENT_TO_CAN(A);
-}
-static uint16_t BatteryVolts2ChargerVolts(const float V) {
-    if (V < 0.0f) return 0;
-    return CHARGER_BATTERY_VOLTAGE_TO_CAN(V);
-}
-static uint16_t CellV2ChargerVM(const float V) {
-    if (V < 0.0f) return 0;
-    return CHARGER_CELL_VOLT_TO_CAN(V);
-}
-static uint16_t Capacity2ChargerCapacity(const float Ah) {
-    if (Ah < 0.0f) return 0;
-    return CHARGER_CAPACITY_TO_CAN(Ah);
-}
-static uint8_t Temp2ChargerTemp(const float Temp){
-    return CHARGER_TEMP_TO_CAN(Temp);
+static float ClampF(const float x, const float lo, const float hi)
+{
+    if (!(x > lo)) return lo;           /* also catches NaN */
+    if (x > hi)    return hi;
+    return x;
 }
 
-/*----------------------------------------------------------------------------------------------------
- * CAN message builders (BMSâ†’Charger)
- *
- * NOTE: the GT CAN spec's multi-byte fields are Big-Endian ("High Byte"
- * first). These are packed byte-by-byte on purpose (see fix #1) rather than
- * via the ChargerCmdMsgNN_t struct overlays, which remain purely for
- * documenting field layout/order and must NOT be pointer-cast onto a raw
- * CAN buffer on a little-endian target.
- *----------------------------------------------------------------------------------------------------*/
-static void PutBE16(uint8_t *dst, uint16_t v) {
+/* value * countsPerUnit, rounded, saturated to 0..65535 */
+static uint16_t Encode16(const float value, const float countsPerUnit)
+{
+    const float counts = (value * countsPerUnit) + 0.5f;
+    if (!(counts > 0.0f))      return 0U;
+    if (counts >= 65535.0f)    return 0xFFFFU;
+    return (uint16_t)counts;
+}
+
+static uint16_t EncodeCurrent(const float amps)
+{
+    const bool discharging = (amps < 0.0f);
+    uint16_t   magnitude   = Encode16(discharging ? -amps : amps, COUNTS_PER_AMP);
+    if (magnitude > CURRENT_MAGNITUDE_MASK) magnitude = CURRENT_MAGNITUDE_MASK;
+    return discharging ? (uint16_t)(magnitude | CURRENT_DIRECTION_BIT) : magnitude;
+}
+
+static int16_t DecodeCurrentDeci(const uint16_t raw)
+{
+    const int16_t magnitude = (int16_t)(raw & CURRENT_MAGNITUDE_MASK);
+    return (raw & CURRENT_DIRECTION_BIT) ? (int16_t)(-magnitude) : magnitude;
+}
+
+static uint8_t EncodeTemp(const float degC)
+{
+    return (uint8_t)ClampF(degC + TEMP_OFFSET_C + 0.5f, 0.0f, 255.0f);
+}
+
+static void PutBE16(uint8_t * const dst, const uint16_t v)
+{
     dst[0] = (uint8_t)(v >> 8);
-    dst[1] = (uint8_t)(v & 0xFFu);
+    dst[1] = (uint8_t)(v & 0xFFU);
 }
 
-void Charger_BuildMessage10(uint8_t *buffer) {
-    PutBE16(&buffer[0], s_chargerControl.MaxOutVolts);
-    PutBE16(&buffer[2], (uint16_t)s_chargerControl.MaxOutAmps);
-    buffer[4] = (uint8_t)s_chargerControl.disable;  /* control: 0 = enable, 1 = disable */
-    buffer[5] = 0;  /* discharge_A - not used */
-    buffer[6] = 0;  /* reserved */
+static uint16_t GetBE16(const uint8_t * const src)
+{
+    return (uint16_t)(((uint16_t)src[0] << 8) | src[1]);
+}
+
+static void SetState(const ChargerState_t next)
+{
+    if (next != s_state) {
+        s_state = next;
+        s_stateEntryTick = getNow_tick();
+    }
+}
+
+#warning "ticks_make() argument order assumed (first = minutes) - check PhantomTimers.h, see CHARGER_TICKS_MINUTES"
+static bool StateTimeElapsed(const uint32_t minutes)
+{
+    return hasTimeElapsed(s_stateEntryTick, CHARGER_TICKS_MINUTES(minutes));
+}
+
+/*----------------------------------------------------------------------------------------------------
+ * CAN message builders (BMS -> charger). buffer is already zeroed by Charger_BuildMessage().
+ *----------------------------------------------------------------------------------------------------*/
+static void Charger_BuildMessage10(uint8_t * const buffer)
+{
+    PutBE16(&buffer[0], Encode16(s_control.volts, COUNTS_PER_PACK_VOLT));
+    PutBE16(&buffer[2], Encode16(s_control.amps,  COUNTS_PER_AMP));
+    buffer[4] = (uint8_t)(s_control.enabled ? 0U : 1U);       /* control: 0 = charge, 1 = battery protection / close output */
+    /* [5] max discharge current (10 A/bit): not used */
     buffer[7] = (uint8_t)CHARGER_MSG_PAGE_1;
 }
 
-void Charger_BuildMessage11(uint8_t *buffer) {
-    PutBE16(&buffer[0], CHARGER_BATTERY_NOMINAL_CAPACITY_AH);
-    PutBE16(&buffer[2], s_battery.actual_Ah);
-    PutBE16(&buffer[4], SINGLE_CELL_MAX_PROTECTION_V);
-    buffer[6] = (uint8_t)(NUMBER_OF_CELLS_SERIES & 0xFF);
+static void Charger_BuildMessage11(uint8_t * const buffer)
+{
+    PutBE16(&buffer[0], Encode16(CHARGER_NOMINAL_CAPACITY_AH, COUNTS_PER_AH));
+    PutBE16(&buffer[2], Encode16(s_battery.actual_Ah,         COUNTS_PER_AH));
+    PutBE16(&buffer[4], Encode16(CHARGER_CELL_OVP_V,          COUNTS_PER_CELL_VOLT));
+    buffer[6] = CELL_COUNT_BYTE;
     buffer[7] = (uint8_t)CHARGER_MSG_PAGE_2;
 }
 
-void Charger_BuildMessage12(uint8_t *buffer) {
-    uint8_t state = 0;
-    if (s_battery.cell_max_V > SINGLE_CELL_MAX_PROTECTION_V) state |= 0x01;
-    if (s_battery.cell_min_V < SINGLE_CELL_MIN_PROTECTION_V) state |= 0x02;
+static void Charger_BuildMessage12(uint8_t * const buffer)
+{
+    uint8_t state = 0U;
+    if (s_battery.cell_max_V > CHARGER_CELL_OVP_V) state |= BATTERY_STATE_OV;
+    if (s_battery.cell_min_V < CHARGER_CELL_UVP_V) state |= BATTERY_STATE_UV;
 
-    PutBE16(&buffer[0], s_battery.cell_max_V);
-    PutBE16(&buffer[2], s_battery.cell_min_V);
-    PutBE16(&buffer[4], SINGLE_CELL_MIN_PROTECTION_V);
+    PutBE16(&buffer[0], Encode16(s_battery.cell_max_V, COUNTS_PER_CELL_VOLT));
+    PutBE16(&buffer[2], Encode16(s_battery.cell_min_V, COUNTS_PER_CELL_VOLT));
+    PutBE16(&buffer[4], Encode16(CHARGER_CELL_UVP_V,   COUNTS_PER_CELL_VOLT));
     buffer[6] = state;
     buffer[7] = (uint8_t)CHARGER_MSG_PAGE_3;
 }
 
-void Charger_BuildMessage13(uint8_t *buffer) {
-    PutBE16(&buffer[0], s_battery.pack_voltage_V);
-    PutBE16(&buffer[2], s_battery.charge_current_A);
-    buffer[4] = s_battery.soc;
-    buffer[5] = s_battery.temp_max;
-    buffer[6] = s_battery.temp_min;
+static void Charger_BuildMessage13(uint8_t * const buffer)
+{
+    PutBE16(&buffer[0], Encode16(s_battery.pack_voltage_V, COUNTS_PER_PACK_VOLT));
+    PutBE16(&buffer[2], EncodeCurrent(s_battery.charge_current_A));
+    buffer[4] = (s_battery.soc > 100U) ? 100U : s_battery.soc;
+    buffer[5] = EncodeTemp(s_battery.temp_max);
+    buffer[6] = EncodeTemp(s_battery.temp_min);
     buffer[7] = (uint8_t)CHARGER_MSG_PAGE_4;
 }
 
-void Charger_BuildMessage14(uint8_t *buffer) {
+static void Charger_BuildMessage14(uint8_t * const buffer)
+{
     PutBE16(&buffer[0], (uint16_t)NUMBER_OF_CELLS_SERIES);
-    memset(&buffer[2], 0, 5);
     buffer[7] = (uint8_t)CHARGER_MSG_PAGE_5;
 }
 
-///*----------------------------------------------------------------------------------------------------
-// * CAN message builders (BMS→Charger)
-// *----------------------------------------------------------------------------------------------------*/
-//void Charger_BuildMessage10(uint8_t *buffer) {
-//    ChargerCmdMsg10_t *msg = (ChargerCmdMsg10_t *)buffer;
-//    msg->voltage_dV = s_chargerControl.MaxOutVolts;
-//    msg->current_dA = s_chargerControl.MaxOutAmps;
-//    /* control: 0 = enable, 1 = disable */
-//    msg->control = (uint8_t)s_chargerControl.disable;
-//    msg->discharge_A = 0; /* not used */
-//    memset(msg->reserved, 0, sizeof(msg->reserved));
-//    msg->page = CHARGER_MSG_PAGE_1;
-//}
-//
-//void Charger_BuildMessage11(uint8_t *buffer) {
-//    ChargerCmdMsg11_t *msg = (ChargerCmdMsg11_t *)buffer;
-//    msg->nominal_Ah = CHARGER_BATTERY_NOMINAL_CAPACITY_AH;
-//    msg->actual_Ah  = s_battery.actual_Ah;//(uint16_t)(s_battery.actual_Ah / 0.1f);
-//    msg->cell_ovp_mV = SINGLE_CELL_MAX_PROTECTION_V;
-//    msg->battery_num = (uint8_t)(NUMBER_OF_CELLS_SERIES & 0xFF);
-//    msg->page = CHARGER_MSG_PAGE_2;
-//}
-//
-//void Charger_BuildMessage12(uint8_t *buffer) {
-//    ChargerCmdMsg12_t *msg = (ChargerCmdMsg12_t *)buffer;
-//    msg->cell_max_mV = s_battery.cell_max_V;
-//    msg->cell_min_mV = s_battery.cell_min_V;
-//    msg->cell_uvp_mV = SINGLE_CELL_MIN_PROTECTION_V;
-//    uint8_t state = 0;
-//    if (s_battery.cell_max_V > SINGLE_CELL_MAX_PROTECTION_V) state |= 0x01;
-//    if (s_battery.cell_min_V < SINGLE_CELL_MIN_PROTECTION_V) state |= 0x02;
-//    msg->battery_state = state;
-//    msg->page = CHARGER_MSG_PAGE_3;
-//}
-//
-//void Charger_BuildMessage13(uint8_t *buffer) {
-//    ChargerCmdMsg13_t *msg = (ChargerCmdMsg13_t *)buffer;
-//    msg->pack_voltage_dV = s_battery.pack_voltage_V;
-//    msg->charge_current_dA = s_battery.charge_current_A;
-//    msg->soc = s_battery.soc;
-//    msg->temp_max = s_battery.temp_max;
-//    msg->temp_min = s_battery.temp_min;
-//    msg->page = CHARGER_MSG_PAGE_4;
-//}
-//
-//void Charger_BuildMessage14(uint8_t *buffer) {
-//    ChargerCmdMsg14_t *msg = (ChargerCmdMsg14_t *)buffer;
-//    msg->battery_num = NUMBER_OF_CELLS_SERIES;
-//    memset(msg->reserved, 0, sizeof(msg->reserved));
-//    msg->page = CHARGER_MSG_PAGE_5;
-//}
-
-
-void Charger_BuildMessage(const CHARGER_MSG_PAGE_t page, uint8_t *buffer){
-    switch(page){
-        case CHARGER_MSG_PAGE_1: Charger_BuildMessage10(buffer); return;
-        case CHARGER_MSG_PAGE_2: Charger_BuildMessage11(buffer); return;
-        case CHARGER_MSG_PAGE_3: Charger_BuildMessage12(buffer); return;
-        case CHARGER_MSG_PAGE_4: Charger_BuildMessage13(buffer); return;
-        case CHARGER_MSG_PAGE_5: Charger_BuildMessage14(buffer); return;
+static void Charger_BuildMessage(const CHARGER_MSG_PAGE_t page, uint8_t buffer[CAN_MAX_DLC])
+{
+    memset(buffer, 0, CAN_MAX_DLC);
+    switch (page) {
+        case CHARGER_MSG_PAGE_1: Charger_BuildMessage10(buffer); break;
+        case CHARGER_MSG_PAGE_2: Charger_BuildMessage11(buffer); break;
+        case CHARGER_MSG_PAGE_3: Charger_BuildMessage12(buffer); break;
+        case CHARGER_MSG_PAGE_4: Charger_BuildMessage13(buffer); break;
+        case CHARGER_MSG_PAGE_5: Charger_BuildMessage14(buffer); break;
+        default: break;
     }
 }
 
-/*----------------------------------------------------------------------------------------------------
- * Send all BMSâ†’charger messages
- *----------------------------------------------------------------------------------------------------*/
-void Charger_SendAllCommands(void) {
-    uint8_t buffer[8];
+/* All pages go out as ONE multi-frame message. Single can_send() calls back to back
+ * would fail with CAN_ERR_BUSY: the box still holds the previous frame. */
+#warning "Pages 1..5 are sent on BMS2CHARGER_DATA. A plain on-board charger may only understand Message 1 (ID 0x1806E5F4, no page byte) - verify"
+#warning "can_send_multi frame count must match the BMS2CHARGER_DATA entry in Can_helpers.c (4 or 5 frames); it also blocks up to CAN_TX_TIMEOUT_MS per frame"
+static CanStatus_t Charger_SendAllCommands(void)
+{
+    uint8_t data[CHARGER_PAGE_COUNT * CAN_MAX_DLC];
 
-    CHARGER_MSG_PAGE_t pageIdx = CHARGER_MSG_PAGE_1;
-
-    for(pageIdx=CHARGER_MSG_PAGE_1; pageIdx <= NUMBER_OF_CHARGER_MSG_PAGE; pageIdx++){
-        Charger_BuildMessage( pageIdx, buffer);
-        (void)can_transmit_data(BMS2CHARGER_DATA, buffer, 8);
+    uint8_t i;
+    for (i = 0U; i < CHARGER_PAGE_COUNT; i++) {
+        Charger_BuildMessage((CHARGER_MSG_PAGE_t)(i + 1U), &data[i * CAN_MAX_DLC]);
     }
+    return can_send_multi(BMS2CHARGER_DATA, data, sizeof(data));
 }
 
 /*----------------------------------------------------------------------------------------------------
- * Receive charger status (broadcast)
+ * Receive (charger -> broadcast, Message 2)
  *----------------------------------------------------------------------------------------------------*/
-bool Charger_ReceiveStatus(const ChargerStatusBroadcast_t *status) {
-    if (status == NULL) return false;
-    s_chargerStatus.output_voltage_dV = status->output_voltage_dV;
-    s_chargerStatus.output_current_dA = status->output_current_dA;
-    s_chargerStatus.status_flags      = status->status_flags;
-    return true;
+CanStatus_t Charger_ReceiveStatus(void)
+{
+    uint8_t frame[CAN_MAX_DLC];
+    const CanStatus_t status = can_receive(CHARGER2BMS_DATA, frame, sizeof(frame));
+
+    /* OVERRUN: the data is valid, an older message was lost */
+    if ((status == CAN_OK) || (status == CAN_ERR_OVERRUN)) {
+        s_status.voltage_raw = GetBE16(&frame[0]);
+        s_status.current_raw = GetBE16(&frame[2]);
+        s_status.flags       = frame[4];
+    }
+    return status;
+}
+
+/* Called from the CAN interrupt when a full message arrived */
+void CHARGER2BMS_DATA_FullRoutine(void)
+{
+    (void)Charger_ReceiveStatus();
 }
 
 /*----------------------------------------------------------------------------------------------------
- * Apply target settings (send the command message)
+ * Manual control
  *----------------------------------------------------------------------------------------------------*/
-bool Charger_ApplyTargetSettings(void) {
-    /* We only send Message 10 (voltage, current, control) via the legacy CAN ID.
-     * The full set of messages is sent by Charger_SendAllCommands().
-     * Here we use the original can_transmit_data with BMS2CHARGER_DATA (which likely is same ID).
-     * For compatibility, we call Charger_SendAllCommands() which sends all.
-     */
-    Charger_SendAllCommands();
-    return true;
+void Charger_SetTargetVoltage(const float voltage_V)
+{
+    s_control.volts = ClampF(voltage_V, 0.0f, CHARGER_OUTPUT_VOLTAGE_MAX_V);
 }
 
-/*----------------------------------------------------------------------------------------------------
- * Setters for target (used by state machine)
- * NOTE (fix #2): renamed to match the API actually declared in Charger.h -
- * the header/implementation names had diverged, which would have failed to
- * link for any external caller using the declared names.
- *----------------------------------------------------------------------------------------------------*/
-void Charger_SetTargetVoltage(float voltage_V) {
-    s_chargerControl.MaxOutVolts = BatteryVolts2ChargerVolts(voltage_V);
+void Charger_SetTargetCurrent(const float current_A)
+{
+    s_control.amps = ClampF(current_A, 0.0f, CHARGER_OUTPUT_MAX_CURRENT_A);
 }
-void Charger_SetTargetCurrent(float current_A) {
-    s_chargerControl.MaxOutAmps = BatteryAmps2ChargerAmps(current_A);
+
+void Charger_EnableOutput(const bool enable)
+{
+    s_control.enabled = enable;
 }
-void Charger_EnableOutput(bool enable) {
-    s_chargerControl.disable = enable ? 0 : 1;
-}
-void Charger_DisableOutput(void) {
+
+void Charger_DisableOutput(void)
+{
     Charger_EnableOutput(false);
+}
+
+static void SetOutput(const float volts, const float amps, const bool enable)
+{
+    Charger_SetTargetVoltage(volts);
+    Charger_SetTargetCurrent(amps);
+    Charger_EnableOutput(enable);
+}
+
+/* Output off: 0 V, 0 A, control = close output. Does not touch the state. */
+static void Charger_OutputOff(void)
+{
+    SetOutput(0.0f, 0.0f, false);
+}
+
+void Charger_FaultShutdown(void)
+{
+    Charger_OutputOff();
+    SetState(CHARGER_STATE_CHARGER_FAULT);
 }
 
 /*----------------------------------------------------------------------------------------------------
  * Getters
  *----------------------------------------------------------------------------------------------------*/
-uint16_t Charger_GetOutputVoltage16(void) {
-    return s_chargerStatus.output_voltage_dV;
-}
-int16_t Charger_GetOutputCurrent16(void) {
-    return s_chargerStatus.output_current_dA;
+uint16_t Charger_GetOutputVoltage16(void) { return s_status.voltage_raw; }
+int16_t  Charger_GetOutputCurrent16(void) { return DecodeCurrentDeci(s_status.current_raw); }
+
+float Charger_GetOutputVoltage(void) { return (float)Charger_GetOutputVoltage16() / COUNTS_PER_PACK_VOLT; }
+float Charger_GetOutputCurrent(void) { return (float)Charger_GetOutputCurrent16() / COUNTS_PER_AMP; }
+float Charger_GetTargetVoltage(void) { return s_control.volts; }
+float Charger_GetTargetCurrent(void) { return s_control.amps; }
+bool  Charger_IsOutputEnabled(void)  { return s_control.enabled; }
+
+uint8_t        Charger_GetStatusFlags(void) { return s_status.flags; }
+ChargerState_t Charger_GetState(void)       { return s_state; }
+
+bool Charger_IsCharging(void)
+{
+    return (s_state == CHARGER_STATE_START_CHARGING)   ||
+           (s_state == CHARGER_STATE_TRICKLE_CHARGING) ||
+           (s_state == CHARGER_STATE_CC_CHARGING)      ||
+           (s_state == CHARGER_STATE_CV_CHARGING)      ||
+           (s_state == CHARGER_STATE_EOC_CHARGING)     ||
+           (s_state == CHARGER_STATE_RE_CHARGING)      ||
+           (s_state == CHARGER_STATE_UNBALANCED_CELLS);
 }
 
-float Charger_GetOutputVoltage(void) {
-    return CHARGER_CAN_TO_BATTERY_VOLTAGE(Charger_GetOutputVoltage16());
-}
-float Charger_GetOutputCurrent(void) {
-    return CHARGER_CAN_TO_CURRENT(Charger_GetOutputCurrent16());
-}
-float Charger_GetTargetVoltage(void) {
-    return CHARGER_CAN_TO_BATTERY_VOLTAGE(s_chargerControl.MaxOutVolts);
-}
-float Charger_GetTargetCurrent(void) {
-    return CHARGER_CAN_TO_CURRENT(s_chargerControl.MaxOutAmps);
-}
-bool Charger_IsOutputEnabled(void) {
-    return !s_chargerControl.disable;
-}
-uint8_t Charger_GetStatusFlags(void) {
-    return s_chargerStatus.status_flags;
-}
-ChargerState_t Charger_GetState(void) {
-    return s_chargerState;
-}
-bool Charger_IsCharging(void) {
-    return (s_chargerState == CHARGER_STATE_TRICKLE_CHARGING ||
-            s_chargerState == CHARGER_STATE_CC_CHARGING ||
-            s_chargerState == CHARGER_STATE_CV_CHARGING);
-}
-bool Charger_IsChargeComplete(void) {
-    return (s_chargerState == CHARGER_STATE_DONE_CHARGING);
-}
-
-/*----------------------------------------------------------------------------------------------------
- * Fault shutdown
- *----------------------------------------------------------------------------------------------------*/
-void Charger_FaultShutdown(void) {
-    s_chargerControl.MaxOutVolts = 0;
-    s_chargerControl.MaxOutAmps = 0;
-    s_chargerControl.disable = 1;   /* disable */
-//    (void)Charger_ApplyTargetSettings();
-    s_chargerState = CHARGER_STATE_CHARGER_FAULT;
+bool Charger_IsChargeComplete(void)
+{
+    return (s_state == CHARGER_STATE_DONE_CHARGING);
 }
 
 /*----------------------------------------------------------------------------------------------------
  * Initialisation
  *----------------------------------------------------------------------------------------------------*/
-void Charger_Init(void) {
-    memset(&s_chargerStatus, 0, sizeof(s_chargerStatus));
-//    memset(&s_chargerTarget, 0, sizeof(s_chargerTarget));
+void Charger_Init(void)
+{
     memset(&s_battery, 0, sizeof(s_battery));
-    s_chargerState = CHARGER_STATE_NOT_CHARGING;
-    start_inhibit_timer_tick = 0;
-//    s_charge_started = false;
-
+    s_status.voltage_raw = 0U;
+    s_status.current_raw = 0U;
+    s_status.flags       = 0U;
+    s_maxCurrent = 0.0f;
+    Charger_OutputOff();
+    s_state = CHARGER_STATE_NOT_CHARGING;
+    s_stateEntryTick = getNow_tick();
 }
 
 /*----------------------------------------------------------------------------------------------------
- * Legacy functions (kept for compatibility)
+ * Step 1: battery data
  *----------------------------------------------------------------------------------------------------*/
-//bool Charger_SendCmd(const ChargerStatus_t* const data) {
-//    /* Convert to target and send all messages */
-//    if (data) {
-//        s_chargerControl. = data->output_voltage_dV;
-//        s_chargerTarget.output_current_dA = data->output_current_dA;
-//        s_chargerTarget.status_flags = data->status_flags;
-//    }
-//    return Charger_ApplyTargetSettings();
-//}
-
-bool Charger_GetStatus(ChargerStatus_t* const data) {
-    if (data) {
-        data->output_voltage_dV = s_chargerStatus.output_voltage_dV;
-        data->output_current_dA = s_chargerStatus.output_current_dA;
-        data->status_flags = s_chargerStatus.status_flags;
-        return true;
-    }
-    return false;
-}
-
-/* The following functions are already implemented; we keep them as they are */
-//uint16_t GetChargerControlVoltage(void) { return s_chargerControl.MaxOutVolts; }
-//uint16_t GetChargerControlCurrent(void) { return s_chargerControl.MaxOutAmps; }
-//uint16_t GetChargerOutputVoltage(void) { return s_chargerStatus.output_voltage_dV; }
-//uint16_t GetChargerOutputCurrent(void) { return s_chargerStatus.output_current_dA; }
-//bool isChargerEnabled(void) { return !s_chargerControl.disable; }
-//uint8_t GetChargerStatus(void) { return s_chargerStatus.status_flags; }
-
-void changeChargeState(const uint16_t Volt, const uint16_t current, const bool enable) {
-    s_chargerControl.MaxOutVolts  = Volt;
-    s_chargerControl.MaxOutAmps = current;
-    s_chargerControl.disable = enable ? 0 : 1;
-}
-void SetChargerVoltage(const uint16_t Volt) { s_chargerControl.MaxOutVolts = Volt; }
-void SetChargerCurrent(const uint16_t current) { s_chargerControl.MaxOutAmps = current; }
-void SetChargerLimits(const uint16_t Volt, const uint16_t current) {
-    s_chargerControl.MaxOutVolts = Volt;
-    s_chargerControl.MaxOutAmps = current;
-}
-void TurnChargerOn(void) { s_chargerControl.disable = 0; }
-void TurnChargerOff(void) { s_chargerControl.disable = 1; }
-
-bool ShutDownCharger_Fault(void) {
-    Charger_FaultShutdown();
+static bool Charger_UpdateBatteryData(const battery2Charger_t * const battery, const float Max_current)
+{
+    if (battery == NULL) return false;
+    s_battery = *battery;
+    s_maxCurrent = (Max_current > 0.0f) ? Max_current : 0.0f;   /* negative / NaN -> 0 = no charging */
     return true;
 }
 
-//void initCharger(void) { Charger_Init(); }
-
-void CHARGER2BMS_DATA_FullRoutine(void) {
-    /* This function is intended to be called when a CAN frame with charger status arrives.
-     * We assume the frame is already received and we call Charger_ReceiveStatus().
-     */
-    /* Placeholder: in real implementation, we would read from CAN buffer and call Charger_ReceiveStatus */
-}
-
-bool SetChargerSettings(void) {
-    return Charger_ApplyTargetSettings();
-}
-
 /*----------------------------------------------------------------------------------------------------
- * Current calculation based on SOC (example)
+ * Step 2: state machine
  *----------------------------------------------------------------------------------------------------*/
-//void CalcNewCurrentSetting(const float avg_SOC, const float max_SOC) {
-//    float current_A;
-//    const float target_SOC = 0.95f; /* 95% */
-//    if (avg_SOC < target_SOC) {
-//        /* Taper current linearly from max to trickle as SOC approaches target */
-//        float fraction = (target_SOC - avg_SOC) / target_SOC;
-//        current_A = CHARGER_CONSTANT_CURRENT_A * fraction + CHARGER_TRICKLE_CURRENT_A * (1.0f - fraction);
-//    } else {
-//        current_A = CHARGER_TRICKLE_CURRENT_A;
-//    }
-//    current_A = clamp(current_A, CHARGER_TRICKLE_CURRENT_A, CHARGER_CONSTANT_CURRENT_A);
-//    Charger_SetTargetCurrent(current_A);
-//}
-
-/*----------------------------------------------------------------------------------------------------
- * State machine update
- *----------------------------------------------------------------------------------------------------*/
-void Charger_UpdateBatteryData(const battery2Charger_t * battery2Charger){
-    /* Read the battery data (assumed already updated by application) */
-
-    s_battery.pack_voltage_V    = BatteryVolts2ChargerVolts(battery2Charger->pack_voltage_V);
-    s_battery.charge_current_A  = BatteryAmps2ChargerAmps(battery2Charger->charge_current_A);
-
-    s_battery.cell_max_V        = CellV2ChargerVM(battery2Charger->cell_max_V);
-    s_battery.cell_min_V        = CellV2ChargerVM(battery2Charger->cell_min_V);
-    s_battery.cell_avg_V        = CellV2ChargerVM(battery2Charger->cell_avg_V);
-
-    s_battery.soc               = (uint8_t)battery2Charger->soc;
-    s_battery.temp_max          = Temp2ChargerTemp(battery2Charger->temp_max);
-    s_battery.temp_min          = Temp2ChargerTemp(battery2Charger->temp_min);
-
-    s_battery.actual_Ah         = Capacity2ChargerCapacity(battery2Charger->actual_Ah);
+static bool IsProtectionState(const ChargerState_t state)
+{
+    return (state == CHARGER_STATE_OVERHEATED_CELL) || (state == CHARGER_STATE_COLD_CELL) ||
+           (state == CHARGER_STATE_OVERCHARGED_CELL) || (state == CHARGER_STATE_UNBALANCED_CELLS);
 }
 
-///* Set initial target */
-//Charger_SetTargetVoltage(CHARGER_TARGET_VOLTAGE_V);
-//Charger_SetTargetCurrent(CHARGER_CONSTANT_CURRENT_A);
-//Charger_EnableOutput(true);
-//(void)Charger_ApplyTargetSettings();
+/* Cell protections, highest priority first. Each one uses a set threshold to enter and
+ * a (lower) clear threshold to stay, so they cannot chatter. A protection that is
+ * already active is never overridden by one with lower priority.
+ * Returns true if it changed or holds the state this cycle. */
+static bool ApplyProtections(void)
+{
+    const float delta = s_battery.cell_max_V - s_battery.cell_min_V;
 
-void Charger_UpdateStateMachine(const uint8_t flags){
-    /* Fix #3: only a genuine fault bit (mask excludes CHARGER_STATUS_STARTING,
-     * which the charger sets during a normal power-up) or an explicit
-     * external fault request now forces a shutdown. */
-    if((flags & CHARGER_CTRL_FLAG_EXTERNAL_FAULT) || (s_chargerStatus.status_flags & CHARGER_STATUS_FAULT_MASK)){
+    const bool hot  = (s_state == CHARGER_STATE_OVERHEATED_CELL)
+                    ? (s_battery.temp_max   >= CHARGER_OVERTEMP_CLEAR_C)
+                    : (s_battery.temp_max   >  CHARGER_OVERTEMP_SET_C);
+    const bool cold = (s_state == CHARGER_STATE_COLD_CELL)
+                    ? (s_battery.temp_min   <= CHARGER_UNDERTEMP_CLEAR_C)
+                    : (s_battery.temp_min   <  CHARGER_UNDERTEMP_SET_C);
+    const bool over = (s_state == CHARGER_STATE_OVERCHARGED_CELL)
+                    ? (s_battery.cell_max_V >= CHARGER_OVERCHARGE_CLEAR_V)
+                    : (s_battery.cell_max_V >  CHARGER_OVERCHARGE_SET_V);
+    const bool unb  = (s_state == CHARGER_STATE_UNBALANCED_CELLS)
+                    ? (delta                >= CHARGER_UNBALANCE_CLEAR_DELTA_V)
+                    : (delta                >  CHARGER_UNBALANCE_SET_DELTA_V);
+
+    if      (hot)  SetState(CHARGER_STATE_OVERHEATED_CELL);
+    else if (cold) SetState(CHARGER_STATE_COLD_CELL);
+    else if (over) SetState(CHARGER_STATE_OVERCHARGED_CELL);
+    else if (unb)  SetState(CHARGER_STATE_UNBALANCED_CELLS);
+    else if (IsProtectionState(s_state)) SetState(CHARGER_STATE_START_CHARGING);   /* everything cleared */
+    else return false;
+
+    return true;
+}
+
+#warning "Charger status is never checked for age: if Message 2 stops arriving, the old status flags and current stay in use"
+#warning "CHARGER_STATUS_STARTING (charger did not start / reverse polarity) is not monitored: a wiring fault would just look like 'charging'"
+static void Charger_UpdateStateMachine(const uint8_t flags)
+{
+    /* 1. Faults come first, and stay until a reset is requested and the fault is gone */
+    if ((flags & CHARGER_CTRL_FLAG_EXTERNAL_FAULT) || (s_status.flags & CHARGER_STATUS_FAULT_MASK)) {
         Charger_FaultShutdown();
         return;
     }
-    if(!(flags & CHARGER_CTRL_FLAG_CHARGE_ENABLE)){
-        s_chargerState = CHARGER_STATE_NOT_CHARGING;
+    if (s_state == CHARGER_STATE_CHARGER_FAULT) {
+        if (flags & CHARGER_CTRL_FLAG_FAULT_RESET) SetState(CHARGER_STATE_NOT_CHARGING);
         return;
     }
 
-    if (s_battery.temp_max > CELL_MAX_CHARGING_OVERHEATED_TRIGGER) {
-        s_chargerState = CHARGER_STATE_OVERHEATED_CELL;
-        return;
-    }
-    if (s_battery.cell_max_V > CELL_MAX_CHARGING_OVERSHOOT_TRIGGER) {
-        s_chargerState = CHARGER_STATE_OVERCHARGED_CELL;
-        return;
-    }
-    if ((s_battery.cell_max_V - s_battery.cell_min_V) > CELL_CHARGING_MAX_UNBALANCE_DELTA_TRIGGER){
-        s_chargerState = CHARGER_STATE_UNBALANCED_CELLS;
+    /* 2. No permission to charge: not enabled, or the BMS allows no current */
+    if (!(flags & CHARGER_CTRL_FLAG_CHARGE_ENABLE) || !(s_maxCurrent > 0.0f)) {
+        SetState(CHARGER_STATE_NOT_CHARGING);
         return;
     }
 
-    /* State transitions */
-    switch (s_chargerState) {
-        case CHARGER_STATE_CHARGER_FAULT:
-            if(flags & CHARGER_CTRL_FLAG_FAULT_RESET){
-                s_chargerState = CHARGER_STATE_START_CHARGING;
-            }
-            return;
+    /* 3. Cell protections */
+    if (ApplyProtections()) return;
+
+    /* 4. Normal charge cycle */
+    const float cellMin = s_battery.cell_min_V;
+    const float cellMax = s_battery.cell_max_V;
+    const bool  allCellsAtTarget = (cellMin >= (CHARGER_CELL_TARGET_V - CHARGER_CELL_TARGET_WINDOW_V));
+
+    switch (s_state) {
         case CHARGER_STATE_NOT_CHARGING:
-            /* Wait for external start command â€“ we assume it's set by application.
-             * For this example, we use a simple condition: if SOC < 95% and voltage within range.
-             */
-            s_chargerState = CHARGER_STATE_START_CHARGING;
-            return;
+            SetState(CHARGER_STATE_START_CHARGING);
+            break;
 
         case CHARGER_STATE_START_CHARGING:
-            /* If battery voltage is very low, use trickle */
-            if(s_battery.cell_min_V < CHARGER_TRICKLE_CHARGING_STATE_TRIGGER){
-                s_chargerState = CHARGER_STATE_TRICKLE_CHARGING;
-                return;
-            }
-
-            s_chargerState = CHARGER_STATE_CC_CHARGING;
-            return;
+            SetState((cellMin < CHARGER_TRICKLE_CELL_VOLT) ? CHARGER_STATE_TRICKLE_CHARGING
+                                                           : CHARGER_STATE_CC_CHARGING);
+            break;
 
         case CHARGER_STATE_TRICKLE_CHARGING:
-            if (s_battery.cell_min_V > CHARGER_TRICKLE_CHARGING_STATE_TRIGGER) {
-                s_chargerState = CHARGER_STATE_CC_CHARGING;
-            }
-            else {
-                s_chargerState = CHARGER_STATE_TRICKLE_CHARGING;
-            }
-            return;
+            if (cellMin > CHARGER_TRICKLE_CELL_VOLT) SetState(CHARGER_STATE_CC_CHARGING);
+            break;
 
         case CHARGER_STATE_CC_CHARGING:
-//            /* Constant current phase: maintain max current until voltage approaches target */
-//            Charger_SetTargetVoltage(CHARGER_TARGET_VOLTAGE_V);
-//            /* Use SOCâ€‘based current tapering if desired (or simply keep max) */
-//            Charger_SetTargetCurrent(CHARGER_CONSTANT_CURRENT_A);
-//            Charger_EnableOutput(true);
-//            (void)Charger_ApplyTargetSettings();
-
-            /* Transition to CV when voltage reaches target (within tolerance) */
-            if (s_battery.pack_voltage_V >= CV_CHARGING_TRIGGER) {
-                s_chargerState = CHARGER_STATE_CV_CHARGING;
+            /* CV when the pack is at target, or when the fullest cell is (cells can be uneven) */
+#warning "CHARGER_CV_ENTRY_MARGIN_V may be inside the charger's +/-1% CV accuracy; if CC never ends, raise it"
+            if ((s_battery.pack_voltage_V >= CHARGER_CV_ENTRY_VOLTAGE_V) || (cellMax >= CHARGER_CELL_TARGET_V)) {
+                SetState(CHARGER_STATE_CV_CHARGING);
             }
-            return;
+            break;
 
         case CHARGER_STATE_CV_CHARGING:
-//            /* Constant voltage: voltage fixed at target, current tapers */
-//            Charger_SetTargetVoltage(CHARGER_TARGET_VOLTAGE_V);
-//            /* Compute current based on SOC or voltage error */
-//            {
-//                float error = CHARGER_TARGET_VOLTAGE_V - pack_V;
-//                float current = CHARGER_CONSTANT_CURRENT_A * (error / 1.0f);
-//                current = clamp(current, CHARGER_TRICKLE_CURRENT_A, CHARGER_CONSTANT_CURRENT_A);
-//                Charger_SetTargetCurrent(current);
-//            }
-//            Charger_EnableOutput(true);
-//            (void)Charger_ApplyTargetSettings();
-
-            /* End of charge when current drops below threshold and SOC high */
-            if (s_chargerStatus.output_current_dA < CHARGER_EOC_CURRENT_TRIGGER  && s_battery.soc >= CHARGER_EOC_SOC_TRIGGER) {
-                s_chargerState = CHARGER_STATE_EOC_CHARGING;
+            /* Current has tapered off and SOC is high -> end of charge */
+#warning "EOC uses the BMS SOC against a target-based threshold, and the charger reports current in 0.1 A steps (EOC current <= 0.1 A never triggers)"
+            if ((Charger_GetOutputCurrent() < CHARGER_EOC_CURRENT_AMPS) &&
+                ((float)s_battery.soc >= CHARGER_EOC_SOC_PERCENT)) {
+                SetState(CHARGER_STATE_EOC_CHARGING);
             }
-
-            return;
+            break;
 
         case CHARGER_STATE_EOC_CHARGING:
-//            /* Charging complete, but keep CV for a short period to ensure saturation */
-//            Charger_SetTargetVoltage(CHARGER_TARGET_VOLTAGE_V);
-//            Charger_SetTargetCurrent(CHARGER_TRICKLE_CURRENT_A);
-//            Charger_EnableOutput(true);
-//            (void)Charger_ApplyTargetSettings();
-
-            /* After a timeout or when current is very low, go to DONE */
-            if (s_battery.cell_min_V < SINGLE_CELL_CHARGING_TARGET_V) {
-                s_chargerState = CHARGER_STATE_INHIBIT_CHARGING;
-
-                start_inhibit_timer_tick = getNow_tick();
-
-//                Charger_DisableOutput();
-//                (void)Charger_ApplyTargetSettings();
-            }
-            return;
+#warning "CHARGER_EOC_HOLD_TIME_MIN (30 min) is a placeholder"
+            /* Hold at target with trickle current until every cell is at target.
+             * If that does not happen in time, cool down and try again. */
+            if (allCellsAtTarget)                              SetState(CHARGER_STATE_DONE_CHARGING);
+            else if (StateTimeElapsed(CHARGER_EOC_HOLD_TIME_MIN)) SetState(CHARGER_STATE_INHIBIT_CHARGING);
+            break;
 
         case CHARGER_STATE_INHIBIT_CHARGING:
-            /* Placeholder: implement a cool to down timer */
-            if(hasTimeElapsed(start_inhibit_timer_tick, STATE_INHIBIT_CHARGING_TIME)){/* 1 min */
-                s_chargerState = CHARGER_STATE_NOT_CHARGING;
-            }
-            return;
+            if (StateTimeElapsed(CHARGER_INHIBIT_TIME_MIN)) SetState(CHARGER_STATE_NOT_CHARGING);
+            break;
 
         case CHARGER_STATE_DONE_CHARGING:
-            /* Fix #5: this used to be a no-op (comment only) - nothing in the
-             * file ever transitioned into RE_CHARGING. Resume charging if the
-             * pack has sagged meaningfully below the charged target
-             * (self-discharge over time). */
-            if (s_battery.cell_min_V < (SINGLE_CELL_CHARGING_TARGET_V - CHARGER_RECHARGE_HYSTERESIS_V)) {
-                s_chargerState = CHARGER_STATE_RE_CHARGING;
+            /* Pack sagged (self-discharge): top it up. Needs cellMax below target too,
+             * otherwise RE_CHARGING would end at once and the two states would flip-flop. */
+            if ((cellMin < (CHARGER_CELL_TARGET_V - CHARGER_CELL_TARGET_WINDOW_V - CHARGER_RECHARGE_HYST_V)) &&
+                (cellMax < CHARGER_CELL_TARGET_V)) {
+                SetState(CHARGER_STATE_RE_CHARGING);
             }
-            return;
+            break;
 
         case CHARGER_STATE_RE_CHARGING:
-            /* Fix #4: both branches used to fall through to DONE_CHARGING
-             * regardless of the balance check below, so a recharge cycle
-             * never actually resumed charging. Also fixed the threshold to
-             * use SINGLE_CELL_CHARGING_TARGET_V (cell-scale) instead of the
-             * pack-scale CHARGER_TARGET_VOLTAGE that was being compared
-             * against a cell-scale reading. Stay here (charging, per
-             * Charger_UpdateOutputsFromState()) until back within the
-             * balanced target window. */
-            if (s_battery.cell_max_V < (SINGLE_CELL_CHARGING_TARGET_V + SINGLE_CELL_TARGET_MAX_DELTA_V) &&
-                s_battery.cell_min_V > (SINGLE_CELL_CHARGING_TARGET_V - SINGLE_CELL_TARGET_MAX_DELTA_V)
-                ) {
-                s_chargerState = CHARGER_STATE_DONE_CHARGING;
-            }
-            return;
+            if (allCellsAtTarget || (cellMax >= CHARGER_CELL_TARGET_V)) SetState(CHARGER_STATE_DONE_CHARGING);
+            else if (StateTimeElapsed(CHARGER_EOC_HOLD_TIME_MIN))       SetState(CHARGER_STATE_INHIBIT_CHARGING);
+            break;
 
-        case CHARGER_STATE_UNBALANCED_CELLS:
-            /* Detect cell imbalance: if maxâ€‘min > threshold, reduce current or pause */
-            if ((s_battery.cell_max_V - s_battery.cell_min_V) < CELL_CHARGING_MIN_UNBALANCE_DELTA_TRIGGER) {
-                s_chargerState = CHARGER_STATE_START_CHARGING;
-            }
-            return;
-
-
-        case CHARGER_STATE_OVERCHARGED_CELL:
-            /* One or more cells exceeded OVP â€“ disable charger and wait */
-//            Charger_DisableOutput();
-//            (void)Charger_ApplyTargetSettings();
-            if (s_battery.cell_max_V < CELL_MIN_CHARGING_OVERSHOOT_TIGGER) {
-                s_chargerState = CHARGER_STATE_START_CHARGING;
-            }
-            return;
-
-        case CHARGER_STATE_OVERHEATED_CELL:
-            if (s_battery.temp_max < CELL_MIN_CHARGING_OVERHEATED_TIGGER) {
-                s_chargerState = CHARGER_STATE_START_CHARGING;
-            }
-            return;
-
-        default:
-            s_chargerState = CHARGER_STATE_NOT_CHARGING;
-            return;
+        default:    /* protection states are handled above; anything else is invalid */
+            SetState(CHARGER_STATE_NOT_CHARGING);
+            break;
     }
 }
 
-/* Fix #6/#7: renamed from the file-local, un-prototyped "changeChargerControl"
- * (now declared in Charger.h so it can actually be called from outside this
- * file - see Charger.h fix #7). CV_CHARGING now commands the full CC current
- * as a ceiling rather than clamping to trickle (fix #7); EOC_CHARGING now
- * keeps output enabled at a trickle current instead of disabling outright,
- * matching its own "keep CV for a short period" comment; RE_CHARGING now
- * commands real (reduced) charging current instead of 0V/0A/disabled;
- * OVERHEATED_CELL got its own explicit case instead of relying on `default`. */
-void Charger_UpdateOutputsFromState(void){
-    switch(s_chargerState){
-//        case CHARGER_STATE_NOT_CHARGING:        changeChargeState(0, 0, false); break;
-        case CHARGER_STATE_START_CHARGING:      changeChargeState(CHARGER_CONSTANT_CURRENT_VOLTAGE, CHARGER_CONSTANT_CURRENT_A, true); break;
-        case CHARGER_STATE_TRICKLE_CHARGING:    changeChargeState(CHARGER_CONSTANT_CURRENT_VOLTAGE, CHARGER_TRICKLE_CURRENT_A,true); break;
-        case CHARGER_STATE_CC_CHARGING:         changeChargeState(CHARGER_CONSTANT_CURRENT_VOLTAGE, CHARGER_CONSTANT_CURRENT_A,true); break;
-        case CHARGER_STATE_CV_CHARGING:         changeChargeState(CHARGER_TARGET_VOLTAGE, CHARGER_CONSTANT_CURRENT_A,true); break;
-        case CHARGER_STATE_EOC_CHARGING:        changeChargeState(CHARGER_TARGET_VOLTAGE, CHARGER_TRICKLE_CURRENT_A, true); break;
-//        case CHARGER_STATE_DONE_CHARGING:       changeChargeState(0,0,false); break;
-        case CHARGER_STATE_RE_CHARGING:         changeChargeState(CHARGER_TARGET_VOLTAGE, CHARGER_RECHARGE_CURRENT_A, true); break;
-//        case CHARGER_STATE_INHIBIT_CHARGING:    changeChargeState(0, 0, false); break;
-        case CHARGER_STATE_UNBALANCED_CELLS:    changeChargeState(CHARGER_TARGET_VOLTAGE,CHARGER_UNBALANCED_CURRENT_A,true); break;
-//        case CHARGER_STATE_OVERCHARGED_CELL:    changeChargeState(0,0,false); break;
-//        case CHARGER_STATE_OVERHEATED_CELL:     changeChargeState(0,0,false); break;
-//        case CHARGER_STATE_CHARGER_FAULT:       changeChargeState(0, 0, false); break;
+/*----------------------------------------------------------------------------------------------------
+ * Step 3: state -> charger setpoints
+ *----------------------------------------------------------------------------------------------------*/
+/* Less current when the coldest cell is near the lower charge limit */
+static float ColdDerated(const float amps)
+{
+    return (s_battery.temp_min < CHARGER_COLD_DERATE_BELOW_C) ? (amps * CHARGER_COLD_DERATE_FACTOR) : amps;
+}
+
+/* Never ask for more than the BMS allows */
+static float BmsLimited(const float amps)
+{
+    return (amps > s_maxCurrent) ? s_maxCurrent : amps;
+}
+
+#warning "Whole pack is assumed to be in range of the charger model (CHARGER_OUTPUT_VOLTAGE_MIN_V..MAX_V): the charger shuts off outside it, and nothing here checks it"
+static void Charger_UpdateOutputsFromState(void)
+{
+    const float v = CHARGER_TARGET_VOLTAGE_V;
+
+    switch (s_state) {
+        case CHARGER_STATE_START_CHARGING:
+        case CHARGER_STATE_CC_CHARGING:
+        case CHARGER_STATE_CV_CHARGING:     /* current limit stays at CC; the charger's own CV loop tapers it */
+            SetOutput(v, BmsLimited(ColdDerated(CHARGER_CC_CURRENT_AMPS)), true);
+            break;
+        case CHARGER_STATE_TRICKLE_CHARGING:
+        case CHARGER_STATE_EOC_CHARGING:
+            SetOutput(v, BmsLimited(CHARGER_TRICKLE_CURRENT_AMPS), true);
+            break;
+        case CHARGER_STATE_RE_CHARGING:
+            SetOutput(v, BmsLimited(ColdDerated(CHARGER_RECHARGE_CURRENT_AMPS)), true);
+            break;
+        case CHARGER_STATE_UNBALANCED_CELLS:
+            SetOutput(v, BmsLimited(CHARGER_UNBALANCED_CURRENT_AMPS), true);
+            break;
 
         case CHARGER_STATE_NOT_CHARGING:
-        case CHARGER_STATE_DONE_CHARGING:
         case CHARGER_STATE_INHIBIT_CHARGING:
+        case CHARGER_STATE_DONE_CHARGING:
         case CHARGER_STATE_OVERCHARGED_CELL:
         case CHARGER_STATE_OVERHEATED_CELL:
-        case CHARGER_STATE_CHARGER_FAULT:   changeChargeState(0, 0, false); break;
-
-        default: changeChargeState(0, 0, false); break;
+        case CHARGER_STATE_COLD_CELL:
+        case CHARGER_STATE_CHARGER_FAULT:
+        default:
+            Charger_OutputOff();
+            break;
     }
 }
 
-#warning untested, test with charger
+/*----------------------------------------------------------------------------------------------------
+ * One full cycle (call every 1 s)
+ *----------------------------------------------------------------------------------------------------*/
+CanStatus_t Charger_Update(const battery2Charger_t * const battery, const uint8_t flags, const float Max_current)
+{
+    if (Charger_UpdateBatteryData(battery, Max_current)) {
+        Charger_UpdateStateMachine(flags);
+        Charger_UpdateOutputsFromState();
+    } else {
+        Charger_FaultShutdown();            /* no battery data: never keep charging blind */
+    }
+    return Charger_SendAllCommands();
+}
+
+#warning "Untested with a real charger"

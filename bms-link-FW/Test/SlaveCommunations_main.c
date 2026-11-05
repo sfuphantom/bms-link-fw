@@ -82,9 +82,9 @@
 //#include "spi.h"
 //#include "SlaveCommunication_Drivers.h"
 #include "BMS_Routines.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 
-#include "BatteryData.h"
+#include "BMS_Data.h"
 #include "BMS_Tasks.h"
 
 #include "rti.h"

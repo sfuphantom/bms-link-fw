@@ -4,12 +4,12 @@
  *  Created on: Jun 8, 2026
  *      Author: tanjo
  *
- *  See BatteryData.h for the full list of fixes/changes. Summary of what
+ *  See BMS_Data.h for the full list of fixes/changes. Summary of what
  *  changed in THIS file specifically:
  *   - The single global `struct BatteryData_t BatteryData` is replaced by
  *     five smaller, file-static globals (CellData, FullBattery, IMData,
  *     BatteryCurrent, BMS_State), each reachable only through the
- *     accessors declared in BatteryData.h - nothing outside this file can
+ *     accessors declared in BMS_Data.h - nothing outside this file can
  *     poke at them directly anymore, which also means the staleness
  *     tracking / (future) fault checks in the setters can't be bypassed.
  *   - Every "inline" function that used to live only in this .c file (with
@@ -40,9 +40,9 @@
 #include "FullBattery_Hardware.h"
 #include "IMD_hardware.h"
 
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"   /* getNow_tick() - for cell-data staleness tracking */
-#include "BatteryData.h"
+#include "BMS_Data.h"
 #include "RowBuf.h"
 
 //----------------------------------------------------------------------------------------------------
@@ -244,7 +244,7 @@ void BMS_UpdateStateMachine(const bool shouldCharge, const bool clearFault, cons
 }
 
 //----------------------------------------------------------------------------------------------------
-// Pack current (its own global - see BatteryData.h fix #4)
+// Pack current (its own global - see BMS_Data.h fix #4)
 //----------------------------------------------------------------------------------------------------
 void Pack_SetCurrent(const float Current_Val){
     BatteryCurrent = Current_Val;
