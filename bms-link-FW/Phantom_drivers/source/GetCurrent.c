@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include "GetCurrent.h"
 #include "FullBattery_Hardware.h"
-#include "BatteryData.h"
+#include "BMS_Data.h"
 
 #warning Compressed current range is only +/-65.5 A at this scale. Check it against the maximum pack current.
 
@@ -20,7 +20,7 @@ float MeasureCurrent(void){
 #else
 #warning Current is ESTIMATED, not measured. Switch USE_CURRENT_SENSOR to 1 once a sensor exists.
 #warning The three functions below were commented out in the old code. Confirm they exist (CalcFanCurrent_Estimte may be a typo) and the sign convention is right.
-    return GetChargerCurrent() - GetInverterCurrent() - CalcFanCurrent_Estimte();
+    return GetChargerCurrent() - GetInverterCurrent() - Fans_EstimateCurrent_A();
 #endif
 }
 
@@ -33,10 +33,3 @@ int16_t CompressCurrent(const float amps){
     return (int16_t)scaled;
 }
 
-float GetCurrent_f(void){
-    return Pack_GetCurrent();
-}
-
-int16_t GetCurrent_i16(void){
-    return CompressCurrent(Pack_GetCurrent());
-}

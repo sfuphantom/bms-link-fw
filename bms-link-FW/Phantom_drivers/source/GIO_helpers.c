@@ -7,7 +7,7 @@
 
 #include "gio.h"
 #include "GIO_helpers.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"
 
 //--------------------------------------------------------------------------
@@ -64,7 +64,7 @@ void gioHw_intDisable(gioPORT_t * const port, const uint32_t bit) { gioDisableNo
 //--------------------------------------------------------------------------
 // Pin ID -> port and bit. false if the pin does not exist.
 //--------------------------------------------------------------------------
-static bool decode(const GioPin_t pin, gioPORT_t ** const port, uint32_t * const bit)
+static bool decode(const GioName_t pin, gioPORT_t ** const port, uint32_t * const bit)
 {
     const GioPort_t id       = GIO_ID_PORT(pin);
     const uint32_t  bitLimit = (id <= GIO_PORT_B) ? 8U : 32U;     // GIO A and B have 8 pins
@@ -75,7 +75,7 @@ static bool decode(const GioPin_t pin, gioPORT_t ** const port, uint32_t * const
     return (*port != NULL) && (*bit < bitLimit);
 }
 
-GioLevel_t gio_read(const GioPin_t pin)
+GioLevel_t gio_read(const GioName_t pin)
 {
     gioPORT_t *port;
     uint32_t   bit;
@@ -84,7 +84,7 @@ GioLevel_t gio_read(const GioPin_t pin)
     return gioHw_read(port, bit);
 }
 
-void gio_write(const GioPin_t pin, const GioLevel_t level)
+void gio_write(const GioName_t pin, const GioLevel_t level)
 {
     gioPORT_t *port;
     uint32_t   bit;
@@ -92,7 +92,7 @@ void gio_write(const GioPin_t pin, const GioLevel_t level)
     if (decode(pin, &port, &bit)) { gioHw_write(port, bit, level); }
 }
 
-GioLevel_t gio_toggle(const GioPin_t pin)
+GioLevel_t gio_toggle(const GioName_t pin)
 {
     gioPORT_t *port;
     uint32_t   bit;
@@ -103,7 +103,7 @@ GioLevel_t gio_toggle(const GioPin_t pin)
     return gioHw_read(port, bit);
 }
 
-void gio_setDirection(const GioPin_t pin, const GioDir_t dir)
+void gio_setDirection(const GioName_t pin, const GioDir_t dir)
 {
     gioPORT_t *port;
     uint32_t   bit;
@@ -126,7 +126,7 @@ static GioLevel_t opposite(const GioLevel_t level)
     return (level == GIO_HIGH) ? GIO_LOW : GIO_HIGH;
 }
 
-void gio_writeMany(const GioPin_t * const pins, const size_t count, const GioLevel_t level)
+void gio_writeMany(const GioName_t * const pins, const size_t count, const GioLevel_t level)
 {
     size_t i;
     for (i = 0; i < count; i++) {
@@ -134,13 +134,13 @@ void gio_writeMany(const GioPin_t * const pins, const size_t count, const GioLev
     }
 }
 
-bool gio_writeIf(const GioPin_t pin, const GioLevel_t level, const bool condition)
+bool gio_writeIf(const GioName_t pin, const GioLevel_t level, const bool condition)
 {
     if (condition) { gio_write(pin, level); }
     return condition;
 }
 
-void gio_pulseN(const GioPin_t pin, const uint32_t count, const GioLevel_t level,
+void gio_pulseN(const GioName_t pin, const uint32_t count, const GioLevel_t level,
                 const ticks_t width, const ticks_t gap)
 {
     uint32_t i;
@@ -153,7 +153,7 @@ void gio_pulseN(const GioPin_t pin, const uint32_t count, const GioLevel_t level
     }
 }
 
-void gio_toggleN(const GioPin_t pin, const uint32_t count, const ticks_t halfPeriod)
+void gio_toggleN(const GioName_t pin, const uint32_t count, const ticks_t halfPeriod)
 {
     uint32_t i;
     for (i = 0; i < count; i++) {
@@ -163,7 +163,7 @@ void gio_toggleN(const GioPin_t pin, const uint32_t count, const ticks_t halfPer
     }
 }
 
-bool gio_toggleEvery(Periodic_t * const p, const GioPin_t pin)
+bool gio_toggleEvery(Periodic_t * const p, const GioName_t pin)
 {
     if (!periodic_due(p)) { return false; }
 
@@ -171,13 +171,13 @@ bool gio_toggleEvery(Periodic_t * const p, const GioPin_t pin)
     return true;
 }
 
-void gio_pwm(const GioPin_t pin, const ticks_t period, const float duty, ticks_t * const periodStart)
+void gio_pwm(const GioName_t pin, const ticks_t period, const float duty, ticks_t * const periodStart)
 {
     const bool high = pwmSignalGen(period, duty, periodStart);
     gio_write(pin, high ? GIO_HIGH : GIO_LOW);
 }
 
-void gio_timedPulse_start(GioTimedPulse_t * const p, const GioPin_t pin, const GioLevel_t level, const ticks_t width)
+void gio_timedPulse_start(GioTimedPulse_t * const p, const GioName_t pin, const GioLevel_t level, const ticks_t width)
 {
     p->pin   = pin;
     p->level = level;
@@ -199,7 +199,7 @@ bool gio_timedPulse_update(GioTimedPulse_t * const p)
 //--------------------------------------------------------------------------
 // Input helpers
 //--------------------------------------------------------------------------
-ticks_t gio_timeAtLevel(TrueTimer_t * const t, const GioPin_t pin, const GioLevel_t level)
+ticks_t gio_timeAtLevel(TrueTimer_t * const t, const GioName_t pin, const GioLevel_t level)
 {
     ticks_t duration = 0;
 
@@ -207,7 +207,7 @@ ticks_t gio_timeAtLevel(TrueTimer_t * const t, const GioPin_t pin, const GioLeve
     return duration;
 }
 
-void gio_watchInit(GioWatch_t * const w, const GioPin_t pin)
+void gio_watchInit(GioWatch_t * const w, const GioName_t pin)
 {
     w->pin  = pin;
     w->last = gio_read(pin);
@@ -225,17 +225,17 @@ Edge_t gio_watch(GioWatch_t * const w)
     return EDGE_FALLING;
 }
 
-void gio_debounceInit(Debouncer_t * const d, const GioPin_t pin)
+void gio_debounceInit(Debouncer_t * const d, const GioName_t pin)
 {
     debounce_init(d, gio_read(pin) == GIO_HIGH);
 }
 
-Edge_t gio_debounce(Debouncer_t * const d, const GioPin_t pin, const ticks_t hold)
+Edge_t gio_debounce(Debouncer_t * const d, const GioName_t pin, const ticks_t hold)
 {
     return debounce_time(d, gio_read(pin) == GIO_HIGH, hold);
 }
 
-bool gio_waitStable(const GioPin_t pin, const GioLevel_t level, const ticks_t stable, const ticks_t timeout)
+bool gio_waitStable(const GioName_t pin, const GioLevel_t level, const ticks_t stable, const ticks_t timeout)
 {
     const bool want = (level == GIO_HIGH);
     Debouncer_t d;
@@ -260,7 +260,7 @@ static void waitUntilOffset(const ticks_t start, const ticks_t offset)
     while (!hasTimeElapsed(start, offset)) { }
 }
 
-void gio_serialInit(GioSerial_t * const s, const GioPin_t data, const GioPin_t clock,
+void gio_serialInit(GioSerial_t * const s, const GioName_t data, const GioName_t clock,
                     const uint32_t bitsPerSecond, const bool msbFirst)
 {
     s->data     = data;
@@ -269,7 +269,7 @@ void gio_serialInit(GioSerial_t * const s, const GioPin_t data, const GioPin_t c
     s->msbFirst = msbFirst;
 
     gio_setDirection(data, GIO_OUTPUT);
-    if (clock == PIN_NONE) {
+    if (clock == GIO_PIN_NONE) {
         gio_write(data, GIO_HIGH);
     } else {
         gio_setDirection(clock, GIO_OUTPUT);
@@ -279,7 +279,7 @@ void gio_serialInit(GioSerial_t * const s, const GioPin_t data, const GioPin_t c
 
 void gio_sendByte(const GioSerial_t * const s, const uint8_t value)
 {
-    const bool    framed  = (s->clock == PIN_NONE);
+    const bool    framed  = (s->clock == GIO_PIN_NONE);
     const ticks_t start   = timer_tic_tick();
     ticks_t       slotEnd = 0;      // every bit is timed from start, so the error does not add up
     uint8_t       i;
@@ -329,7 +329,7 @@ void gio_sendBytes(const GioSerial_t * const s, const uint8_t * const bytes, con
 static volatile uint32_t intCount[GIO_INT_SLOTS];
 static GioCallback_t     intHandler[GIO_INT_SLOTS];
 
-static int intSlot(const GioPin_t pin)
+static int intSlot(const GioName_t pin)
 {
     const GioPort_t port = GIO_ID_PORT(pin);
     const uint32_t  bit  = GIO_ID_BIT(pin);
@@ -340,7 +340,7 @@ static int intSlot(const GioPin_t pin)
     return -1;
 }
 
-bool gio_attach(const GioPin_t pin, const GioCallback_t handler)
+bool gio_attach(const GioName_t pin, const GioCallback_t handler)
 {
     const int slot = intSlot(pin);
     if (slot < 0) { return false; }
@@ -350,7 +350,7 @@ bool gio_attach(const GioPin_t pin, const GioCallback_t handler)
     return true;
 }
 
-void gio_detach(const GioPin_t pin)
+void gio_detach(const GioName_t pin)
 {
     const int slot = intSlot(pin);
     if (slot < 0) { return; }
@@ -359,7 +359,7 @@ void gio_detach(const GioPin_t pin)
     intHandler[slot] = NULL;
 }
 
-uint32_t gio_takeInterrupts(const GioPin_t pin)
+uint32_t gio_takeInterrupts(const GioName_t pin)
 {
     const int slot = intSlot(pin);
     uint32_t irq;
@@ -381,7 +381,7 @@ void Debug_GIO_Notification(void) { }
 #pragma WEAK(IMD_FAULT_GIO_Notification)
 void IMD_FAULT_GIO_Notification(void) { }
 
-static void oldHooks(const GioPin_t pin)
+static void oldHooks(const GioName_t pin)
 {
     switch (pin) {
         case GIO_DEBUG_PIN:     Debug_GIO_Notification();     break;
@@ -396,7 +396,7 @@ void gioNotification(gioPORT_t *port, uint32 bit)
     if (port != gioPORTA && port != gioPORTB) { return; }
 
     const GioPort_t id   = (port == gioPORTA) ? GIO_PORT_A : GIO_PORT_B;
-    const GioPin_t  pin  = (GioPin_t)GIO_ID(id, bit);
+    const GioName_t  pin  = (GioName_t)GIO_ID(id, bit);
     const int       slot = intSlot(pin);
     if (slot < 0) { return; }
 

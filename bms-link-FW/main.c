@@ -4,10 +4,10 @@
 #include "BMS_Routines.h"
 #include "BMS_Tasks.h"
 
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"
 
-#include "BatteryData.h"
+#include "BMS_Data.h"
 #include "Fault_handler.h"
 
 #include "SlaveCommunation_Functions.h"
@@ -54,6 +54,7 @@ void main(void)
 
     volatile ticks_t tic, toc;
     volatile int i;
+    volatile TimingStats_t MeasureCellVoltageStats, CheckSlaveFlagsStats, SetBalanceRateStats;
     Periodic_t debug_tick = { ticks_make(0,1,0,0,0), 0};
     volatile float avgCellVolt;
 
@@ -63,7 +64,13 @@ void main(void)
         while(!Fault_Any()){
             Do_BMS_Tasks();
             if(periodic_due(&debug_tick)){
+                uint16_t DCC[NUMBER_OF_SLAVE_BOARDS_TOTAL];
+                ReadConfig_DCC(DCC);
                 avgCellVolt = Cell_GetAvgVolt();
+//                MeasureCellVoltageStats = BMSTask[0].stats;
+//                SetBalanceRateStats = BMSTask[1].stats;
+//                CheckSlaveFlagsStats = BMSTask[2].stats;
+                avgCellVolt+=0;
             }
         }
 

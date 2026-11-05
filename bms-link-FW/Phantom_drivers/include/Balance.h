@@ -13,7 +13,7 @@
 #include "SlaveCommunation_Hardware.h"
 #include "BatteryCell_Hardware.h"
 #include "FullBattery_Hardware.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"
 
 #define MAX_CHARGE_AMPS 10

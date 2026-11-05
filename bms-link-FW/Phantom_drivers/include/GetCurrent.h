@@ -27,10 +27,6 @@ float ReadCurrentSensor_A(void);        // TODO: write this (driver for the real
 // Raw measurement, amps. Positive = charging, negative = discharging.
 float MeasureCurrent(void);
 
-// Last stored pack current
-float GetCurrent_f(void);               // amps
-int16_t GetCurrent_i16(void);           // compressed, for transmission
-
 // float amps -> compressed (rounded, saturated to int16, NaN -> 0)
 int16_t CompressCurrent(float amps);
 

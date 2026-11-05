@@ -117,3 +117,6 @@ float Fans_EstimateCurrent_A(void)
     }
     return FAN_CURRENT_AT_100_A * (float)dutySum / 100.0f;
 }
+
+
+//---------------------------------------------------------------------------

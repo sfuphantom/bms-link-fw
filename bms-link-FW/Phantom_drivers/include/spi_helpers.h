@@ -91,16 +91,16 @@ bool spi_isAborted(void);
 //---------------------------------------------------------------------------------------------------------
 // Chip select (any GIO pin, see GIO_helpers.h)
 //---------------------------------------------------------------------------------------------------------
-void spi_csLow(const GioPin_t cs);
-void spi_csHigh(const GioPin_t cs);
-bool spi_csIsLow(const GioPin_t cs);
+void spi_csLow(const GioName_t cs);
+void spi_csHigh(const GioName_t cs);
+bool spi_csIsLow(const GioName_t cs);
 
 // lock + clear errors + CS low        /      CS high + unlock
-SpiStatus_t spi_begin(const SpiOwner_t owner, const GioPin_t cs, const ticks_t lockTimeout);
-void        spi_end(const SpiOwner_t owner, const GioPin_t cs);
+SpiStatus_t spi_begin(const SpiOwner_t owner, const GioName_t cs, const ticks_t lockTimeout);
+void        spi_end(const SpiOwner_t owner, const GioName_t cs);
 
 // begin + exchange bytes + end, in one call. tx or rx may be NULL.
-SpiStatus_t spi_transact(const SpiOwner_t owner, const GioPin_t cs, const ticks_t lockTimeout,
+SpiStatus_t spi_transact(const SpiOwner_t owner, const GioName_t cs, const ticks_t lockTimeout,
                          const uint8_t * const tx, uint8_t * const rx, const size_t len);
 
 //---------------------------------------------------------------------------------------------------------

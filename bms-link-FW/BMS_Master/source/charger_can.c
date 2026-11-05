@@ -7,7 +7,7 @@
 
 #include "charger_can.h"
 #include <string.h>
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 
 static uint16 swap16(uint16 val)
 {

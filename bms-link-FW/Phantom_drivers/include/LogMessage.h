@@ -1,86 +1,22 @@
 /*
- * SendDataSerial.h
+ * LogMessage.h
  *
- *  Created on: Jul 31, 2026
- *      Author: tanjo
- *
- *  Frame (big endian on the wire, whatever the processor is):
- *      [SOH][id][len hi][len lo][tick u64][body ...][crc16 hi][crc16 lo][EOT]
- *      len = tick + body. The CRC covers id .. end of body and is only there if SERIAL_USE_CRC.
- *  Every frame carries the "now" tick. The Python side uses it as the time of the row.
- *  The frame is sent in pieces, as it is built, so there is no big buffer.
+ *  Messages for the user: text logs, faults, CAN and raw bytes.
  */
 
-#ifndef PHANTOM_DRIVERS_INCLUDE_SENDDATASERIAL_H_
-#define PHANTOM_DRIVERS_INCLUDE_SENDDATASERIAL_H_
+#ifndef PHANTOM_DRIVERS_INCLUDE_LOGMESSAGE_H_
+#define PHANTOM_DRIVERS_INCLUDE_LOGMESSAGE_H_
 
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "SlaveCommunation_Hardware.h"
-#include "BatteryCell_Hardware.h"
-#include "FullBattery_Hardware.h"
-
-#include "BatteryData.h"
-#include "PhantomHelpers.h"
+#include "LogHelpers.h"
 #include "PhantomTimers.h"
-#include "Phantom_Can.h"
+#include "Can_Helpers.h"
 
-//---------------------------------------------------------------------------------------------------------
-// Transport. Only Transport_Send() in the .c depends on this.
-#define SERIAL_TRANSPORT_SCI    0
-#define SERIAL_TRANSPORT_SPI    1
-#define SERIAL_TRANSPORT        SERIAL_TRANSPORT_SCI
-
-#if SERIAL_TRANSPORT == SERIAL_TRANSPORT_SCI
-#include "sci.h"
-#include "reg_sci.h"
-
-#define USE_USB_N_PINS 1
-#if USE_USB_N_PINS
-    #define UART_REG        sciREG
-#else
-    #define UART_REG        scilinREG
-#endif
-#endif
-
-//---------------------------------------------------------------------------------------------------------
-#define SOH_BYTE            0x01
-#define EOT_BYTE            0x04
-
-// The sender and the receiver have to agree on these, nothing about them is sent.
-#define SERIAL_USE_CRC      1           // same as USE_CRC in uart_receiver.py
-
-// Sizes. The ones the compiler can check are checked in the .c
-#define SERIAL_SECTION_MAX  64          // biggest data section, in bytes
 #define SERIAL_LOG_MAX      128         // log text buffer. Text is cut to SERIAL_LOG_MAX - 1 (max 256)
-#define SERIAL_RAW_MAX      1024        // raw bytes in one frame, more is cut
 #define SERIAL_LOG_CAN      1           // 0 = Log_Can does nothing
 
-#define PWM_NIBBLE_BYTES    ((NUMBER_OF_CELLS_SERIES + 1) / 2)
-
-// Which sections are sent at start up (1 = on). Serial_EnableSection() changes it while running.
-#define SERIAL_EN_CELL_VOLT     1
-#define SERIAL_EN_CELL_TEMP     0
-#define SERIAL_EN_CELL_RES      0
-#define SERIAL_EN_CELL_SOC      0
-#define SERIAL_EN_PACK          0
-#define SERIAL_EN_IMD           0
-#define SERIAL_EN_CHARGER       0
-#define SERIAL_EN_SLAVE_STATE   1
-#define SERIAL_EN_FANS          0
-#define SERIAL_EN_PWM           1
-#define SERIAL_EN_BMS_STATE     0
-
-// float -> integer scales used by the Compress_ functions. Keep them the same in uart_receiver.py
-#define SCALE_CELL_VOLT     10000.0f
-#define SCALE_TEMP          100.0f      // signed
-#define SCALE_RES           10000.0f
-#define SCALE_SOC           100.0f
-#define SCALE_PACK_VOLT     100.0f
-#define SCALE_CURRENT       10.0f       // signed
-
-//---------------------------------------------------------------------------------------------------------
 typedef enum {
     LOG_LEVEL_TRACE,
     LOG_LEVEL_DEBUG,
@@ -96,31 +32,6 @@ typedef enum {
 #define LOG_MIN_LEVEL       LOG_LEVEL_DEBUG
 #endif
 
-typedef enum {
-    MSG_LOG = 1,        // [level][text_len u8][text]
-    MSG_LOG_RAW,        // [level][text_len u8][text][raw bytes]
-    MSG_RAW,            // [raw bytes]
-    MSG_FAULT,          // [fault id u16][text_len u8][text]
-    MSG_CAN,            // [msg box][data bytes]
-    MSG_DATA            // sections: ([section id][len u16][section data]) ...
-} msg_ID_t;
-
-// One block of data inside MSG_DATA. Same numbers in uart_receiver.py (SecId).
-typedef enum {
-    SEC_CELL_VOLT = 1,
-    SEC_CELL_TEMP,
-    SEC_CELL_RES,
-    SEC_CELL_SOC,
-    SEC_PACK,
-    SEC_IMD,
-    SEC_CHARGER,
-    SEC_SLAVE_STATE,
-    SEC_FANS,
-    SEC_PWM,
-    SEC_BMS_STATE,
-    SEC_COUNT                           // keep last, has to stay <= 32 (one bit each in the enable mask)
-} SectionId_t;
-
 #warning FaultId_t is empty, add the fault IDs here (and the names in FAULT_NAMES in uart_receiver.py)
 typedef enum {
     FAULT_ID_NONE = 0,
@@ -129,18 +40,12 @@ typedef enum {
 } FaultId_t;
 
 typedef struct {
-    uint32_t framesDropped;     // another send was in progress (ISR), the frame was thrown away
-    uint32_t sizeMismatch;      // a Compress_ function wrote another size than the len in its table
-    uint8_t  badSection;        // the last section that did
-} SerialStats_t;
-
-typedef struct {
     ticks_t last;
     bool    started;
 } LogLimiter_t;
 
 //---------------------------------------------------------------------------------------------------------
-// Logs. They all use the level filter above, even when called directly.
+// They all use the level filter, even when called directly.
 void Log_Text   (const LogLevel_t level, const char * const text);
 void Log_Printf (const LogLevel_t level, const char * const fmt, ...);
 void Log_Raw    (const LogLevel_t level, const char * const text, const uint8_t * const data, const uint16_t len);
@@ -161,8 +66,8 @@ void Log_ArrayFloat(const LogLevel_t level, const char * const name, const float
 void Log_Fault  (const FaultId_t id, const char * const fmt, ...);
 
 // CAN. msgBox is the message box number. Log_Can takes the length from CanMsgLen() in the .c (8 by default).
-void Log_Can    (const phantomCanMsgBox msgBox, const uint8_t * const data);
-void Log_CanLen (const phantomCanMsgBox msgBox, const uint8_t * const data, const uint8_t len);
+void Log_Can    (const CanBox_t msgBox, const uint8_t * const data);
+void Log_CanLen (const CanBox_t msgBox, const uint8_t * const data, const uint8_t len);
 
 void Send_Raw   (const uint8_t * const data, const uint16_t len);
 
@@ -231,11 +136,4 @@ bool LogLimiter_Due(LogLimiter_t * const limiter, const ticks_t period);
     )(LOG_VAR_LEVEL, #var, (var)))
 #endif
 
-//---------------------------------------------------------------------------------------------------------
-// Data. Sends one MSG_DATA with every enabled section, in the order of the sections[] table in the .c
-void SendDataRoutine_Serial(void);
-void Serial_EnableSection(const SectionId_t id, const bool enable);
-
-const SerialStats_t * Serial_GetStats(void);
-
-#endif /* PHANTOM_DRIVERS_INCLUDE_SENDDATASERIAL_H_ */
+#endif /* PHANTOM_DRIVERS_INCLUDE_LOGMESSAGE_H_ */

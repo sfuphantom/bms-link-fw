@@ -5,15 +5,15 @@ Author: Tanjosh Sidhu
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include "spi_helpers.h"
+#include "SPI_helpers.h"
 #include "GIO_helpers.h"
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Hardware.h"
 #include "ltc6811_commands.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"
 
-#define SLAVE_CS_PIN ((GioPin_t)GIO_SLAVE_CS_PIN)
+#define SLAVE_CS_PIN (GIO_SLAVE_CS_PIN)
 
 static uint16_t pec15Table[256];
 static bool     pecReady = false;
@@ -324,7 +324,7 @@ static SlaveStatus_t readRetry(const uint16_t cmd, uint8_t * const data, const u
     SlaveStatus_t status = SLAVE_ERR_PEC;
     uint8_t attempt;
 
-    for (attempt = 0; attempt < NUMBER_OF_FAILS_ALLOWED; attempt++) {
+    for (attempt = 0; attempt < SLAVE_NUMBER_OF_FAILS_ALLOWED; attempt++) {
         status = readOnce(cmd, data, boards);
         if (status != SLAVE_ERR_PEC) { return status; }
     }
@@ -373,7 +373,7 @@ SlaveStatus_t WriteThenReadRegGroup(const uint16_t W_cmd, const uint16_t R_cmd, 
     SlaveStatus_t status = SLAVE_ERR_MISMATCH;
     uint8_t attempt;
 
-    for (attempt = 0; attempt < NUMBER_OF_FAILS_ALLOWED; attempt++) {
+    for (attempt = 0; attempt < SLAVE_NUMBER_OF_FAILS_ALLOWED; attempt++) {
         status = WriteRegGroup(W_cmd, W_data);
         if (status != SLAVE_OK) { return status; }
 
@@ -476,7 +476,7 @@ SlaveStatus_t SendClearThenCheckCMD(const uint16_t cmd_clear, const uint16_t cmd
     SlaveStatus_t status = SLAVE_ERR_MISMATCH;
     uint8_t attempt;
 
-    for (attempt = 0; attempt < NUMBER_OF_FAILS_ALLOWED; attempt++) {
+    for (attempt = 0; attempt < SLAVE_NUMBER_OF_FAILS_ALLOWED; attempt++) {
         status = SendCmd(cmd_clear);
         if (status != SLAVE_OK) { return status; }
 

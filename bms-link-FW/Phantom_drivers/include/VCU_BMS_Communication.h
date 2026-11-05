@@ -18,7 +18,10 @@ typedef struct{
     uint8_t has_fault;
 
 }VCU2BMS_t;
-
+typedef union {
+    VCU2BMS_t f;
+    uint8_t buf[sizeof(VCU2BMS_t)];
+}VCU2BMS_buf_t;
 //----------------------------------------------------------------------------------------------------
 
 typedef struct{
@@ -27,6 +30,10 @@ typedef struct{
     uint16_t BatteryCurrent;
 }BMS2VCU_t;
 
+typedef union {
+    BMS2VCU_t f;
+    uint8_t buf[sizeof(BMS2VCU_t)];
+}BMS2VCU_buf_t;
 //----------------------------------------------------------------------------------------------------
 
 

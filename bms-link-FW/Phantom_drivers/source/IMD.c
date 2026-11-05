@@ -3,91 +3,68 @@
  */
 #include <math.h>
 #include "IMD.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"
 #include "IMD_hardware.h"
 
 
-typedef struct {
-    uint32_t high;
-    uint32_t period;
-    ticks_t last_interupt_tick;
-}IMD_interupt_data_t;
+bool readIMDSignal(float * freq, float * duty){
+    const uint32 C1 = ecapGetCAP1(IMD_ECAP_REG);
+    const uint32 C2 = ecapGetCAP2(IMD_ECAP_REG);
+    const uint32 C3 = ecapGetCAP3(IMD_ECAP_REG);
 
-static IMD_interupt_data_t IMD_interupt_data = {0,0,0};
+    // unsigned subtraction also works if the counter wrapped
+    const uint32 high   = C2 - C1;
+    const uint32 period = C3 - C1;
 
-static void set_IMD_interupt_data_high(const uint32_t high){
-    IMD_interupt_data.high=high;
-}
-static void set_IMD_interupt_data_period(const uint32_t period){
-    IMD_interupt_data.period=period;
-}
-static void set_IMD_interupt_data_last_interupt_tick(){
-    IMD_interupt_data.last_interupt_tick = getNow_tick();
-}
-//---------------------------------------------------------------------------------------------
-uint32_t get_IMD_interupt_data_high(){
-    return IMD_interupt_data.high;
-}
-uint32_t get_IMD_interupt_data_period(){
-    return IMD_interupt_data.period;
-}
-ticks_t get_IMD_interupt_data_last_interupt_tick(){
-    return IMD_interupt_data.last_interupt_tick;
-}
+    if (high == 0u || high >= period){
+        return false;
+    };
 
-#warning this can be helper functions, check if it already exist in PhantomHelper or PhantomTimers, else add them
-float get_IMD_freq(){
-    return ECAP_COUNTS_PER_SEC / (float)IMD_interupt_data.period;
-}
-float get_IMD_duty(){
-    return 100.0f * (float)IMD_interupt_data.high / (float)IMD_interupt_data.period;
-}
-bool peroidFreq_inValid(){
-    return (IMD_interupt_data.high == 0u || IMD_interupt_data.high >= IMD_interupt_data.period);
+    *duty = 100.0f * (float)high / (float)period;
+    *freq = ECAP_COUNTS_PER_SEC  / (float)period;
+
+    return true;
 }
 //---------------------------------------------------------------------------------------------
 void IMD_init(){
-    set_IMD_interupt_data_high(0);
-    set_IMD_interupt_data_period(0);
-    set_IMD_interupt_data_last_interupt_tick();
+    (void)readIMDSignal(NULL, NULL);
 }
 
 // Frequency picks the state (10 Hz steps, bounds are the middle between them). The duty only
-// matters for the 30/40/50 Hz states. Duty limits are the datasheet ones with some tolerance.
+// matters for the 30/40/50 Hz states. Duty windows are the datasheet ones plus IMD_DUTY_TOL_PERCENT.
 IMDStateEnum IMD_CalcState(const float duty, const float freq){
-    if (freq < 5.0f)  return Short_Circuit;             //  0 Hz
-    if (freq < 15.0f) return Normal_Condition;          // 10 Hz
-    if (freq < 25.0f) return Undervoltage_Condition;    // 20 Hz
+    if (freq < IMD_FREQ_UP_SHORT_HZ)  return Short_Circuit;             //  0 Hz
+    if (freq < IMD_FREQ_UP_NORMAL_HZ) return Normal_Condition;          // 10 Hz
+    if (freq < IMD_FREQ_UP_UNDERV_HZ) return Undervoltage_Condition;    // 20 Hz
 
-    if (freq < 35.0f){                                  // 30 Hz
-        if (isBetween_CC(duty,  5.0f, 10.5f)) return Speed_Start_Measurement_Good;
-        if (isBetween_CC(duty, 90.0f, 95.5f)) return Speed_Start_Measurement_Bad;
+    if (freq < IMD_FREQ_UP_SST_HZ){                                     // 30 Hz
+        if (isBetween_CC(duty, IMD_DUTY_SST_GOOD_MIN, IMD_DUTY_SST_GOOD_MAX)) return Speed_Start_Measurement_Good;
+        if (isBetween_CC(duty, IMD_DUTY_SST_BAD_MIN,  IMD_DUTY_SST_BAD_MAX))  return Speed_Start_Measurement_Bad;
         return Undefined_Fault;
     }
-    if (freq < 55.0f){                                  // 40 Hz and 50 Hz
-        if (!isBetween_CC(duty, 47.0f, 53.5f)) return Undefined_Fault;
-        return (freq < 45.0f) ? Device_Error : Connection_Fault_Earth;
+    if (freq < IMD_FREQ_UP_EARTH_HZ){                                   // 40 Hz and 50 Hz
+        if (!isBetween_CC(duty, IMD_DUTY_ERR_MIN, IMD_DUTY_ERR_MAX)) return Undefined_Fault;
+        return (freq < IMD_FREQ_UP_DEVICE_ERR_HZ) ? Device_Error : Connection_Fault_Earth;
     }
     return Undefined_Fault;
 }
 
 uint8_t IMD_CalcIsolation(const float duty){
-    if (duty < 5.0f || duty > 95.0f){
+    if (duty < IMD_DS_PWM_DUTY_MIN_PERCENT || duty > IMD_DS_PWM_DUTY_MAX_PERCENT){
         return ISOLATION_UNKNOWN;
     }
-    return (uint8_t)roundf(100.53763f - 1.05287f * duty);   // fit of the datasheet curve
+    return (uint8_t)roundf(IMD_ISOLATION_FIT_OFFSET - IMD_ISOLATION_FIT_SLOPE * duty);   // not a datasheet value
 }
 
 float IMD_CalcResistance(const float duty){
-    if (duty <= 5.0f){
-        return IMD_RESISTANCE_MAX_KOHM;
+    if (duty <= IMD_DS_PWM_DUTY_MIN_PERCENT){
+        return IMD_RESISTANCE_MAX_kOHM;
     }
-    if (duty >= 95.0f){
+    if (duty >= IMD_DS_PWM_DUTY_MAX_PERCENT){
         return 0.0f;
     }
-    const float kohm = 90.0f * 1200.0f / (duty - 5.0f) - 1200.0f;   // datasheet equation
-    return fminf(kohm, IMD_RESISTANCE_MAX_KOHM);
+    return fminf(IMD_DUTY_TO_RES_kOHM(duty), IMD_RESISTANCE_MAX_kOHM);   // datasheet equation
 }
 
 //IMDData_t IMD_CalcData(const float duty, const float freq){
@@ -108,28 +85,7 @@ bool IMD_HasFault(const float duty, const float freq, const float resistance, co
     return  isolation  < MIN_IMD_ISOLATION_PERCENT ||
             isolation  > MAX_IMD_ISOLATION_PERCENT ||     // also catches ISOLATION_UNKNOWN
             duty       > MAX_IMD_DUTY_PERCENT      ||
-            resistance < MIN_IMD_RESISTANCE_KOHM;
+            resistance < IMD_FAULT_RESISTANCE_kOHM;    // MIN_IMD_RESISTANCE_kOHM (per volt) x max TS voltage
 }
 
 //---------------------------------------------------------------------------------------------------------
-void ecapNotification(ecapBASE_t *ecap, uint16 flags)
-{
-    // mibspi3miso (X1, pin 5 on the right) <- input
-    if (ecap != IMD_ECAP_REG) {return;}                             // change this if there is more than 1 ecap
-    if ((flags & VALID_FLAG_MASK) != VALID_FLAG_VAL) {return;}      // all 3 events must have happened
-
-    const uint32 C1 = ecapGetCAP1(ecap);
-    const uint32 C2 = ecapGetCAP2(ecap);
-    const uint32 C3 = ecapGetCAP3(ecap);
-
-    // unsigned subtraction also works if the counter wrapped
-    const uint32 high   = C2 - C1;
-    const uint32 period = C3 - C1;
-    if (high == 0u || high >= period) {return;}     // bad capture, would divide by 0 or give duty > 100%
-
-    set_IMD_interupt_data_high(high);
-    set_IMD_interupt_data_period(period);
-    set_IMD_interupt_data_last_interupt_tick();
-}
-
-

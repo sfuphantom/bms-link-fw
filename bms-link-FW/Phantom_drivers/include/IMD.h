@@ -10,7 +10,7 @@
 #include "sys_common.h"
 #include "ecap.h"
 #include "system.h"
-#include "IMD_hardware.h"
+#include "IMD_hardware.h"       // IMD limits, windows and datasheet values live here
 #include "PhantomTimers.h"
 
 //---------------------------------------------------------------------------------------------------------
@@ -19,23 +19,7 @@
 #define VALID_FLAG_MASK         0x00FF
 #define VALID_FLAG_VAL          0x000E
 //---------------------------------------------------------------------------------------------------------
-// Fault limits
-// TODO: check these against EV.7.6.3 in the 2024 V1 rulebook (500 ohm/V)
-#define MIN_IMD_RESISTANCE_KOHM     1E3f    // datasheet equation gives kOhm
-#define MIN_IMD_ISOLATION_PERCENT   75.0f
-#define MAX_IMD_ISOLATION_PERCENT   100.0f
-#define MAX_IMD_DUTY_PERCENT        50.0f
-#define IMD_RESISTANCE_MAX_KOHM     1E6f    // "infinite" resistance (duty <= 5%) is capped to this
-//---------------------------------------------------------------------------------------------------------
-uint32_t get_IMD_interupt_data_high();
-uint32_t get_IMD_interupt_data_period();
-ticks_t get_IMD_interupt_data_last_interupt_tick();
-
-float get_IMD_freq();
-float get_IMD_duty();
-
-bool peroidFreq_inValid();
-
+bool readIMDSignal(float * freq, float * duty);
 void IMD_init();
 //---------------------------------------------------------------------------------------------------------
 IMDStateEnum IMD_CalcState(const float duty, const float freq);

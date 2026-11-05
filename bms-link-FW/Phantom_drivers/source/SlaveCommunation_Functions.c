@@ -11,10 +11,10 @@
 #include "string.h"
 #include "ltc6811_commands.h"
 #include "SlaveCommunation_Hardware.h"
-#include "spi_helpers.h"
+#include "SPI_helpers.h"
 #include "SlaveCommunication_Drivers.h"
 #include "SlaveCommunation_Functions.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"
 
 static ConfigReg_t ConfigRegData[NUMBER_OF_SLAVE_BOARDS_TOTAL];         // what is written next
@@ -173,7 +173,7 @@ SlaveStatus_t WriteThenRead_CFGR(void){
     SlaveStatus_t status = SLAVE_ERR_MISMATCH;
     uint8_t attempt, board;
 
-    for(attempt = 0; attempt < NUMBER_OF_FAILS_ALLOWED; attempt++){
+    for(attempt = 0; attempt < SLAVE_NUMBER_OF_FAILS_ALLOWED; attempt++){
         status = Write_CFGR();
         if(status == SLAVE_OK){ status = readConfig(readBack); }
 

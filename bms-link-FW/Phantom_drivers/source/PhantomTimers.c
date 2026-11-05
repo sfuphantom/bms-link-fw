@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "rti.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"
 
 //----------------------------------------------------------------------------------------

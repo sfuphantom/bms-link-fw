@@ -8,12 +8,12 @@ Author: Tanjosh Sidhu
 #include <stdbool.h>
 #include <stddef.h>
 #include "SlaveCommunation_Hardware.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"
-#include "spi_helpers.h"
+#include "SPI_helpers.h"
 
 /////////////////////////////////////////////////////////////////
-#define NUMBER_OF_FAILS_ALLOWED         2
+#define SLAVE_NUMBER_OF_FAILS_ALLOWED         2
 /////////////////////////////////////////////////////////////////
 #define NUMBER_OF_CELLS_SLAVES             (CELLS_PER_SLAVE_BOARD     * NUMBER_OF_SLAVE_BOARDS_TOTAL)
 #define NUMBER_OF_AUCILIARY_SLAVES         (AUCILIARY_PER_SLAVE_BOARD * NUMBER_OF_SLAVE_BOARDS_TOTAL)

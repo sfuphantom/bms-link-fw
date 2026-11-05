@@ -6,10 +6,10 @@
 #include "GIO_helpers.h"
 
 #include "Fault_handler.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "Charger.h"
 #include "Fans.h"
-#include "Phantom_Can.h"
+#include "Can_Helpers.h"
 
 #include "IMD_hardware.h"
 #include "SlaveCommunation_Hardware.h"
@@ -54,27 +54,19 @@ static void Pack(const BMSFaultsData_t* const f, uint8_t* const out){
     out[5] = f->FirstFault;
     out[6] = f->TripCount;
 }
-static void Unpack(const uint8_t* const in, BMSFaultsData_t* const f){
-    f->Slave_Faults   = read_u16_BE(&in[0]);
-    f->BMS_Faults     = read_u16_BE(&in[2]);
-    f->IMDState       = in[5];
-    f->FirstFault     = in[5];
-    f->TripCount      = in[6];
-}
+// static void Unpack(const uint8_t* const in, BMSFaultsData_t* const f){
+//     f->Slave_Faults   = read_u16_BE(&in[0]);
+//     f->BMS_Faults     = read_u16_BE(&in[2]);
+//     f->IMDState       = in[5];
+//     f->FirstFault     = in[5];
+//     f->TripCount      = in[6];
+// }
 
 bool Fault_SendCAN(void){
     const BMSFaultsData_t copy = Fault_Get();
     uint8_t buf[FAULT_CAN_BYTES];
     Pack(&copy, buf);
-    return can_transmit_data(BMS2ALL_FAULT, buf, sizeof(buf));
-}
-bool Fault_ReceiveCAN(BMSFaultsData_t* const data){
-    uint8_t buf[FAULT_CAN_BYTES];
-    const bool ok = can_receive_data(BMS2ALL_FAULT, buf, sizeof(buf));
-    if (ok){
-        Unpack(buf, data);
-    }
-    return ok;
+    return can_send(BMS2ALL_FAULT, buf, sizeof(buf));
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -113,7 +105,7 @@ void Fault_Handler(void){
     }
     handling = true;
 
-    gio_write((GioName_t)GIO_IMD_FAULT_PIN, GIO_LOW);    // first, nothing before it can stop it
+    gio_write(GIO_IMD_FAULT_PIN, GIO_LOW);    // first, nothing before it can stop it
     Charger_FaultShutdown();
     Fault_SendCAN();
 

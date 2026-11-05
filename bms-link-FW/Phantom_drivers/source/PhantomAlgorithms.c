@@ -1,6 +1,6 @@
 #include <math.h>
 #include "strings.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 
 // Integer array math is done in double, then rounded and limited to the type's range.
 // NaN becomes 0. Used for the integer math and the float -> integer conversions.

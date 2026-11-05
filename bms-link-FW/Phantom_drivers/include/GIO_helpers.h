@@ -208,7 +208,7 @@ typedef enum {
     PIN_HET2_30      = GIO_ID(GIO_PORT_HET2, 30),
     PIN_HET2_31      = GIO_ID(GIO_PORT_HET2, 31),
 
-    PIN_NONE = 0xFFFF,
+    GIO_PIN_NONE = 0xFFFF,
 } GioPin_t;
 
 //--------------------------------------------------------------------------
@@ -221,6 +221,7 @@ typedef enum {
     GIO_BMS_FAULT_PIN       = PIN_A7,
     GIO_SLAVE_CS_PIN        = PIN_SPI3_CS0,
     GIO_HV_CS_PIN           = PIN_SPI3_CS5,
+    GIO_NAME_PIN_NONE       = GIO_PIN_NONE,
 } GioName_t;
 
 //--------------------------------------------------------------------------
@@ -240,41 +241,41 @@ void       gioHw_intDisable(gioPORT_t * const port, const uint32_t bit);
 //--------------------------------------------------------------------------
 // Pins. A bad pin is ignored (reads as GIO_LOW).
 //--------------------------------------------------------------------------
-GioLevel_t gio_read(const GioPin_t pin);
-void       gio_write(const GioPin_t pin, const GioLevel_t level);
-GioLevel_t gio_toggle(const GioPin_t pin);                  // returns the new level
-void       gio_setDirection(const GioPin_t pin, const GioDir_t dir);
+GioLevel_t gio_read(const GioName_t pin);
+void       gio_write(const GioName_t pin, const GioLevel_t level);
+GioLevel_t gio_toggle(const GioName_t pin);                  // returns the new level
+void       gio_setDirection(const GioName_t pin, const GioDir_t dir);
 
 // All the pins in mask change in the same write (one port only). Build a mask with GIO_ID_MASK.
 void gio_writeMask(const GioPort_t port, const uint32_t mask, const GioLevel_t level);
 // Pins can be on different ports, written one after the other
-void gio_writeMany(const GioPin_t * const pins, const size_t count, const GioLevel_t level);
+void gio_writeMany(const GioName_t * const pins, const size_t count, const GioLevel_t level);
 
 //--------------------------------------------------------------------------
 // Output helpers
 //--------------------------------------------------------------------------
-bool gio_writeIf(const GioPin_t pin, const GioLevel_t level, const bool condition);   // returns condition
+bool gio_writeIf(const GioName_t pin, const GioLevel_t level, const bool condition);   // returns condition
 
 // level for width, then back to the opposite level; gap is only between pulses
-void gio_pulseN(const GioPin_t pin, const uint32_t count, const GioLevel_t level,
+void gio_pulseN(const GioName_t pin, const uint32_t count, const GioLevel_t level,
                 const ticks_t width, const ticks_t gap);
 #define gio_pulse(pin, level, width)    gio_pulseN((pin), 1U, (level), (width), 0U)
 
-void gio_toggleN(const GioPin_t pin, const uint32_t count, const ticks_t halfPeriod);
+void gio_toggleN(const GioName_t pin, const uint32_t count, const ticks_t halfPeriod);
 
 // Non-blocking. Start the Periodic_t with periodic_init. Returns true when it toggled.
-bool gio_toggleEvery(Periodic_t * const p, const GioPin_t pin);
+bool gio_toggleEvery(Periodic_t * const p, const GioName_t pin);
 
-void gio_pwm(const GioPin_t pin, const ticks_t period, const float duty, ticks_t * const periodStart);
+void gio_pwm(const GioName_t pin, const ticks_t period, const float duty, ticks_t * const periodStart);
 
 // Non-blocking pulse: start it, then call update often. update returns true while the pulse is on.
 typedef struct {
-    GioPin_t   pin;
+    GioName_t   pin;
     GioLevel_t level;
     Timeout_t  timer;
 } GioTimedPulse_t;
 
-void gio_timedPulse_start(GioTimedPulse_t * const p, const GioPin_t pin, const GioLevel_t level, const ticks_t width);
+void gio_timedPulse_start(GioTimedPulse_t * const p, const GioName_t pin, const GioLevel_t level, const ticks_t width);
 bool gio_timedPulse_update(GioTimedPulse_t * const p);
 
 //--------------------------------------------------------------------------
@@ -282,22 +283,22 @@ bool gio_timedPulse_update(GioTimedPulse_t * const p);
 //--------------------------------------------------------------------------
 // Non-blocking: call it often. Returns how long the pin has been at level (0 if it is not).
 // Start the TrueTimer_t as {0}.
-ticks_t gio_timeAtLevel(TrueTimer_t * const t, const GioPin_t pin, const GioLevel_t level);
+ticks_t gio_timeAtLevel(TrueTimer_t * const t, const GioName_t pin, const GioLevel_t level);
 
 // Did the pin change since the last gio_watch call
 typedef struct {
-    GioPin_t   pin;
+    GioName_t   pin;
     GioLevel_t last;
 } GioWatch_t;
 
-void   gio_watchInit(GioWatch_t * const w, const GioPin_t pin);
+void   gio_watchInit(GioWatch_t * const w, const GioName_t pin);
 Edge_t gio_watch(GioWatch_t * const w);                     // EDGE_NONE / EDGE_RISING / EDGE_FALLING
 
-void   gio_debounceInit(Debouncer_t * const d, const GioPin_t pin);
-Edge_t gio_debounce(Debouncer_t * const d, const GioPin_t pin, const ticks_t hold);
+void   gio_debounceInit(Debouncer_t * const d, const GioName_t pin);
+Edge_t gio_debounce(Debouncer_t * const d, const GioName_t pin, const ticks_t hold);
 
 // Blocking: true if the pin stayed at level for stable before timeout ran out (timeout 0 = forever)
-bool gio_waitStable(const GioPin_t pin, const GioLevel_t level, const ticks_t stable, const ticks_t timeout);
+bool gio_waitStable(const GioName_t pin, const GioLevel_t level, const ticks_t stable, const ticks_t timeout);
 
 //--------------------------------------------------------------------------
 // Send bytes with software timing.
@@ -307,13 +308,13 @@ bool gio_waitStable(const GioPin_t pin, const GioLevel_t level, const ticks_t st
 #define GIO_BITRATE_TO_TICKS(bitsPerSecond)  (((ticks_t)TICKS_PER_US * 1000000U) / (bitsPerSecond))
 
 typedef struct {
-    GioPin_t data;
-    GioPin_t clock;
+    GioName_t data;
+    GioName_t clock;
     ticks_t  bitTicks;
     bool     msbFirst;
 } GioSerial_t;
 
-void gio_serialInit(GioSerial_t * const s, const GioPin_t data, const GioPin_t clock,
+void gio_serialInit(GioSerial_t * const s, const GioName_t data, const GioName_t clock,
                     const uint32_t bitsPerSecond, const bool msbFirst);
 void gio_sendByte(const GioSerial_t * const s, const uint8_t value);
 void gio_sendBytes(const GioSerial_t * const s, const uint8_t * const bytes, const size_t count);
@@ -323,11 +324,11 @@ void gio_sendBytes(const GioSerial_t * const s, const uint8_t * const bytes, con
 // The handler runs in the interrupt, keep it short. Without a handler the
 // interrupts are only counted.
 //--------------------------------------------------------------------------
-typedef void (*GioCallback_t)(const GioPin_t pin);
+typedef void (*GioCallback_t)(const GioName_t pin);
 
-bool     gio_attach(const GioPin_t pin, const GioCallback_t handler);   // handler may be NULL
-void     gio_detach(const GioPin_t pin);
-uint32_t gio_takeInterrupts(const GioPin_t pin);                        // how many since the last call
+bool     gio_attach(const GioName_t pin, const GioCallback_t handler);   // handler may be NULL
+void     gio_detach(const GioName_t pin);
+uint32_t gio_takeInterrupts(const GioName_t pin);                        // how many since the last call
 
 // Old per-pin hooks. They are weak and still called when no handler is attached.
 void Debug_GIO_Notification(void);

@@ -6,18 +6,18 @@
  */
 
 #include "spi.h"
-#include "spi_helpers.h"
-#include "PhantomHelpers.h"
+#include "SPI_helpers.h"
+#include "PhantomAlgorithms.h"
 
 #define SPI_BYTE_TIMEOUT_TICKS      US_TO_TICKS(SPI_BYTE_TIMEOUT_US)
 
 typedef struct {
     volatile SpiOwner_t owner;
     volatile bool       abort;
-    volatile GioPin_t   activeCS;
+    volatile GioName_t   activeCS;
 } SpiBus_t;
 
-static SpiBus_t bus = { SPI_NO_OWNER, false, PIN_NONE };
+static SpiBus_t bus = { SPI_NO_OWNER, false, GIO_NAME_PIN_NONE };
 
 //---------------------------------------------------------------------------------------------------------
 // Hardware wrapper: the only code that calls spi.h or touches the SPI registers
@@ -117,13 +117,13 @@ void spi_unlock(const SpiOwner_t owner)
 
 void spi_forceEnd(void)
 {
-    const GioPin_t cs = bus.activeCS;
+    const GioName_t cs = bus.activeCS;
 
     bus.abort = true;                       // first, so an exchange in progress stops
 
-    if (cs != PIN_NONE) {
+    if (cs != GIO_PIN_NONE) {
         gio_write(cs, GIO_HIGH);
-        bus.activeCS = PIN_NONE;
+        bus.activeCS = GIO_NAME_PIN_NONE;
     }
     spiHw_reset();
     bus.owner = SPI_NO_OWNER;
@@ -140,24 +140,24 @@ bool spi_isAborted(void) { return bus.abort; }
 //---------------------------------------------------------------------------------------------------------
 // Chip select
 //---------------------------------------------------------------------------------------------------------
-void spi_csLow(const GioPin_t cs)
+void spi_csLow(const GioName_t cs)
 {
     bus.activeCS = cs;
     gio_write(cs, GIO_LOW);
 }
 
-void spi_csHigh(const GioPin_t cs)
+void spi_csHigh(const GioName_t cs)
 {
     gio_write(cs, GIO_HIGH);
-    if (bus.activeCS == cs) { bus.activeCS = PIN_NONE; }
+    if (bus.activeCS == cs) { bus.activeCS = GIO_NAME_PIN_NONE; }
 }
 
-bool spi_csIsLow(const GioPin_t cs)
+bool spi_csIsLow(const GioName_t cs)
 {
     return gio_read(cs) == GIO_LOW;
 }
 
-SpiStatus_t spi_begin(const SpiOwner_t owner, const GioPin_t cs, const ticks_t lockTimeout)
+SpiStatus_t spi_begin(const SpiOwner_t owner, const GioName_t cs, const ticks_t lockTimeout)
 {
     if (owner != SPI_NO_OWNER && !spi_lock(owner, lockTimeout)) {
         return bus.abort ? SPI_ERR_ABORTED : SPI_ERR_BUSY;
@@ -169,7 +169,7 @@ SpiStatus_t spi_begin(const SpiOwner_t owner, const GioPin_t cs, const ticks_t l
     return SPI_OK;
 }
 
-void spi_end(const SpiOwner_t owner, const GioPin_t cs)
+void spi_end(const SpiOwner_t owner, const GioName_t cs)
 {
     // After spi_forceEnd the bus (and the CS) may belong to someone else, leave them alone
     if (owner != SPI_NO_OWNER && bus.owner != owner) { return; }
@@ -178,7 +178,7 @@ void spi_end(const SpiOwner_t owner, const GioPin_t cs)
     spi_unlock(owner);
 }
 
-SpiStatus_t spi_transact(const SpiOwner_t owner, const GioPin_t cs, const ticks_t lockTimeout,
+SpiStatus_t spi_transact(const SpiOwner_t owner, const GioName_t cs, const ticks_t lockTimeout,
                          const uint8_t * const tx, uint8_t * const rx, const size_t len)
 {
     SpiStatus_t status = spi_begin(owner, cs, lockTimeout);
