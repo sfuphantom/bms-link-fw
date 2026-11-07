@@ -14,7 +14,7 @@
 #include "PhantomTimers.h"
 #include "Can_Helpers.h"
 
-#define SERIAL_LOG_MAX      128         // log text buffer. Text is cut to SERIAL_LOG_MAX - 1 (max 256)
+#define SERIAL_LOG_MAX      256         // log text buffer. Text is cut to SERIAL_LOG_MAX - 1 (max 256)
 #define SERIAL_LOG_CAN      1           // 0 = Log_Can does nothing
 
 typedef enum {

@@ -151,10 +151,10 @@ RoutineResult_t SendChargerControls_Routine(void)
     battery2Charger.charge_current_A = Pack_GetCurrent();
     battery2Charger.pack_voltage_V = Pack_GetVolt();
 
-    Charger_UpdateBatteryData(&battery2Charger);
-    Charger_UpdateStateMachine(chargerStateFlag);
-    Charger_UpdateOutputsFromState();
-    Charger_SendAllCommands();
+    #warning can add more
+    const float Max_current = 10;//Balance_GetMaxChargeAmps(battery2Charger.cell_max_V, const float maxDieTempC, const float prevLimitAmps);
+
+    Charger_Update(&battery2Charger, chargerStateFlag, Max_current);
 
     return ROUTINE_OK;
 }
