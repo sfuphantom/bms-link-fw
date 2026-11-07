@@ -33,7 +33,7 @@
 // 1 = spiHw_exchange uses spiTransmitAndReceiveData from spi.h. That function has no timeout
 // and spi_forceEnd cannot free it, so it stays 0 unless you accept that.
 #ifndef SPI_USE_HAL_EXCHANGE
-  #define SPI_USE_HAL_EXCHANGE  0
+  #define SPI_USE_HAL_EXCHANGE  1
 #endif
 
 // Lets other tasks run while waiting for the bus. Define it as taskYIELD() or similar.
