@@ -9,6 +9,7 @@ RemoteSystemsTempFiles/.project
 .clangd
 bms-link-FW/Debug/
 bms-link-FW/.launches/
+bms-link-FW/.theia/
 bms-link-FW/.settings/
 bms-link-FW/Release/
 bms-link-FW/targetConfigs/
