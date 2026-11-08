@@ -2,310 +2,202 @@
 """
 extract_macros.py
 
-Extracts and evaluates C/C++ object-like macros from .c and .h files located in
-two predefined directories (including all nested subdirectories), storing and
-updating them in a root-level JSON file.
+Clean, debuggable C/C++ macro and enum extractor powered by PyCLibrary.
+
+Requirements:
+  python3 -m pip install pyclibrary
 
 Features:
-- Recursively searches all subdirectories within the two predefined directories
-  for both the target file and any cross-file macro definitions.
-- Single-pass C numeric lexical scanner that normalizes C float literals (`3.14f`,
-  `0.00f`, `1e-6f`, `.5f`), hex literals (`0xFFU`), binary literals (`0b1010`),
-  and octal literals (`0755`) as atomic tokens so fractional parts like `.00` in
-  `0.00f` are never misidentified as octal numbers.
-- Accurately evaluates signed vs. unsigned hex values and nested C typecasts using
-  two's complement wrap-around (e.g., `(int8_t)0xFF` -> `-1`, `0xFFU` -> `255`,
-  `(uint16_t)(((float)0.5f)/((float)(100*1e-6f)))` -> `5000`).
-- Evaluates macros that depend on function-like macros (cross-file or local,
-  such as `#define add1(x) ((x) + 1)` and `#define T_PLUS_1 add1(T)` -> `6`)
-  as well as actual C functions/`sizeof` via a background `gcc`/`clang` compile-and-run
-  probe when needed, while keeping function-like macro definitions themselves out
-  of the output JSON.
-- Explicitly preserves conditional macro definitions (`#ifdef`, `#ifndef`, `#if`, `#elif`, `#else`)
-  as a structured dictionary showing each condition branch and its evaluated value.
-- Updates existing JSON entries and prints clear status messages for every macro action.
+- Searches two predefined directories (and their subdirectories) for the target .h/.c file.
+- Extracts object-like macros (evaluating chained macros, function-like macro calls,
+  signed/unsigned hex casts, and 'f' floats to concrete numbers).
+- Ignores empty #define directives (such as header include guards).
+- Stores a clean key: value pair when a macro is defined once, and only creates a
+  conditional branch object if the same macro is defined multiple times across
+  #ifdef / #elif / #else blocks.
+- Extracts C enums and groups them under an "ENUMS" key by enum name.
+- Updates ./macros.json in place and prints [ADDED], [UPDATED], and [UNCHANGED] actions.
 
-Usage examples:
-  python3 extract_macros.py -f example.h --all
-  python3 extract_macros.py -f example.h -m SAMPLE_MACRO
+Examples:
+  python3 extract_macros.py -f config.h --all
+  python3 extract_macros.py -f config.h -m TOTAL_PACKET_SIZE
+  python3 extract_macros.py -f config.h -e BmsState_e
 
 Created On: Oct 25 2026
 Author: Jordan Ko
 """
 
+from pyclibrary import CParser
 import argparse
-import ast
 import json
-import math
-import operator
 import os
 import re
-import shutil
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 # ==============================================================================
-# Predefined Configuration (Customize your two directory paths here)
+# Configuration
 # ==============================================================================
-PREDEFINED_DIRS: List[str] = [
-    "./Phantom_drivers",
-    "./Phantom_Hardware",
-]
+PREDEFINED_DIRS = [Path("./Phantom_Hardware"), Path("./Phantom_drivers")]
+JSON_OUTPUT = Path("./macros.json")
 
-DEFAULT_JSON_OUTPUT: str = "./macros.json"
-
-
-# ==============================================================================
-# Safe Constant Expression Evaluator (with Float `f`, Signed Casts & Ternaries)
-# ==============================================================================
-_ALLOWED_UNARY_OPS = {
-    ast.UAdd: operator.pos,
-    ast.USub: operator.neg,
-    ast.Invert: operator.invert,
-    ast.Not: lambda x: int(not bool(x)),
+# C integer typecast bit-widths and signedness: (bits, is_signed)
+C_CAST_TYPES: dict[str, tuple[int, bool]] = {
+    "int8_t": (8, True), "signed char": (8, True), "s8": (8, True),
+    "uint8_t": (8, False), "unsigned char": (8, False), "u8": (8, False), "char": (8, False),
+    "int16_t": (16, True), "short": (16, True), "signed short": (16, True), "s16": (16, True),
+    "uint16_t": (16, False), "unsigned short": (16, False), "u16": (16, False),
+    "int32_t": (32, True), "int": (32, True), "signed int": (32, True), "long": (32, True), "s32": (32, True),
+    "uint32_t": (32, False), "unsigned int": (32, False), "unsigned": (32, False), "unsigned long": (32, False), "u32": (32, False),
+    "int64_t": (64, True), "long long": (64, True), "s64": (64, True),
+    "uint64_t": (64, False), "unsigned long long": (64, False), "size_t": (64, False), "u64": (64, False),
 }
 
-_ALLOWED_BIN_OPS = {
-    ast.Add: operator.add,
-    ast.Sub: operator.sub,
-    ast.Mult: operator.mul,
-    ast.FloorDiv: operator.floordiv,
-    ast.Mod: operator.mod,
-    ast.LShift: operator.lshift,
-    ast.RShift: operator.rshift,
-    ast.BitOr: operator.or_,
-    ast.BitXor: operator.xor,
-    ast.BitAnd: operator.and_,
-}
-
-_ALLOWED_CMP_OPS = {
-    ast.Eq: lambda a, b: int(a == b),
-    ast.NotEq: lambda a, b: int(a != b),
-    ast.Lt: lambda a, b: int(a < b),
-    ast.LtE: lambda a, b: int(a <= b),
-    ast.Gt: lambda a, b: int(a > b),
-    ast.GtE: lambda a, b: int(a >= b),
-}
-
-
-def _apply_c_cast(val: Union[int, float], bits: int, signed: bool) -> int:
-    """Applies C two's complement signed or unsigned bit-width truncation."""
-    ival = int(val)
-    mask = (1 << bits) - 1
-    ival &= mask
-    if signed and (ival & (1 << (bits - 1))):
-        ival -= 1 << bits
-    return ival
-
-
-# Map C typecast names to helper callables in AST evaluation
-_CAST_FUNCTIONS: Dict[str, Callable[[Union[int, float]], Union[int, float]]] = {
-    "__cast_int8": lambda x: _apply_c_cast(x, 8, True),
-    "__cast_uint8": lambda x: _apply_c_cast(x, 8, False),
-    "__cast_int16": lambda x: _apply_c_cast(x, 16, True),
-    "__cast_uint16": lambda x: _apply_c_cast(x, 16, False),
-    "__cast_int32": lambda x: _apply_c_cast(x, 32, True),
-    "__cast_uint32": lambda x: _apply_c_cast(x, 32, False),
-    "__cast_int64": lambda x: _apply_c_cast(x, 64, True),
-    "__cast_uint64": lambda x: _apply_c_cast(x, 64, False),
-    "__cast_float": lambda x: float(x),
-    # Common C math functions if invoked inside constant macros
-    "abs": abs,
-    "fabs": lambda x: float(abs(x)),
-    "fabsf": lambda x: float(abs(x)),
-    "sqrt": math.sqrt,
-    "sqrtf": math.sqrt,
-    "sin": math.sin,
-    "cos": math.cos,
-    "tan": math.tan,
-    "floor": math.floor,
-    "ceil": math.ceil,
-    "round": round,
-}
-
-# Supports standard C types and <stdint.h> types (uint8_t, int16_t, uint32_t, etc.)
-_C_TYPE_TO_HELPER: List[Tuple[re.Pattern, str]] = [
-    (
-        re.compile(r"^(?:int8_t|signed\s+char|s8|__int8_t)$"),
-        "__cast_int8",
-    ),
-    (
-        re.compile(r"^(?:uint8_t|unsigned\s+char|u8|char|__uint8_t|bool|_Bool)$"),
-        "__cast_uint8",
-    ),
-    (
-        re.compile(r"^(?:int16_t|(?:signed\s+)?short(?:\s+int)?|s16|__int16_t)$"),
-        "__cast_int16",
-    ),
-    (
-        re.compile(r"^(?:uint16_t|unsigned\s+short(?:\s+int)?|u16|__uint16_t)$"),
-        "__cast_uint16",
-    ),
-    (
-        re.compile(r"^(?:int32_t|(?:signed\s+)?int|signed|(?:signed\s+)?long|s32|__int32_t)$"),
-        "__cast_int32",
-    ),
-    (
-        re.compile(r"^(?:uint32_t|unsigned\s+int|unsigned|unsigned\s+long|u32|__uint32_t)$"),
-        "__cast_uint32",
-    ),
-    (
-        re.compile(
-            r"^(?:int64_t|(?:signed\s+)?long\s+long(?:\s+int)?|ssize_t|ptrdiff_t|intptr_t|intmax_t|s64|__int64_t)$"
-        ),
-        "__cast_int64",
-    ),
-    (
-        re.compile(
-            r"^(?:uint64_t|unsigned\s+long\s+long(?:\s+int)?|size_t|uintptr_t|uintmax_t|u64|__uint64_t)$"
-        ),
-        "__cast_uint64",
-    ),
-    (
-        re.compile(r"^(?:float|double|long\s+double)$"),
-        "__cast_float",
-    ),
-]
-
-
-def _match_c_cast_helper(type_str: str) -> Optional[str]:
-    """Returns the `_CAST_FUNCTIONS` helper name if `type_str` is a C numeric type."""
-    cleaned = re.sub(r"\b(?:const|volatile|register)\b", "", type_str).strip()
-    cleaned = re.sub(r"\s+", " ", cleaned)
-    for pat, helper_name in _C_TYPE_TO_HELPER:
-        if pat.match(cleaned):
-            return helper_name
-    return None
-
-
-def _find_matching_paren(text: str, open_idx: int) -> int:
-    """Finds the index of the matching `)` for `(` at `open_idx`, or -1."""
-    depth = 0
-    in_str = False
-    escape = False
-    for i in range(open_idx, len(text)):
-        ch = text[i]
-        if escape:
-            escape = False
-            continue
-        if ch == "\\":
-            escape = True
-            continue
-        if ch == '"':
-            in_str = not in_str
-            continue
-        if not in_str:
-            if ch == "(":
-                depth += 1
-            elif ch == ")":
-                depth -= 1
-                if depth == 0:
-                    return i
-    return -1
-
-
-# Single-pass C numeric token regex: matches strings, identifiers, hex, binary,
-# floats (with decimal point and/or exponent), shorthand floats (`2f`), octals, and decimals
-_C_NUMERIC_TOKEN_RE = re.compile(
-    r"""
-    (?P<string>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')
-    | (?P<ident>[a-zA-Z_][a-zA-Z0-9_]*)
-    | (?P<hex>0[xX][0-9a-fA-F]+)(?P<hex_suf>[uUlL]*)
-    | (?P<bin>0[bB][01]+)(?P<bin_suf>[uUlL]*)
-    | (?P<float>(?:\d+\.\d*|\.\d+)(?:[eE][+-]?\d+)?|\d+[eE][+-]?\d+)(?P<float_suf>[fFlL]?)
-    | (?P<int_float>\d+)(?P<int_float_suf>[fF])\b
-    | (?P<octal>0[0-7]+)(?P<oct_suf>[uUlL]*)\b
-    | (?P<dec>\d+)(?P<dec_suf>[uUlL]*)\b
-    """,
-    re.VERBOSE,
+# Single-pass numeric token normalizer (prevents .00 in 0.00f from matching as octal)
+TOKEN_RE = re.compile(
+    r'(?P<str>"(?:\\.|[^"\\])*")'
+    r"|(?P<id>[A-Za-z_]\w*)"
+    r"|(?P<hex>0[xX][0-9a-fA-F]+)[uUlL]*"
+    r"|(?P<bin>0[bB][01]+)[uUlL]*"
+    r"|(?P<flt>(?:\d+\.\d*|\.\d+)(?:[eE][+-]?\d+)?|\d+[eE][+-]?\d+)[fFlL]?"
+    r"|(?P<iflt>\d+)[fF]\b"
+    r"|(?P<oct>0[0-7]+)[uUlL]*\b"
+    r"|(?P<dec>\d+)[uUlL]*\b"
 )
 
 
-def _normalize_c_numeric_literals(expr: str) -> str:
-    """
-    Single-pass C numeric lexical normalizer:
-    - Scans the expression left-to-right so each literal (string, identifier,
-      hex, binary, floating-point, octal, or decimal) is matched once as an
-      atomic token.
-    - Prevents multi-pass regex collisions (such as the `.00` in `0.00f` being
-      mistaken for an octal literal `0o0`).
-    """
-    if '"' in expr or "'" in expr:
-        return expr
+# ==============================================================================
+# 1. File Discovery & Comment Stripping
+# ==============================================================================
+def locate_file(filename: str, search_dirs: list[Path]) -> Path:
+    """Finds `filename` across `search_dirs` (including subdirectories)."""
+    direct = Path(filename)
+    if direct.is_file():
+        return direct.resolve()
 
-    def _replace_token(m: re.Match) -> str:
-        if m.group("string") or m.group("ident"):
-            return m.group(0)
-        if m.group("hex"):
-            return m.group("hex")
-        if m.group("bin"):
-            return m.group("bin")
-        if m.group("float"):
-            return m.group("float")
-        if m.group("int_float"):
-            return f"{m.group('int_float')}.0"
-        if m.group("octal"):
-            oct_digits = m.group("octal")[1:]
-            return f"0o{oct_digits}" if oct_digits else "0"
-        if m.group("dec"):
-            return m.group("dec")
-        return m.group(0)
+    req_parts = Path(filename).parts
+    matches: list[Path] = []
 
-    return _C_NUMERIC_TOKEN_RE.sub(_replace_token, expr)
+    for d in search_dirs:
+        if not d.is_dir():
+            continue
+        for root, _, files in os.walk(d):
+            if Path(filename).name in files:
+                candidate = (Path(root) / Path(filename).name).resolve()
+                if candidate not in matches and candidate.parts[-len(req_parts):] == req_parts:
+                    matches.append(candidate)
+
+    if not matches:
+        sys.exit(f"[ERROR] File '{filename}' not found in {[str(d) for d in search_dirs]}.")
+    if len(matches) > 1:
+        msg = f"[ERROR] Multiple files match '{filename}':\n" + "\n".join(f"  - {m}" for m in matches)
+        sys.exit(msg)
+    return matches[0]
 
 
-def _transform_c_type_casts(expr: str) -> str:
-    """
-    Balanced-parenthesis parser that transforms arbitrary nested C type casts like
-    `(uint16_t)(((uint16_t)(0.5f)) / ((float)(100 * 1e-6f)))` or `(int8_t)0xFF`
-    into AST helper calls (`__cast_uint16(...)`, `__cast_int8(0xFF)`).
-    Handles deeply nested parenthesized operands that regexes cannot match.
-    """
-    if '"' in expr or "'" in expr or "(" not in expr:
-        return expr
+def clean_c_source(text: str) -> str:
+    """Strips /* ... */ and // comments and joins backslash-continued lines."""
+    pattern = re.compile(r'("(?:\\.|[^"\\])*")|(/\*[\s\S]*?\*/)|(//[^\n]*)')
+    no_comments = pattern.sub(lambda m: m.group(1) or "", text)
+    return re.sub(r"\\\r?\n", " ", no_comments)
 
-    atom_re = re.compile(
-        r"^\s*([+-~\s]*(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0o[0-7]+|\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?|[a-zA-Z_][a-zA-Z0-9_]*(?:\s*\([^()]*\))?))"
-    )
+
+# ==============================================================================
+# 2. Lightweight Expression & Function-Macro Evaluator
+# ==============================================================================
+def c_cast(val: float | int, bits: int, signed: bool) -> int:
+    """Applies C two's complement signed/unsigned bit-width truncation."""
+    ival = int(val) & ((1 << bits) - 1)
+    return (ival - (1 << bits)) if (signed and (ival & (1 << (bits - 1)))) else ival
+
+
+def expand_macros(
+    expr: str,
+    obj_macros: dict[str, str],
+    fn_macros: dict[str, tuple[list[str], str]],
+) -> str:
+    """Expands function-like macros (e.g. add1(T)) and object-like macros."""
+    curr = expr
+    for _ in range(20):
+        prev = curr
+        # Expand function-like macro calls: NAME(arg1, arg2)
+        for fn_name, (params, body) in fn_macros.items():
+            call_re = re.compile(rf"\b{re.escape(fn_name)}\s*\(([^()]*)\)")
+            def _repl_fn(m: re.Match) -> str:
+                args = [a.strip() for a in m.group(1).split(",")] if m.group(1).strip() else []
+                if len(args) != len(params):
+                    return m.group(0)
+                amap = {p: f"({a})" for p, a in zip(params, args)}
+                sub = re.sub(r"\b([A-Za-z_]\w*)\b", lambda pm: amap.get(pm.group(1), pm.group(1)), body)
+                return f"({sub})"
+            curr = call_re.sub(_repl_fn, curr)
+
+        # Expand object-like macro identifiers
+        curr = re.sub(
+            r"\b([A-Za-z_]\w*)\b",
+            lambda m: f"({obj_macros[m.group(1)]})"
+            if m.group(1) in obj_macros and obj_macros[m.group(1)] not in ("", m.group(1))
+            else m.group(1),
+            curr,
+        )
+        if curr == prev:
+            break
+    return curr
+
+
+def _find_matching_paren(text: str, open_idx: int) -> int:
+    depth = 0
+    for i in range(open_idx, len(text)):
+        if text[i] == "(":
+            depth += 1
+        elif text[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+    return -1
+
+
+def _replace_c_casts(text: str) -> str:
+    """Recursively replaces C casts like (uint16_t)(...) or (float)x with Python calls."""
+    atom_re = re.compile(r"^\s*([+-~]?\s*(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0o[0-7]+|\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?|[A-Za-z_]\w*))")
 
     def _pass(s: str) -> str:
-        i = 0
-        out: List[str] = []
-        n = len(s)
+        i, n, out = 0, len(s), []
         while i < n:
             if s[i] == "(":
-                close_type = _find_matching_paren(s, i)
-                if close_type != -1:
-                    inner_type = s[i + 1 : close_type].strip()
-                    helper = _match_c_cast_helper(inner_type)
-                    if helper:
-                        j = close_type + 1
+                close_t = _find_matching_paren(s, i)
+                if close_t != -1:
+                    tname = re.sub(r"\b(?:const|volatile)\b", "", s[i + 1 : close_t]).strip()
+                    tname = re.sub(r"\s+", " ", tname)
+                    if tname in ("float", "double") or tname in C_CAST_TYPES:
+                        j = close_t + 1
                         while j < n and s[j].isspace():
                             j += 1
                         if j < n:
+                            op_str, next_i = None, i
                             if s[j] == "(":
                                 close_op = _find_matching_paren(s, j)
                                 if close_op != -1:
-                                    op_inner = _pass(s[j + 1 : close_op])
-                                    out.append(f"{helper}({op_inner})")
-                                    i = close_op + 1
-                                    continue
+                                    op_str, next_i = _pass(s[j + 1 : close_op]), close_op + 1
                             else:
-                                m_atom = atom_re.match(s[j:])
-                                if m_atom:
-                                    operand = _pass(m_atom.group(1).strip())
-                                    out.append(f"{helper}({operand})")
-                                    i = j + m_atom.end()
-                                    continue
+                                m_at = atom_re.match(s[j:])
+                                if m_at:
+                                    op_str, next_i = m_at.group(1).strip(), j + m_at.end()
+                            if op_str is not None:
+                                if tname in ("float", "double"):
+                                    out.append(f"float({op_str})")
+                                else:
+                                    bits, signed = C_CAST_TYPES[tname]
+                                    out.append(f"c_cast({op_str}, {bits}, {signed})")
+                                i = next_i
+                                continue
             out.append(s[i])
             i += 1
         return "".join(out)
 
-    curr = expr
-    for _ in range(10):
+    curr = text
+    for _ in range(8):
         nxt = _pass(curr)
         if nxt == curr:
             break
@@ -313,1033 +205,283 @@ def _transform_c_type_casts(expr: str) -> str:
     return curr
 
 
-def _convert_c_ternary_to_python(expr: str) -> str:
-    """
-    Converts C ternary expressions `cond ? true_val : false_val` into Python
-    `((true_val) if (cond) else (false_val))` for AST evaluation.
-    """
-    if "?" not in expr or ":" not in expr or '"' in expr:
-        return expr
-
-    ternary_re = re.compile(r"([^?:()]+)\?([^?:()]+):([^?:()]+)")
-    prev = None
-    curr = expr
-    for _ in range(8):
-        if "?" not in curr or curr == prev:
-            break
-        prev = curr
-        curr = ternary_re.sub(
-            lambda m: f"(({m.group(2).strip()}) if ({m.group(1).strip()}) else ({m.group(3).strip()}))",
-            curr,
-        )
-    return curr
-
-
-def _eval_ast_node(node: ast.AST) -> Union[int, float]:
-    """Recursively evaluates an AST node restricted to safe numeric and cast operations."""
-    if isinstance(node, ast.Expression):
-        return _eval_ast_node(node.body)
-    if isinstance(node, ast.Constant):
-        if isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
-            return node.value
-        raise ValueError(f"Unsupported constant type: {type(node.value)}")
-    if isinstance(node, ast.UnaryOp) and type(node.op) in _ALLOWED_UNARY_OPS:
-        operand = _eval_ast_node(node.operand)
-        return _ALLOWED_UNARY_OPS[type(node.op)](operand)
-    if isinstance(node, ast.BinOp):
-        op_type = type(node.op)
-        if op_type is ast.Div:
-            left = _eval_ast_node(node.left)
-            right = _eval_ast_node(node.right)
-            if right == 0:
-                raise ZeroDivisionError("Division by zero in macro expression")
-            if isinstance(left, int) and isinstance(right, int):
-                return left // right
-            return float(left) / float(right)
-        if op_type in _ALLOWED_BIN_OPS:
-            left = _eval_ast_node(node.left)
-            right = _eval_ast_node(node.right)
-            return _ALLOWED_BIN_OPS[op_type](left, right)
-    if isinstance(node, ast.BoolOp):
-        values = [_eval_ast_node(v) for v in node.values]
-        if isinstance(node.op, ast.And):
-            return int(all(bool(v) for v in values))
-        if isinstance(node.op, ast.Or):
-            return int(any(bool(v) for v in values))
-    if isinstance(node, ast.Compare) and len(node.ops) == 1 and len(node.comparators) == 1:
-        op_type = type(node.ops[0])
-        if op_type in _ALLOWED_CMP_OPS:
-            left = _eval_ast_node(node.left)
-            right = _eval_ast_node(node.comparators[0])
-            return _ALLOWED_CMP_OPS[op_type](left, right)
-    if isinstance(node, ast.IfExp):
-        cond = _eval_ast_node(node.test)
-        return _eval_ast_node(node.body) if bool(cond) else _eval_ast_node(node.orelse)
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-        fn_name = node.func.id
-        if fn_name in _CAST_FUNCTIONS:
-            args = [_eval_ast_node(a) for a in node.args]
-            return _CAST_FUNCTIONS[fn_name](*args)
-    raise ValueError(f"Unsupported AST node: {type(node).__name__}")
-
-
-def try_evaluate_expression(expr: str) -> Any:
-    """
-    Attempts to evaluate a C expression to a concrete int, float, or clean string.
-    Falls back to the cleaned literal string if the expression cannot be reduced.
-    """
-    cleaned = expr.strip()
-    if not cleaned:
+def evaluate_c_expr(expr: str) -> Any:
+    """Evaluates C constant expressions, float 'f' suffixes, and signed/unsigned casts."""
+    s = expr.strip()
+    if not s:
         return ""
+    if s.startswith('"') and s.endswith('"') and s.count('"') == 2:
+        return s[1:-1]
 
-    str_literals = re.findall(r'"((?:\\.|[^"\\])*)"', cleaned)
-    if str_literals:
-        remainder = re.sub(r'"(?:\\.|[^"\\])*"', "", cleaned).strip("() \t")
-        if not remainder:
-            return "".join(str_literals)
+    # 1. Normalize C numeric tokens in one pass
+    def _tok(m: re.Match) -> str:
+        if m.group("str") or m.group("id"):
+            return m.group(0)
+        if m.group("hex") or m.group("bin") or m.group("flt") or m.group("dec"):
+            return m.group("hex") or m.group("bin") or m.group("flt") or m.group("dec")
+        if m.group("iflt"):
+            return f"{m.group('iflt')}.0"
+        if m.group("oct"):
+            return f"0o{m.group('oct')[1:]}"
+        return m.group(0)
 
-    # 1. Single-pass normalization of C floats ('f'/'F'), hex, binary, octal, and integer suffixes
-    candidate = _normalize_c_numeric_literals(cleaned)
-    # 2. Convert C signed/unsigned/float typecasts (including nested casts) into AST helper calls
-    candidate = _transform_c_type_casts(candidate)
-    # 3. Convert C ternary `? :` into Python `if else`
-    candidate = _convert_c_ternary_to_python(candidate)
-    # 4. Convert C logical operators (`&&`, `||`, `!`)
-    candidate_py = re.sub(r"&&", " and ", candidate)
-    candidate_py = re.sub(r"\|\|", " or ", candidate_py)
-    candidate_py = re.sub(r"!(?!=)", " not ", candidate_py)
+    norm = TOKEN_RE.sub(_tok, s)
+
+    # 2. Replace C casts like (uint16_t) or (float) with Python callables
+    py_expr = _replace_c_casts(norm)
+    # Convert C ternary `a ? b : c` -> `((b) if (a) else (c))`
+    py_expr = re.sub(r"([^?:()]+)\?([^?:()]+):([^?:()]+)", r"((\2) if (\1) else (\3))", py_expr)
+    py_expr = py_expr.replace("&&", " and ").replace("||", " or ")
 
     try:
-        tree = ast.parse(candidate_py, mode="eval")
-        val = _eval_ast_node(tree)
+        # Evaluate safely with only c_cast and float exposed
+        val = eval(py_expr, {"__builtins__": {}}, {"c_cast": c_cast, "float": float})
         if isinstance(val, float):
             return float(f"{val:.12g}")
         return val
     except Exception:
-        return cleaned
+        return s
 
 
 # ==============================================================================
-# C Source Parsing & Macro Extraction (Object-Like + Function-Like Helpers)
+# 3. Macro & Enum Extraction (PyCLibrary + Conditional Branch Grouping)
 # ==============================================================================
-def strip_c_comments(text: str) -> str:
-    """
-    Removes C block comments (/* ... */) and line comments (// ...) while
-    preserving string literals and newlines.
-    """
-    pattern = re.compile(
-        r'("(?:\\.|[^"\\])*")|(\'(?:\\.|[^\'\\])*\')|(/\*[\s\S]*?\*/)|(//[^\n]*)'
-    )
+def collect_workspace_macros(search_dirs: list[Path]) -> tuple[dict[str, str], dict[str, tuple[list[str], str]]]:
+    """Scans all .h/.c files in `search_dirs` to build cross-file macro lookup tables."""
+    obj_macros: dict[str, str] = {}
+    fn_macros: dict[str, tuple[list[str], str]] = {}
+    def_re = re.compile(r"^\s*#\s*define\s+([A-Za-z_]\w*)(\([^)]*\))?\s*(.*)$")
 
-    def _replacer(match: re.Match) -> str:
-        if match.group(1) is not None:
-            return match.group(1)
-        if match.group(2) is not None:
-            return match.group(2)
-        if match.group(3) is not None:
-            return "\n" * match.group(3).count("\n")
-        return ""
-
-    return pattern.sub(_replacer, text)
-
-
-def join_line_continuations(text: str) -> str:
-    """Joins lines ending with a backslash (`\\`) continuation."""
-    return re.sub(r"\\\r?\n", " ", text)
-
-
-class MacroDefinition:
-    """Represents a `#define` occurrence (either object-like or function-like)."""
-
-    def __init__(
-        self,
-        name: str,
-        raw_value: str,
-        condition: Optional[str],
-        source_file: Path,
-        is_func_like: bool = False,
-        params: Optional[List[str]] = None,
-    ):
-        self.name = name
-        self.raw_value = raw_value.strip()
-        self.condition = condition
-        self.source_file = source_file
-        self.is_func_like = is_func_like
-        self.params = params or []
-
-
-def parse_macros_from_file(
-    filepath: Path, include_func_macros: bool = False
-) -> List[MacroDefinition]:
-    """
-    Parses a .c or .h file to extract `#define` macros, tracking any enclosing
-    `#if` / `#ifdef` / `#ifndef` / `#elif` / `#else` conditional compilation blocks.
-    When `include_func_macros=True`, also captures function-like macros so they can
-    be used in the background to expand object-like macros that call them.
-    """
-    try:
-        raw_text = filepath.read_text(encoding="utf-8", errors="replace")
-    except Exception as exc:
-        print(f"[WARN] Could not read '{filepath}': {exc}", file=sys.stderr)
-        return []
-
-    clean_text = strip_c_comments(raw_text)
-    logical_text = join_line_continuations(clean_text)
-    lines = logical_text.splitlines()
-
-    cond_stack: List[str] = []
-    definitions: List[MacroDefinition] = []
-
-    directive_re = re.compile(r"^\s*#\s*([a-zA-Z_]+)(.*)$")
-    define_re = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_]*)(\([^)]*\))?(.*)$")
-
-    potential_guard: Optional[str] = None
-
-    for line in lines:
-        m_dir = directive_re.match(line)
-        if not m_dir:
+    for d in search_dirs:
+        if not d.is_dir():
             continue
+        for root, _, files in os.walk(d):
+            for fname in sorted(files):
+                if fname.endswith((".h", ".c")):
+                    text = clean_c_source((Path(root) / fname).read_text(encoding="utf-8", errors="ignore"))
+                    for line in text.splitlines():
+                        m = def_re.match(line)
+                        if not m:
+                            continue
+                        name, params, body = m.group(1), m.group(2), m.group(3).strip()
+                        if params is not None:
+                            p_list = [p.strip() for p in params[1:-1].split(",") if p.strip()]
+                            fn_macros[name] = (p_list, body)
+                        elif body and body.upper() not in ("TRUE", "FALSE"):
+                            obj_macros[name] = body
+    return obj_macros, fn_macros
 
-        directive = m_dir.group(1)
-        rest = m_dir.group(2).strip()
 
-        if directive == "ifdef":
-            cond_stack.append(f"#ifdef {rest}")
-        elif directive == "ifndef":
-            if not cond_stack and not definitions and rest.endswith("_H"):
-                potential_guard = rest
-            cond_stack.append(f"#ifndef {rest}")
-        elif directive == "if":
-            cond_stack.append(f"#if {rest}")
-        elif directive == "elif":
-            if cond_stack:
-                prev = cond_stack.pop()
-                cond_stack.append(f"{prev} -> #elif {rest}")
-            else:
-                cond_stack.append(f"#elif {rest}")
-        elif directive == "else":
-            if cond_stack:
-                prev = cond_stack.pop()
-                cond_stack.append(f"#else (after {prev})")
-            else:
-                cond_stack.append("#else")
-        elif directive == "endif":
+def extract_macros_and_enums(
+    target_file: Path,
+    search_dirs: list[Path],
+) -> tuple[dict[str, Any], dict[str, dict[str, int]]]:
+    """
+    Extracts object-like macros (with #ifdef/#else branch grouping when defined
+    multiple times) and enums (grouped by enum name) from `target_file`.
+    """
+    obj_macros, fn_macros = collect_workspace_macros(search_dirs)
+    text = clean_c_source(target_file.read_text(encoding="utf-8", errors="replace"))
+
+    # Run PyCLibrary CParser on the target file to pre-populate values & enums
+    parser = CParser([str(target_file)])
+    pyclib_values: dict[str, Any] = dict(parser.defs.get("values", {}))
+    enums: dict[str, dict[str, int]] = {}
+
+    for enum_name, enum_dict in parser.defs.get("enums", {}).items():
+        if isinstance(enum_dict, dict):
+            clean_name = enum_name.replace("enum ", "").strip() or "anonymous_enum"
+            enums[clean_name] = {k: int(v) for k, v in enum_dict.items()}
+
+    # Lightweight conditional-aware macro scan on target_file
+    cond_stack: list[str] = []
+    raw_defs: dict[str, list[tuple[str | None, str]]] = {}
+    dir_re = re.compile(r"^\s*#\s*([a-zA-Z]+)\s*(.*)$")
+    def_re = re.compile(r"^([A-Za-z_]\w*)(\([^)]*\))?\s*(.*)$")
+
+    for line in text.splitlines():
+        m = dir_re.match(line)
+        if not m:
+            continue
+        cmd, rest = m.group(1), m.group(2).strip()
+        if cmd in ("ifdef", "ifndef", "if"):
+            # Ignore outer file-level #ifndef include guards
+            if cmd == "ifndef" and not cond_stack and not raw_defs:
+                continue
+            cond_stack.append(f"#{cmd} {rest}")
+        elif cmd == "elif" and cond_stack:
+            cond_stack[-1] = f"{cond_stack[-1]} -> #elif {rest}"
+        elif cmd == "else" and cond_stack:
+            cond_stack[-1] = f"#else (after {cond_stack[-1]})"
+        elif cmd == "endif":
             if cond_stack:
                 cond_stack.pop()
-        elif directive == "define":
-            m_def = define_re.match(rest)
-            if not m_def:
-                continue
-            macro_name = m_def.group(1)
-            param_group = m_def.group(2)
-            macro_body = m_def.group(3).strip()
-            is_func_like = param_group is not None
-
-            if is_func_like and not include_func_macros:
-                continue
-
-            params: List[str] = []
-            if is_func_like and param_group:
-                inner = param_group[1:-1].strip()
-                if inner:
-                    params = [p.strip() for p in inner.split(",") if p.strip()]
-
-            if (
-                not is_func_like
-                and macro_body == ""
-                and (
-                    macro_name == potential_guard
-                    or (cond_stack and cond_stack[0] == f"#ifndef {macro_name}")
-                )
-            ):
-                continue
-
-            active_conds = [
-                c
-                for c in cond_stack
-                if not (potential_guard and c == f"#ifndef {potential_guard}")
-                and not (
-                    c.startswith("#ifndef ")
-                    and c.split()[-1].upper().endswith(("_H", "_H_", "_HPP", "_INCLUDED"))
-                )
-            ]
-            cond_str = " && ".join(active_conds) if active_conds else None
-
-            definitions.append(
-                MacroDefinition(
-                    name=macro_name,
-                    raw_value=macro_body,
-                    condition=cond_str,
-                    source_file=filepath,
-                    is_func_like=is_func_like,
-                    params=params,
-                )
-            )
-
-    return definitions
-
-
-# ==============================================================================
-# Cross-File, Function-Like Macro & C Function Runtime Evaluation
-# ==============================================================================
-def find_compiler() -> Optional[str]:
-    """Finds `gcc` or `clang` on the system PATH."""
-    for compiler in ("gcc", "clang", "cc"):
-        path = shutil.which(compiler)
-        if path:
-            return path
-    return None
-
-
-def collect_all_include_dirs(search_dirs: List[Path], target_file: Path) -> List[Path]:
-    """
-    Collects the target file's parent directory, the predefined root directories,
-    and all nested subdirectories within the predefined directories so `#include`
-    directives work whether they use relative paths or bare header filenames.
-    """
-    all_dirs: List[Path] = []
-    seen = set()
-
-    for candidate in [target_file.parent] + list(search_dirs):
-        if candidate.exists() and candidate.is_dir():
-            res = candidate.resolve()
-            if res not in seen:
-                seen.add(res)
-                all_dirs.append(res)
-
-    for d in search_dirs:
-        if not d.exists() or not d.is_dir():
-            continue
-        for root, subdirs, _ in os.walk(d):
-            root_path = Path(root).resolve()
-            if root_path not in seen:
-                seen.add(root_path)
-                all_dirs.append(root_path)
-            for sd in sorted(subdirs):
-                sd_path = (Path(root) / sd).resolve()
-                if sd_path not in seen:
-                    seen.add(sd_path)
-                    all_dirs.append(sd_path)
-
-    return all_dirs
-
-
-def build_workspace_symbol_tables(
-    search_dirs: List[Path],
-) -> Tuple[Dict[str, str], Dict[str, Tuple[List[str], str]]]:
-    """
-    Recursively scans all .h and .c files across the predefined directories and
-    their subdirectories to build:
-      1. `object_symbols`: `{macro_name: raw_body}` for object-like macros
-      2. `func_symbols`: `{macro_name: (params, raw_body)}` for function-like macros
-    """
-    object_symbols: Dict[str, str] = {}
-    func_symbols: Dict[str, Tuple[List[str], str]] = {}
-
-    for d in search_dirs:
-        if not d.exists() or not d.is_dir():
-            continue
-        for root, _, files in os.walk(d):
-            for fname in sorted(files):
-                if fname.endswith((".h", ".c", ".hpp")):
-                    fpath = Path(root) / fname
-                    defs = parse_macros_from_file(fpath, include_func_macros=True)
-                    for d_item in defs:
-                        if d_item.is_func_like:
-                            func_symbols[d_item.name] = (d_item.params, d_item.raw_value)
-                        else:
-                            if d_item.raw_value or d_item.name not in object_symbols:
-                                object_symbols[d_item.name] = d_item.raw_value
-    return object_symbols, func_symbols
-
-
-def _split_macro_call_args(arg_str: str) -> List[str]:
-    """Splits a comma-separated macro argument list respecting nested parentheses."""
-    args: List[str] = []
-    current: List[str] = []
-    depth = 0
-    in_str = False
-    escape = False
-
-    for ch in arg_str:
-        if escape:
-            current.append(ch)
-            escape = False
-            continue
-        if ch == "\\":
-            current.append(ch)
-            escape = True
-            continue
-        if ch == '"':
-            in_str = not in_str
-            current.append(ch)
-            continue
-        if not in_str:
-            if ch == "(":
-                depth += 1
-            elif ch == ")":
-                depth = max(0, depth - 1)
-            elif ch == "," and depth == 0:
-                args.append("".join(current).strip())
-                current = []
-                continue
-        current.append(ch)
-
-    tail = "".join(current).strip()
-    if tail or args:
-        args.append(tail)
-    return args
-
-
-def _expand_function_like_calls(
-    expr: str, func_symbols: Dict[str, Tuple[List[str], str]]
-) -> str:
-    """
-    Expands calls to function-like macros (e.g., `add1(T)` -> `((T) + 1)`) in pure
-    Python using `func_symbols`.
-    """
-    if "(" not in expr or not func_symbols:
-        return expr
-
-    ident_re = re.compile(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(")
-    pos = 0
-    out: List[str] = []
-
-    while pos < len(expr):
-        m = ident_re.search(expr, pos)
-        if not m:
-            out.append(expr[pos:])
-            break
-
-        fn_name = m.group(1)
-        open_paren_idx = m.end() - 1
-
-        if fn_name not in func_symbols:
-            out.append(expr[pos : m.end()])
-            pos = m.end()
-            continue
-
-        close_idx = _find_matching_paren(expr, open_paren_idx)
-        if close_idx == -1:
-            out.append(expr[pos:])
-            break
-
-        out.append(expr[pos : m.start()])
-        arg_text = expr[open_paren_idx + 1 : close_idx]
-        call_args = _split_macro_call_args(arg_text) if arg_text.strip() else []
-        params, body = func_symbols[fn_name]
-
-        if len(call_args) == len(params):
-            param_map = {p: f"({a})" for p, a in zip(params, call_args)}
-            expanded_body = re.sub(
-                r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b",
-                lambda pm: param_map.get(pm.group(1), pm.group(1)),
-                body,
-            )
-            out.append(f"({expanded_body})")
-        else:
-            out.append(expr[m.start() : close_idx + 1])
-
-        pos = close_idx + 1
-
-    return "".join(out)
-
-
-def expand_with_symbol_table(
-    raw_expr: str,
-    symbol_table: Dict[str, str],
-    func_symbols: Optional[Dict[str, Tuple[List[str], str]]] = None,
-    local_overrides: Optional[Dict[str, str]] = None,
-    max_depth: int = 25,
-) -> str:
-    """
-    Iteratively expands both function-like macro invocations (e.g., `add1(T)`)
-    and object-like macro identifiers in `raw_expr`.
-    """
-    merged = dict(symbol_table)
-    if local_overrides:
-        merged.update(local_overrides)
-
-    current = raw_expr
-    ident_re = re.compile(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b")
-
-    for _ in range(max_depth):
-        prev = current
-
-        if func_symbols:
-            current = _expand_function_like_calls(current, func_symbols)
-
-        def _replace_ident(match: re.Match) -> str:
-            token = match.group(1)
-            if token in merged and merged[token] != "" and merged[token] != token:
-                return f"({merged[token]})"
-            return token
-
-        if '"' in current:
-            parts = re.split(r'("(?:\\.|[^"\\])*")', current)
-            new_parts = [
-                part if idx % 2 == 1 else ident_re.sub(_replace_ident, part)
-                for idx, part in enumerate(parts)
-            ]
-            current = "".join(new_parts)
-        else:
-            current = ident_re.sub(_replace_ident, current)
-
-        if current == prev:
-            break
-
-    return current
-
-
-def expand_via_compiler(
-    compiler: str,
-    target_file: Path,
-    search_dirs: List[Path],
-    raw_expr: str,
-    local_defines: Dict[str, str],
-    workspace_symbols: Dict[str, str],
-    func_symbols: Dict[str, Tuple[List[str], str]],
-) -> Optional[str]:
-    """
-    Uses `gcc -E -P` or `clang -E -P` to expand `raw_expr` (including both
-    object-like and function-like macros across files).
-    """
-    include_flags = []
-    for inc_dir in collect_all_include_dirs(search_dirs, target_file):
-        include_flags.extend(["-I", str(inc_dir)])
-
-    probe_lines = []
-    for k, v in workspace_symbols.items():
-        if v:
-            probe_lines.append(f"#ifndef {k}\n#define {k} {v}\n#endif")
-
-    for fn_name, (params, body) in func_symbols.items():
-        if body:
-            sig = f"{fn_name}({', '.join(params)})"
-            probe_lines.append(f"#ifndef {fn_name}\n#define {sig} {body}\n#endif")
-
-    probe_lines.append(f'#include "{target_file.resolve()}"')
-
-    for k, v in local_defines.items():
-        probe_lines.append(f"#undef {k}")
-        probe_lines.append(f"#define {k} {v}")
-
-    sentinel = "__MACRO_EVAL_SENTINEL__"
-    probe_lines.append(f"{sentinel} = {raw_expr}")
-    probe_source = "\n".join(probe_lines) + "\n"
-
-    cmd = [compiler, "-E", "-P", "-xc"] + include_flags + ["-"]
-    try:
-        proc = subprocess.run(
-            cmd,
-            input=probe_source,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if proc.returncode == 0 and proc.stdout:
-            for line in reversed(proc.stdout.splitlines()):
-                if sentinel in line:
-                    _, _, rhs = line.partition(f"{sentinel} =")
-                    return rhs.strip()
-    except Exception:
-        pass
-    return None
-
-
-def evaluate_via_c_runner(
-    compiler: str,
-    target_file: Path,
-    search_dirs: List[Path],
-    expr: str,
-    local_defines: Dict[str, str],
-    workspace_symbols: Dict[str, str],
-    func_symbols: Dict[str, Tuple[List[str], str]],
-) -> Optional[Union[int, float, str]]:
-    """
-    Fallback for macros that invoke actual C functions, `sizeof(...)`, or complex
-    C expressions that cannot be reduced by Python AST alone.
-    Compiles and runs a tiny C11 probe binary using `_Generic` to print the
-    exact signed integer, unsigned integer, floating-point, or string result.
-    """
-    include_flags = []
-    for inc_dir in collect_all_include_dirs(search_dirs, target_file):
-        include_flags.extend(["-I", str(inc_dir)])
-
-    extra_c_files: List[str] = []
-    main_re = re.compile(r"\bmain\s*\(")
-    for d in search_dirs:
-        if not d.exists() or not d.is_dir():
-            continue
-        for root, _, files in os.walk(d):
-            for fname in sorted(files):
-                if fname.endswith(".c"):
-                    c_path = (Path(root) / fname).resolve()
-                    if c_path == target_file.resolve():
-                        continue
-                    try:
-                        txt = strip_c_comments(c_path.read_text(encoding="utf-8", errors="ignore"))
-                        if not main_re.search(txt):
-                            extra_c_files.append(str(c_path))
-                    except Exception:
-                        pass
-
-    lines = [
-        "#include <stdio.h>",
-        "#include <stdint.h>",
-        "#include <stdbool.h>",
-        "#include <string.h>",
-        "#include <math.h>",
-    ]
-    for k, v in workspace_symbols.items():
-        if v:
-            lines.append(f"#ifndef {k}\n#define {k} {v}\n#endif")
-    for fn_name, (params, body) in func_symbols.items():
-        if body:
-            lines.append(f"#ifndef {fn_name}\n#define {fn_name}({', '.join(params)}) {body}\n#endif")
-
-    lines.append(f'#include "{target_file.resolve()}"')
-
-    for k, v in local_defines.items():
-        lines.append(f"#undef {k}")
-        lines.append(f"#define {k} {v}")
-
-    lines.append(
-        """
-int main(void) {
-    #define __PRINT_VAL(v) _Generic((v), \\
-        char*: printf("STR:%s\\n", (char*)(uintptr_t)(v)), \\
-        const char*: printf("STR:%s\\n", (const char*)(uintptr_t)(v)), \\
-        float: printf("FLT:%.9g\\n", (double)(v)), \\
-        double: printf("FLT:%.17g\\n", (double)(v)), \\
-        long double: printf("FLT:%.17g\\n", (double)(v)), \\
-        unsigned char: printf("UINT:%llu\\n", (unsigned long long)(v)), \\
-        unsigned short: printf("UINT:%llu\\n", (unsigned long long)(v)), \\
-        unsigned int: printf("UINT:%llu\\n", (unsigned long long)(v)), \\
-        unsigned long: printf("UINT:%llu\\n", (unsigned long long)(v)), \\
-        unsigned long long: printf("UINT:%llu\\n", (unsigned long long)(v)), \\
-        default: printf("INT:%lld\\n", (long long)(v)) \\
-    )
-"""
-    )
-    lines.append(f"    __PRINT_VAL(({expr}));")
-    lines.append("    return 0;\n}")
-    c_source = "\n".join(lines) + "\n"
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        src_path = Path(tmpdir) / "probe.c"
-        bin_path = Path(tmpdir) / "probe_bin"
-        src_path.write_text(c_source, encoding="utf-8")
-
-        for extra in (extra_c_files, []):
-            cmd = (
-                [compiler, "-std=c11", "-w"]
-                + include_flags
-                + [str(src_path)]
-                + extra
-                + ["-o", str(bin_path), "-lm"]
-            )
-            try:
-                comp = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-                if comp.returncode == 0 and bin_path.exists():
-                    run = subprocess.run([str(bin_path)], capture_output=True, text=True, timeout=3)
-                    if run.returncode == 0 and run.stdout:
-                        out = run.stdout.strip().splitlines()[-1]
-                        if out.startswith("INT:"):
-                            return int(out[4:])
-                        if out.startswith("UINT:"):
-                            return int(out[5:])
-                        if out.startswith("FLT:"):
-                            return float(out[4:])
-                        if out.startswith("STR:"):
-                            return out[4:]
-            except Exception:
-                continue
-    return None
-
-
-def evaluate_macro_definitions(
-    defs: List[MacroDefinition],
-    target_file: Path,
-    search_dirs: List[Path],
-    workspace_symbols: Dict[str, str],
-    func_symbols: Dict[str, Tuple[List[str], str]],
-    compiler: Optional[str],
-) -> Dict[str, Any]:
-    """
-    Groups object-like macro definitions by name, evaluates each definition to
-    its concrete value (using function-like macros and C functions in the background
-    when needed), and formats conditional macros explicitly by their condition branches.
-    """
-    grouped: Dict[str, List[MacroDefinition]] = {}
-    for d in defs:
-        if not d.is_func_like:
-            grouped.setdefault(d.name, []).append(d)
-
-    local_unconditional: Dict[str, str] = {}
-    for d in defs:
-        if not d.is_func_like and d.condition is None:
-            local_unconditional[d.name] = d.raw_value
-
-    evaluated_results: Dict[str, Any] = {}
-
-    for name, macro_list in grouped.items():
-        has_conditionals = any(m.condition is not None for m in macro_list)
-
-        if not has_conditionals:
-            latest_def = macro_list[-1]
-            val = _resolve_single_definition(
-                latest_def,
-                target_file,
-                search_dirs,
-                local_unconditional,
-                workspace_symbols,
-                func_symbols,
-                compiler,
-            )
-            evaluated_results[name] = val
-        else:
-            branch_map: Dict[str, Any] = {}
-            for m in macro_list:
-                cond_key = m.condition if m.condition is not None else "default (unconditional)"
-                branch_overrides = dict(local_unconditional)
-                branch_overrides[m.name] = m.raw_value
-                val = _resolve_single_definition(
-                    m,
-                    target_file,
-                    search_dirs,
-                    branch_overrides,
-                    workspace_symbols,
-                    func_symbols,
-                    compiler,
-                )
-                branch_map[cond_key] = val
-            evaluated_results[name] = branch_map
-
-    return evaluated_results
-
-
-def _resolve_single_definition(
-    m_def: MacroDefinition,
-    target_file: Path,
-    search_dirs: List[Path],
-    local_overrides: Dict[str, str],
-    workspace_symbols: Dict[str, str],
-    func_symbols: Dict[str, Tuple[List[str], str]],
-    compiler: Optional[str],
-) -> Any:
-    """Resolves a single MacroDefinition to its evaluated value or fallback literal."""
-    raw = m_def.raw_value
-    if raw == "":
-        return ""
-
-    # Step 1: Expand object-like and function-like macros using symbol tables
-    sym_expanded = expand_with_symbol_table(
-        raw, workspace_symbols, func_symbols, local_overrides
-    )
-
-    # Step 2: If a compiler is available, also run C preprocessor (`-E`) expansion
-    # Pass `sym_expanded` so any cross-file function-like macros already expanded in Step 1 are preserved
-    cpp_expanded = None
-    if compiler:
-        cpp_expanded = expand_via_compiler(
-            compiler=compiler,
-            target_file=target_file,
-            search_dirs=search_dirs,
-            raw_expr=sym_expanded,
-            local_defines=local_overrides,
-            workspace_symbols=workspace_symbols,
-            func_symbols=func_symbols,
-        )
-
-    best_expanded = cpp_expanded if cpp_expanded else sym_expanded
-
-    # Step 3: Evaluate constant arithmetic/bitwise/float/cast expression in Python AST
-    evaluated = try_evaluate_expression(best_expanded)
-
-    if isinstance(evaluated, str) and cpp_expanded and sym_expanded != cpp_expanded:
-        alt_eval = try_evaluate_expression(sym_expanded)
-        if not isinstance(alt_eval, str):
-            return alt_eval
-
-    # Step 4: If AST evaluation still left an unreduced C expression (e.g. a call to an
-    # actual C function, `sizeof(...)`, or complex C expression), compile & execute
-    # a tiny C probe via gcc/clang to obtain the concrete value.
-    if isinstance(evaluated, str) and compiler:
-        for candidate_expr in (best_expanded, sym_expanded, raw):
-            c_val = evaluate_via_c_runner(
-                compiler=compiler,
-                target_file=target_file,
-                search_dirs=search_dirs,
-                expr=candidate_expr,
-                local_defines=local_overrides,
-                workspace_symbols=workspace_symbols,
-                func_symbols=func_symbols,
-            )
-            if c_val is not None:
-                return c_val
-
-    return evaluated
-
-
-# ==============================================================================
-# File Discovery Across Predefined Directories & Subdirectories
-# ==============================================================================
-def locate_target_file(file_arg: str, search_dirs: List[Path]) -> Path:
-    """
-    Locates `file_arg` across the two predefined directories and all of their
-    subdirectories (without priority).
-    """
-    direct_path = Path(file_arg)
-    if direct_path.is_file():
-        return direct_path.resolve()
-
-    req_parts = Path(file_arg).parts
-    matches: List[Path] = []
-    seen_resolved = set()
-
-    for d in search_dirs:
-        if not d.exists() or not d.is_dir():
-            continue
-        candidate = d / file_arg
-        if candidate.is_file():
-            res = candidate.resolve()
-            if res not in seen_resolved:
-                seen_resolved.add(res)
-                matches.append(res)
-        for root, _, files in os.walk(d):
-            if Path(file_arg).name in files:
-                found = (Path(root) / Path(file_arg).name).resolve()
-                if found not in seen_resolved:
-                    if len(found.parts) >= len(req_parts) and found.parts[-len(req_parts):] == req_parts:
-                        seen_resolved.add(found)
-                        matches.append(found)
-
-    if not matches:
-        dirs_str = ", ".join(f"'{d}'" for d in search_dirs)
-        print(
-            f"[ERROR] File '{file_arg}' was not found in any of the predefined directories "
-            f"or their subdirectories ({dirs_str}).",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if len(matches) > 1:
-        print(
-            f"[ERROR] Multiple files matching '{file_arg}' were found across the predefined directories/subdirectories "
-            "(no priority is set):",
-            file=sys.stderr,
-        )
-        for m in matches:
-            print(f"  - {m}", file=sys.stderr)
-        print(
-            "Please pass a disambiguating relative path (e.g., 'subdir/config.h' or 'dir1/subdir/config.h').",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    return matches[0]
-
-
-# ==============================================================================
-# JSON Storage & Update Engine
-# ==============================================================================
-def load_json_store(json_path: Path) -> Dict[str, Dict[str, Any]]:
-    """Loads existing macros JSON file or returns an empty dictionary."""
-    if not json_path.exists():
-        print(
-            f"[INFO] JSON file '{json_path}' does not exist yet. A new file will be created."
-        )
-        return {}
-    try:
-        content = json_path.read_text(encoding="utf-8").strip()
-        if not content:
-            return {}
-        data = json.loads(content)
-        if not isinstance(data, dict):
-            print(
-                f"[WARN] Root of '{json_path}' is not a JSON object. Resetting to empty object.",
-                file=sys.stderr,
-            )
-            return {}
-        return data
-    except Exception as exc:
-        print(f"[ERROR] Failed to parse existing JSON file '{json_path}': {exc}", file=sys.stderr)
-        sys.exit(1)
-
-
-def update_json_macros(
-    store: Dict[str, Dict[str, Any]],
-    file_key: str,
-    extracted_macros: Dict[str, Any],
-) -> Tuple[int, int, int]:
-    """
-    Inserts or updates macros under `store[file_key]` and prints explicit
-    action messages for each macro.
-    """
-    if file_key not in store or not isinstance(store[file_key], dict):
-        store[file_key] = {}
-        print(f"[INFO] Created new file section '{file_key}' in JSON store.")
-
-    file_bucket = store[file_key]
-    added_count = 0
-    updated_count = 0
-    unchanged_count = 0
-
-    for macro_name, new_val in extracted_macros.items():
-        if macro_name not in file_bucket:
-            file_bucket[macro_name] = new_val
-            added_count += 1
-            print(
-                f"[ADDED]     [{file_key}] Macro '{macro_name}' added with value: "
-                f"{json.dumps(new_val)}"
-            )
-        else:
-            old_val = file_bucket[macro_name]
-            if old_val != new_val or type(old_val) is not type(new_val):
-                file_bucket[macro_name] = new_val
-                updated_count += 1
-                print(
-                    f"[UPDATED]   [{file_key}] Macro '{macro_name}' updated from "
-                    f"{json.dumps(old_val)} -> {json.dumps(new_val)}"
-                )
+        elif cmd == "define":
+            dm = def_re.match(rest)
+            if not dm or dm.group(2) is not None:
+                continue  # Skip function-like macros in output
+            name, body = dm.group(1), dm.group(3).strip()
+            if not body:
+                continue  # Ignore any #define with no value (such as header guards)
+            cond = " && ".join(cond_stack) if cond_stack else None
+            raw_defs.setdefault(name, []).append((cond, body))
+
+    macros_out: dict[str, Any] = {}
+    for name, branches in raw_defs.items():
+        # Clean key: value pair when defined once; branch object only when defined multiple times
+        if len(branches) == 1:
+            _, body = branches[0]
+            if body.upper() in ("TRUE", "FALSE"):
+                macros_out[name] = body
             else:
-                unchanged_count += 1
-                print(
-                    f"[UNCHANGED] [{file_key}] Macro '{macro_name}' is already up to date "
-                    f"({json.dumps(new_val)})"
-                )
+                expanded = expand_macros(body, obj_macros, fn_macros)
+                val = evaluate_c_expr(expanded)
+                if isinstance(val, str) and name in pyclib_values and pyclib_values[name] is not None:
+                    val = pyclib_values[name]
+                macros_out[name] = val
+        else:
+            branch_map: dict[str, Any] = {}
+            for cond, body in branches:
+                key = cond or "default"
+                if body.upper() in ("TRUE", "FALSE"):
+                    branch_map[key] = body
+                else:
+                    local_obj = {**obj_macros, name: body}
+                    expanded = expand_macros(body, local_obj, fn_macros)
+                    branch_map[key] = evaluate_c_expr(expanded)
+            macros_out[name] = branch_map
 
-    return added_count, updated_count, unchanged_count
+    # Resolve typedef enum names (e.g. typedef enum { ... } BMSState_t;) and macro-based enum values
+    enum_re = re.compile(
+        r"(?:typedef\s+)?enum(?:\s+([A-Za-z_]\w*))?\s*\{([^}]*)\}\s*([A-Za-z_]\w*)?\s*;",
+        re.DOTALL,
+    )
+    anon_counter = 1
+    for em in enum_re.finditer(text):
+        tag_name, body, typedef_name = em.group(1), em.group(2), em.group(3)
+        enum_name = typedef_name or tag_name
+        if not enum_name:
+            enum_name = "anonymous_enum" if anon_counter == 1 else f"anonymous_enum_{anon_counter}"
+            anon_counter += 1
+
+        # Remove PyCLibrary's placeholder tag (e.g. '#anon_enum0') if typedef_name is used
+        for k in list(enums.keys()):
+            if k.startswith("#anon_enum"):
+                del enums[k]
+
+        members: dict[str, int] = {}
+        next_val = 0
+        for item in body.split(","):
+            item = item.strip()
+            if not item:
+                continue
+            if "=" in item:
+                k, v_expr = item.split("=", 1)
+                k = k.strip()
+                expanded = expand_macros(v_expr.strip(), {**obj_macros, **{ek: str(ev) for ek, ev in members.items()}}, fn_macros)
+                eval_v = evaluate_c_expr(expanded)
+                next_val = int(eval_v) if isinstance(eval_v, (int, float)) else next_val
+            else:
+                k = item
+            members[k] = next_val
+            next_val += 1
+
+        if members:
+            enums[enum_name] = members
+
+    return macros_out, enums
 
 
 # ==============================================================================
-# CLI Entry Point
+# 4. JSON Store Update Engine
 # ==============================================================================
-def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Extract and evaluate C/C++ object-like macros from .c or .h files "
-            "and store/update them in a root JSON file."
-        )
-    )
-    parser.add_argument(
-        "-f",
-        "--file",
-        required=True,
-        help="Name (or relative path) of the .c or .h file to inspect.",
-    )
+def update_json_file(
+    json_path: Path,
+    file_key: str,
+    selected_macros: dict[str, Any],
+    selected_enums: dict[str, dict[str, int]],
+) -> None:
+    store: dict[str, Any] = {}
+    if json_path.exists():
+        try:
+            store = json.loads(json_path.read_text(encoding="utf-8") or "{}")
+        except Exception as exc:
+            sys.exit(f"[ERROR] Invalid JSON in '{json_path}': {exc}")
 
-    mode_group = parser.add_mutually_exclusive_group(required=True)
-    mode_group.add_argument(
-        "-a",
-        "--all",
-        action="store_true",
-        help="Grab all object-like macros from the specified file.",
-    )
-    mode_group.add_argument(
-        "-m",
-        "--macro",
-        metavar="MACRO_NAME",
-        help="Grab a specific macro by name from the specified file.",
-    )
-    
-    parser.add_argument(
-        "-d",
-        "--dirs",
-        nargs=2,
-        metavar=("DIR1", "DIR2"),
-        default=PREDEFINED_DIRS,
-        help=(
-            f"Override the two predefined search directories "
-            f"(default: {PREDEFINED_DIRS[0]} {PREDEFINED_DIRS[1]})."
-        ),
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        default=DEFAULT_JSON_OUTPUT,
-        help=f"Path to the output JSON file (default: {DEFAULT_JSON_OUTPUT}).",
-    )
-    return parser
+    bucket = store.setdefault(file_key, {})
+    added, updated, unchanged = 0, 0, 0
 
+    # 1. Update Macros
+    for k, val in selected_macros.items():
+        if k not in bucket:
+            bucket[k] = val
+            added += 1
+            print(f"[ADDED]     [{file_key}] Macro '{k}' = {json.dumps(val)}")
+        elif bucket[k] != val or type(bucket[k]) is not type(val):
+            old = bucket[k]
+            bucket[k] = val
+            updated += 1
+            print(f"[UPDATED]   [{file_key}] Macro '{k}': {json.dumps(old)} -> {json.dumps(val)}")
+        else:
+            unchanged += 1
+            print(f"[UNCHANGED] [{file_key}] Macro '{k}' = {json.dumps(val)}")
 
-def main() -> None:
-    parser = build_arg_parser()
-    args = parser.parse_args()
+    # 2. Update Enums under "ENUMS" key
+    if selected_enums:
+        enum_bucket = bucket.setdefault("ENUMS", {})
+        for ename, emembers in selected_enums.items():
+            if ename not in enum_bucket:
+                enum_bucket[ename] = emembers
+                added += 1
+                print(f"[ADDED]     [{file_key}][ENUMS] '{ename}' = {json.dumps(emembers)}")
+            elif enum_bucket[ename] != emembers:
+                old = enum_bucket[ename]
+                enum_bucket[ename] = emembers
+                updated += 1
+                print(f"[UPDATED]   [{file_key}][ENUMS] '{ename}': {json.dumps(old)} -> {json.dumps(emembers)}")
+            else:
+                unchanged += 1
+                print(f"[UNCHANGED] [{file_key}][ENUMS] '{ename}' = {json.dumps(emembers)}")
 
-    search_dirs = [Path(d) for d in args.dirs]
-    json_path = Path(args.output)
-
-    print(
-        f"[INFO] Searching for '{args.file}' in directories (and subdirectories): "
-        f"'{search_dirs[0]}' and '{search_dirs[1]}'..."
-    )
-    target_file = locate_target_file(args.file, search_dirs)
-    file_key = target_file.name
-    print(f"[INFO] Located target file: '{target_file}' (JSON key: '{file_key}')")
-
-    compiler = find_compiler()
-    if compiler:
-        print(f"[INFO] Using C compiler preprocessor: '{compiler}'")
-    else:
-        print(
-            "[INFO] No gcc/clang found on PATH; using built-in cross-file AST macro evaluator."
-        )
-
-    # Build cross-file symbol tables (both object-like and function-like macros)
-    workspace_symbols, func_symbols = build_workspace_symbol_tables(search_dirs)
-
-    # Parse target file definitions (including local function-like macros for background use)
-    defs = parse_macros_from_file(target_file, include_func_macros=True)
-    for d in defs:
-        if d.is_func_like:
-            func_symbols[d.name] = (d.params, d.raw_value)
-
-    object_defs = [d for d in defs if not d.is_func_like]
-    if not object_defs:
-        print(f"[INFO] No object-like macros found in '{target_file}'.")
-        sys.exit(0)
-
-    # Evaluate object-like macros
-    evaluated_all = evaluate_macro_definitions(
-        defs=object_defs,
-        target_file=target_file,
-        search_dirs=search_dirs,
-        workspace_symbols=workspace_symbols,
-        func_symbols=func_symbols,
-        compiler=compiler,
-    )
-
-    # Filter if specific macro requested
-    if args.macro:
-        target_macro = args.macro
-        if target_macro not in evaluated_all:
-            print(
-                f"[ERROR] Macro '{target_macro}' was not found in '{file_key}' "
-                "(or is a function-like macro which is skipped).",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        selected_macros = {target_macro: evaluated_all[target_macro]}
-        print(f"[INFO] Extracting specific macro '{target_macro}' from '{file_key}'...")
-    else:
-        selected_macros = evaluated_all
-        print(
-            f"[INFO] Extracting all ({len(selected_macros)}) object-like macros from '{file_key}'..."
-        )
-
-    # Load JSON store, update entries, and save
-    store = load_json_store(json_path)
-    added, updated, unchanged = update_json_macros(store, file_key, selected_macros)
-
-    json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(store, indent=2) + "\n", encoding="utf-8")
-
     print(
         f"[SUMMARY] Saved '{json_path}' | File: '{file_key}' | "
         f"Added: {added}, Updated: {updated}, Unchanged: {unchanged}"
     )
+
+
+# ==============================================================================
+# 5. CLI Entry Point
+# ==============================================================================
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Extract C macros and enums into JSON.")
+    parser.add_argument("-f", "--file", required=True, help="Target .h or .c file")
+
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-a", "--all", action="store_true", help="Grab all macros and enums")
+    group.add_argument("-m", "--macro", help="Grab a specific macro by name")
+    group.add_argument("-e", "--enum", help="Grab a specific enum by name")
+
+    parser.add_argument("-d", "--dirs", nargs=2, default=[str(d) for d in PREDEFINED_DIRS], help="Two search directories")
+    parser.add_argument("-o", "--output", default=str(JSON_OUTPUT), help="Output JSON path")
+    args = parser.parse_args()
+
+    search_dirs = [Path(d) for d in args.dirs]
+    target_file = locate_file(args.file, search_dirs)
+    file_key = target_file.name
+
+    macros, enums = extract_macros_and_enums(target_file, search_dirs)
+
+    if args.macro:
+        if args.macro not in macros:
+            sys.exit(f"[ERROR] Macro '{args.macro}' not found in '{file_key}'.")
+        update_json_file(Path(args.output), file_key, {args.macro: macros[args.macro]}, {})
+    elif args.enum:
+        if args.enum not in enums:
+            sys.exit(f"[ERROR] Enum '{args.enum}' not found in '{file_key}'.")
+        update_json_file(Path(args.output), file_key, {}, {args.enum: enums[args.enum]})
+    else:
+        update_json_file(Path(args.output), file_key, macros, enums)
 
 
 if __name__ == "__main__":
