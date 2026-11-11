@@ -22,6 +22,8 @@
 #define IMD_MONITOR_TASK_PERIOD_TICK                (MAKE_TICK(0,  0, 100, 0, 0))
 #define CELL_TEMP_MONITOR_TASK_PERIOD_TICK          (MAKE_TICK(0,  0, 500, 0, 0))
 #define KEEP_SLAVES_AWAKE_TASK_PERIOD_TICK          (MAKE_TICK(0,  0, 500, 0, 0))
+#define SOC_ESTIMATE_TASK_PERIOD_TICK               (MAKE_TICK(0,  0, 100, 0, 0))
+#define RESISTANCE_MEASURE_TASK_PERIOD_TICK         (MAKE_TICK(30, 0,   0, 0, 0))     // 30 min
 #define DEBUG_TASK_PERIOD_TICK                      0       // every loop
 #warning PhantomTimers.h: MS_TO_TICKS multiplies by 1000000U, it should be 1000U (1 ms = 1000 us). Not used here, but it is wrong.
 
@@ -34,6 +36,8 @@ typedef enum {
     TASK_PACK_VOLTAGE,
     TASK_IMD,
     TASK_CELL_TEMP,
+    TASK_SOC,
+    TASK_RESISTANCE,
     TASK_CHARGER_CONTROL,
     TASK_KEEP_SLAVES_AWAKE,
 #if BMS_DEBUG_TASK_ENABLE
@@ -51,6 +55,7 @@ void Do_BMS_Tasks(void);            // call from the main loop
 bool            BMSTask_IsEnabled(const TaskID_t id);
 ticks_t         BMSTask_GetPeriod(const TaskID_t id);
 RoutineResult_t BMSTask_GetLastResult(const TaskID_t id);
+uint8_t         BMSTask_GetStep(const TaskID_t id);           // where the routine exited, 0 = at the start
 uint8_t         BMSTask_GetErrorCount(const TaskID_t id);     // fails in a row, back to 0 on the next OK
 uint32_t        BMSTask_GetErrorTotal(const TaskID_t id);     // all fails since the last restart
 TimingStats_t   BMSTask_GetStats(const TaskID_t id);          // run time in ticks, count = number of runs
