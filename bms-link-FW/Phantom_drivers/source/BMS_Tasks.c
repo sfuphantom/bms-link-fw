@@ -43,12 +43,13 @@ typedef struct {
     bool            enable;         // initial value is chosen in the table
     uint8_t         errorCount;     // fails in a row
     uint32_t        errorTotal;
+    uint8_t         step;           // handed to the routine, where it exited last time (0 = start)
     RoutineResult_t lastResult;
     Periodic_t      timing;         // timing.period is the one to change
     TimingStats_t   stats;
 } Task_t;
 
-#define TASK(id, fn, period, fault, enable)     { (fn), (id), (fault), (enable), 0, 0, ROUTINE_OK, { (period), 0 }, {0} }
+#define TASK(id, fn, period, fault, enable)     { (fn), (id), (fault), (enable), 0, 0, 0, ROUTINE_OK, { (period), 0 }, {0} }
 // To add a task: write a RoutineResult_t f(void) in BMS_Routines.c, add an ID in BMS_Tasks.h, add its period, add a row here.
 // Rows run in this order, one routine at a time, and the row number must equal the ID.
 static Task_t BMSTask[] = {
@@ -57,19 +58,21 @@ static Task_t BMSTask[] = {
     TASK(TASK_BALANCE,           SetBalanceRate_Routine,      CELL_BALANCER_CONTROL_TASK_PERIOD_TICK,  BAD_SLAVE_CONNECTION_FLAG,  true),
     TASK(TASK_SLAVE_FLAGS,       CheckSlaveFlags_Routine,     SLAVE_FLAG_CHECK_TASK_PERIOD_TICK,       BAD_SLAVE_CONNECTION_FLAG,  true),
 
-    // Not scheduled in the old code, so they start disabled. Turn on with true or BMSTask_SetEnable().
     TASK(TASK_PACK_VOLTAGE,      MeasurePackVoltage_Routine,  PACK_VOLTAGE_TASK_PERIOD_TICK,           BAD_HV_VOLT_FLAG,           true),
     TASK(TASK_IMD,               MonitorIMD_Routine,          IMD_MONITOR_TASK_PERIOD_TICK,            IMD_FAULT_FLAG,             true),
     TASK(TASK_CELL_TEMP,         MonitorCellTemp_Routine,     CELL_TEMP_MONITOR_TASK_PERIOD_TICK,      TASK_NO_FAULT,              true),
+    TASK(TASK_SOC,               EstimateSOC_Routine,         SOC_ESTIMATE_TASK_PERIOD_TICK,           TASK_NO_FAULT,              false),
+    TASK(TASK_RESISTANCE,        MeasureResistance_Routine,   RESISTANCE_MEASURE_TASK_PERIOD_TICK,     TASK_NO_FAULT,              false),
     TASK(TASK_CHARGER_CONTROL,   SendChargerControls_Routine, SEND_CHARGER_CONTROL_TASK_PERIOD_TICK,   CHARGER_COMMS_FAULT,        true),
     TASK(TASK_KEEP_SLAVES_AWAKE, KeepSlavesAwake_Routine,     KEEP_SLAVES_AWAKE_TASK_PERIOD_TICK,      BAD_SLAVE_CONNECTION_FLAG,  true),
-    TASK(TASK_DEBUG,             Debug_Routine,               DEBUG_TASK_PERIOD_TICK,                  TASK_NO_FAULT,              BMS_DEBUG_TASK_ENABLE),
+#if BMS_DEBUG_TASK_ENABLE
+    TASK(TASK_DEBUG,             Debug_Routine,               DEBUG_TASK_PERIOD_TICK,                  TASK_NO_FAULT,              false),
+#endif
 };
 
 // Compile error if the table and the enum get out of step (array size would be -1)
 typedef char BMSTask_table_size_check[(ARRAY_LEN(BMSTask) == TASK_COUNT) ? 1 : -1];
 
-#warning MeasurePackVoltage_Routine is not scheduled. Pack_GetVolt() (used by the charger) only updates if something calls it. IMD is not scheduled either.
 #warning IMD_FAULT_FLAG and IMD_FAULT both exist in BMS_Faults. Is that on purpose? Check which one the IMD task should raise.
 
 //----------------------------------------------------------------------------------------------------
@@ -88,7 +91,7 @@ static Task_t * getTask(const TaskID_t id)
 //----------------------------------------------------------------------------------------------------
 static bool isDue(Task_t * const task)
 {
-    if (task->lastResult == ROUTINE_BUSY) { return true; }      // non-blocking routine, keep calling it
+    if (task->lastResult == ROUTINE_WAITING) { return true; }   // non-blocking routine, keep calling it
     if (task->timing.period == 0)         { return true; }      // handled here so periodic_due() never sees 0
     return periodic_due(&task->timing);
 }
@@ -114,7 +117,12 @@ static void recordResult(Task_t * const task)
     else if (ROUTINE_IS_FAIL(result) && result != ROUTINE_FAIL_FAULT) {
         taskFailed(task);
     }
-    // BUSY, SKIPPED and FAIL_FAULT change nothing
+    // INCOMPLETE, WAITING, the SKIPPED_* and FAIL_FAULT do not change the error count
+
+    // Still in the middle of something: keep step. Anything else ends the sequence, so the next run starts at 0.
+    if (result != ROUTINE_WAITING && result != ROUTINE_INCOMPLETE) {
+        task->step = 0;
+    }
 }
 
 static void runTasks(Task_t * const tasks, const size_t count)
@@ -129,7 +137,7 @@ static void runTasks(Task_t * const tasks, const size_t count)
         }
 
         tic = timer_tic_tick();
-        task->lastResult = task->run();
+        task->lastResult = task->run(&task->step);
         timingStats_add(&task->stats, timer_toc_tick(tic));
 
         recordResult(task);
@@ -172,6 +180,12 @@ RoutineResult_t BMSTask_GetLastResult(const TaskID_t id)
     return (task != NULL) ? task->lastResult : ROUTINE_FAIL_BAD_VALUE;      // bad id
 }
 
+uint8_t BMSTask_GetStep(const TaskID_t id)
+{
+    const Task_t * const task = getTask(id);
+    return (task != NULL) ? task->step : 0;
+}
+
 uint8_t BMSTask_GetErrorCount(const TaskID_t id)
 {
     const Task_t * const task = getTask(id);
@@ -197,7 +211,8 @@ void BMSTask_SetEnable(const TaskID_t id, const bool enable)
     if (task == NULL) { return; }
 
     if (enable && !task->enable) {
-        // starting fresh: forget a half finished BUSY and restart the period
+        // starting fresh: forget a half finished sequence and restart the period
+        task->step = 0;
         task->lastResult = ROUTINE_OK;
         periodic_init(&task->timing, task->timing.period);
     }
@@ -230,6 +245,7 @@ static void initTasks(void)
 
         task->errorCount = 0;
         task->errorTotal = 0;
+        task->step = 0;
         task->lastResult = ROUTINE_OK;
         periodic_init(&task->timing, task->timing.period);
         timingStats_reset(&task->stats);

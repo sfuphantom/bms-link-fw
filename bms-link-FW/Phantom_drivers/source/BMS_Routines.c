@@ -49,17 +49,21 @@ static RoutineResult_t fromSlave(const SlaveStatus_t status)
 }
 
 //----------------------------------------------------------------------------------------------------
-RoutineResult_t MeasureCellVoltage_Routine(void)
+RoutineResult_t MeasureCellVoltage_Routine(uint8_t * const step)
 {
     float * const cellVolt = Cell_GetVoltWritePtr();
+
+    (void)step;
 
 #warning Cell over/under voltage is not checked anywhere here (was a TODO in the old code). Who raises CELL_OVERVOLT_FLAG / CELL_UNDERVOLT_FLAG?
     return fromSlave(MeasureCellVoltage(cellVolt, NUMBER_OF_CELLS_SERIES));
 }
 
 //----------------------------------------------------------------------------------------------------
-RoutineResult_t SetBalanceRate_Routine(void)
+RoutineResult_t SetBalanceRate_Routine(uint8_t * const step)
 {
+    (void)step;
+
     // Balance only while charging and with no fault. Otherwise make sure every DCC bit is off.
     if (BMS_GetState() == BMS_CHARGING && !Fault_Any()) {
         float * const balancePWMs = Cell_GetBalancePWMsWritePtr();
@@ -80,10 +84,12 @@ RoutineResult_t SetBalanceRate_Routine(void)
 }
 
 //----------------------------------------------------------------------------------------------------
-RoutineResult_t CheckSlaveFlags_Routine(void)
+RoutineResult_t CheckSlaveFlags_Routine(uint8_t * const step)
 {
     uint32_t flags = 0;
     SlaveStatus_t status = SLAVE_OK;
+
+    (void)step;
 
 #if !USE_ANILOG_GPIO
     status = MeasureRef2ndVoltage();
@@ -96,18 +102,22 @@ RoutineResult_t CheckSlaveFlags_Routine(void)
 }
 
 //----------------------------------------------------------------------------------------------------
-RoutineResult_t MeasurePackVoltage_Routine(void)
+RoutineResult_t MeasurePackVoltage_Routine(uint8_t * const step)
 {
     float packVoltage;
     const bool returnVal = MeasureBatteryVoltage(&packVoltage);
-    Pack_SetVolt(packVoltage);
+
+    (void)step;
+    if (returnVal) { Pack_SetVolt(packVoltage); }       // do not store a voltage that was not measured
     return fromBool(returnVal, ROUTINE_FAIL_COMM);
 }
 
 //----------------------------------------------------------------------------------------------------
-RoutineResult_t MonitorIMD_Routine(void)
+RoutineResult_t MonitorIMD_Routine(uint8_t * const step)
 {
     IMDData_t imd;
+
+    (void)step;
     if (readIMDSignal(&imd.freq, &imd.duty)){
         return ROUTINE_FAIL_BAD_VALUE;
     }
@@ -120,23 +130,55 @@ RoutineResult_t MonitorIMD_Routine(void)
     set_IMD_fault_state(imd.isolation, imd.state);
     if (IMD_HasFault(imd.duty, imd.freq, imd.resistance, imd.isolation, imd.state)) {
         Fault_RaiseIMD();
-    }    return ROUTINE_OK;
+    }
+    return ROUTINE_OK;
 }
 
 //----------------------------------------------------------------------------------------------------
-RoutineResult_t MonitorCellTemp_Routine(void)
+RoutineResult_t MonitorCellTemp_Routine(uint8_t * const step)
 {
+    (void)step;
 #warning MonitorCellTemp_Routine is empty (it had no return at all before). Returns SKIPPED so it can never raise anything.
     return ROUTINE_SKIPPED;
 }
 
 //----------------------------------------------------------------------------------------------------
-RoutineResult_t SendChargerControls_Routine(void)
+RoutineResult_t EstimateSOC_Routine(uint8_t * const step)
+{
+    (void)step;
+#warning EstimateSOC_Routine is a placeholder, nothing is estimated yet. Returns SKIPPED.
+    return ROUTINE_SKIPPED;
+}
+
+//----------------------------------------------------------------------------------------------------
+RoutineResult_t MeasureResistance_Routine(uint8_t * const step)
+{
+    // Pseudo code. *step remembers which part we are in, return ROUTINE_WAITING during the waits.
+    //  1. must be in charging state (if not: ROUTINE_SKIPPED)
+    //  2. stop balancing and charging; override them, probably change the BMS state or raise a global static flag
+    //  3. wait 1 min
+    //  4. measure cell voltage (CV_open), measure current (I_open)
+    //  5. start charging at (~1A)
+    //  6. wait 1 min
+    //  7. measure cell voltage (CV_load), measure current (I_load)
+    //  8. R_i = |(CV_open - CV_load) / (I_open - I_load)|     (check I_open != I_load before dividing)
+    //  9. stop overriding the charger and balancing           (also on every fail / timeout exit)
+
+    (void)step;
+#warning MeasureResistance_Routine is a placeholder, nothing is measured yet. Returns SKIPPED.
+    return ROUTINE_SKIPPED;
+}
+
+//----------------------------------------------------------------------------------------------------
+RoutineResult_t SendChargerControls_Routine(uint8_t * const step)
 {
     battery2Charger_t battery2Charger;
 #warning do not be 0: add values. State flag is hardcoded to 0, so the charger state machine is not getting real input.
     const uint8_t chargerStateFlag = 0;
+#warning can add more. The max charge current is hardcoded to 10 A.
+    const float Max_current = 10;//Balance_GetMaxChargeAmps(battery2Charger.cell_max_V, const float maxDieTempC, const float prevLimitAmps);
 
+    (void)step;
 #warning need actual_Ah function and calc
     battery2Charger.actual_Ah = 0;
     battery2Charger.soc = Pack_GetSOC();
@@ -151,27 +193,29 @@ RoutineResult_t SendChargerControls_Routine(void)
     battery2Charger.charge_current_A = Pack_GetCurrent();
     battery2Charger.pack_voltage_V = Pack_GetVolt();
 
-    #warning can add more
-    const float Max_current = 10;//Balance_GetMaxChargeAmps(battery2Charger.cell_max_V, const float maxDieTempC, const float prevLimitAmps);
-
     Charger_Update(&battery2Charger, chargerStateFlag, Max_current);
 
     return ROUTINE_OK;
 }
 //----------------------------------------------------------------------------------------------------
-RoutineResult_t ControlFans_Routine(void){
-    return ROUTINE_OK;
+RoutineResult_t ControlFans_Routine(uint8_t * const step)
+{
+    (void)step;
+#warning ControlFans_Routine is empty. Returns SKIPPED, and it has no task row.
+    return ROUTINE_SKIPPED;
 }
 //----------------------------------------------------------------------------------------------------
-RoutineResult_t KeepSlavesAwake_Routine(void)
+RoutineResult_t KeepSlavesAwake_Routine(uint8_t * const step)
 {
+    (void)step;
     return fromSlave(KeepAlive());
 }
 
 //----------------------------------------------------------------------------------------------------
 #if BMS_DEBUG_TASK_ENABLE
-RoutineResult_t Debug_Routine(void)
+RoutineResult_t Debug_Routine(uint8_t * const step)
 {
+    (void)step;
 #warning GIO_DEBUG_PIN (A2) also has the Debug_GIO_Notification interrupt in Fault_handler.h. If A2 is an input/interrupt there, toggling it will not show on a scope (or may trigger that callback). Use a free output pin if so.
     gio_toggle(GIO_DEBUG_PIN);      // scope this: one toggle per run, so a period of 0 shows the loop time
     return ROUTINE_OK;
