@@ -4,10 +4,10 @@
 #include "BMS_Routines.h"
 #include "BMS_Tasks.h"
 
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"
 
-#include "BatteryData.h"
+#include "BMS_Data.h"
 #include "Fault_handler.h"
 
 #include "SlaveCommunation_Functions.h"
@@ -52,24 +52,25 @@ void main(void)
 
 //    SetChargingStatus(CH);
 
-//    const sciBASE_t * UARTReg = sciREG;
-    volatile uint32_t tic, toc;
-
+    volatile ticks_t tic, toc;
     volatile int i;
-
-    volatile const uint64_t debug_period_tick = MIN_SEC_MS_US_TICK_2_TICK(0,1,0,0,0);
-    uint64_t last_debug_tick = 0;
+    volatile TimingStats_t MeasureCellVoltageStats, CheckSlaveFlagsStats, SetBalanceRateStats;
+    Periodic_t debug_tick = { ticks_make(0,1,0,0,0), 0};
+    volatile float avgCellVolt;
 
     while(1){
-//        restart_BMS_system();
         restart_BMS_system();
-//        SetChargingStatus(CH);
 
-        while(! AnyFaults()){
+        while(!Fault_Any()){
             Do_BMS_Tasks();
-            if(hasPeriodExpired_rti(debug_period_tick, &last_debug_tick)){
-                int a=0;
-                a++;
+            if(periodic_due(&debug_tick)){
+                uint16_t DCC[NUMBER_OF_SLAVE_BOARDS_TOTAL];
+                ReadConfig_DCC(DCC);
+                avgCellVolt = Cell_GetAvgVolt();
+//                MeasureCellVoltageStats = BMSTask[0].stats;
+//                SetBalanceRateStats = BMSTask[1].stats;
+//                CheckSlaveFlagsStats = BMSTask[2].stats;
+                avgCellVolt+=0;
             }
         }
 

@@ -68,7 +68,7 @@
 #include "emac.h" 
 
 /* USER CODE BEGIN (0) */
-#include "BatteryData.h"
+#include "BMS_Data.h"
 
 /* USER CODE END */
 #pragma WEAK(esmGroup1Notification)

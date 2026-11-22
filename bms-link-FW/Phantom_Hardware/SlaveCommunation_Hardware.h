@@ -9,6 +9,8 @@
 #define PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_HARDWARE_H_
 #include <stdint.h>
 #include <stdbool.h>
+#include "hal_stdtypes.h"
+
 
 #include "BatteryCell_Hardware.h"
 #include "FullBattery_Hardware.h"
@@ -67,11 +69,17 @@
 #define VOLTS2SLAVE_ADC(V)                  ((uint16_t)(V/ADC2VOLTS))
 #define Temp2SLAVE_ADC(T)                   (VOLTS2SLAVE_ADC((T+ITMP_KELVIN_2_CELCIUS) * ITMP_MILLI_VOLTS_2_CELCIUS / 1000))
 //////////////////////////////////////////////////////////////////
-#define RES_ON_OHMS                     33
+#define RES_DRAIN_OHMS                  33.0f
+#define RES_ON_OHMS                     40.0f
+#define DRAIN_OHMS                      (RES_DRAIN_OHMS + RES_ON_OHMS)
 
 #define DCC_MAX_CURRENT_mA              100
 #define DCC_MAX_CURRENT_A               (1000*DCC_MAX_CURRENT_mA)
-
-
+//////////////////////////////////////////////////////////////////
+typedef enum {
+    BAD_TEMP_flags, BAD_OV_flags, BAD_UV_flags, BAD_THSD, BAD_MUXFAIL,
+    BAD_ITMP, BAD_VA, BAD_VD, BAD_REF2ND,
+    NUM_SLAVE_FAULTS
+} Slave_Faults;
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_SLAVECOMMUNATION_HARDWARE_H_ */

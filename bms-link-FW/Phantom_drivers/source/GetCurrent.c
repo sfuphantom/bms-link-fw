@@ -5,33 +5,31 @@
  *      Author: tanjo
  */
 
+#include <math.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "GetCurrent.h"
 #include "FullBattery_Hardware.h"
-#include "BatteryData.h"
+#include "BMS_Data.h"
 
+#warning Compressed current range is only +/-65.5 A at this scale. Check it against the maximum pack current.
 
-int16_t Current2Saved(const float Current){
-    const float Current_scaled = Current * CURRENT2SAVED_SCALE;
-    return (int16_t)Current_scaled;
-}
-float Saved2Current(const int16_t Saved){
-    const float Current = ((float)Saved) / CURRENT2SAVED_SCALE;
-    return Current;
-}
-
-void MeasureAndSaveCurrent(){
-    const float current = 0;//GetChargerCurrent() - GetInverterCurrent() - CalcFanCurrent_Estimte();
-    const int16_t current_SaveVal = Current2Saved(current);
-    setFullBatteryData_Current(current_SaveVal);
+float MeasureCurrent(void){
+#if USE_CURRENT_SENSOR
+    return ReadCurrentSensor_A();
+#else
+#warning Current is ESTIMATED, not measured. Switch USE_CURRENT_SENSOR to 1 once a sensor exists.
+#warning The three functions below were commented out in the old code. Confirm they exist (CalcFanCurrent_Estimte may be a typo) and the sign convention is right.
+    return GetChargerCurrent() - GetInverterCurrent() - Fans_EstimateCurrent_A();
+#endif
 }
 
-float GetCurrent_f(){
-    const uint16_t Saved = getFullBatteryData_Current();
-    const float current = Saved2Current(Saved);
-    return current;
+int16_t CompressCurrent(const float amps){
+    if(isnan(amps)) return 0;
+
+    const float scaled = roundf(amps * CURRENT2SAVED_SCALE);
+    if(scaled <= (float)INT16_MIN) return INT16_MIN;
+    if(scaled >= (float)INT16_MAX) return INT16_MAX;
+    return (int16_t)scaled;
 }
 
-
-#warning this is not a measurement, get a measurment

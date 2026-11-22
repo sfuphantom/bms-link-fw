@@ -5,207 +5,364 @@
  *      Author: tanjo
  */
 
-
 #include <stdint.h>
 #include <stdbool.h>
 #include "rti.h"
-#include "PhantomHelpers.h"
+#include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"
 
 //----------------------------------------------------------------------------------------
-//static union nowTimerTicks_t now_ticks;
-static uint32_t rti_OverFlowCounter = 0;
+// Clock: the RTI free running counter is only 32 bit (wraps every 2^32 ticks, ~107 s at 40 MHz).
+// An interrupt counts the wraps, so the full time is (wraps << 32) | counter.
+//----------------------------------------------------------------------------------------
+static volatile uint32_t rti_overflowCount = 0;
 static volatile const uint32_t * const nowTickReg = &rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
-void initPhantomTimers(){
-    rti_OverFlowCounter = 0;
-}
 
-void rtiOverflow0_ISR(void){
-#warning test if this function is called
-    rti_OverFlowCounter++;
-}
-void rtiNotification(uint32 notification){
-    if(notification == rtiNOTIFICATION_COUNTER0){
-        if(rtiREG1->INTFLAG & 0x20000U){
-            rtiREG1->INTFLAG &= ~0x20000U;
-            rtiOverflow0_ISR();
-        }
+static void startCounterIfStopped(void){
+    if ((rtiREG1->GCTRL & (1U << rtiCOUNTER_BLOCK0)) == 0U){
+        rtiStartCounter(rtiCOUNTER_BLOCK0);
     }
 }
 
-
-//----------------------------------------------------------------------------------------
- void delay_ms_us(const uint32_t ms, const uint32_t us){
-    #if USE_RTI_DELAY
-        const uint64 total_us = (uint64)ms * 1000UL + us;
-        const uint64 total_ticks = total_us * RTI_US_2_TICKS;
-
-        /* Start counter block 0 if it is not already running */
-        if ((rtiREG1->GCTRL & (1U << rtiCOUNTER_BLOCK0)) == 0U)
-        {
-            rtiStartCounter(rtiCOUNTER_BLOCK0);
-        }
-
-        const uint32 start = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
-        /* Wait until the required number of ticks has elapsed */
-//        rtiBASE_t * rtiRegDelay = rtiREG1;
-//        const uint32_t * timer = &rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
-        while ((rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx - start) < (uint32)total_ticks)
-        {
-            /* Busy wait */
-        }
-//        rtiStopCounter(rtiCOUNTER_BLOCK0);
-    #else
-        volatile uint32_t i, j;
-        // Approximate loops per ms, tune by measurement.
-        const uint32_t loops_per_us = 11;
-        const uint32_t loops_per_ms = loops_per_us * 1000;
-
-        for (i = 0; i < ms; i++) {
-            for (j = 0; j < loops_per_ms; j++);
-        }
-        for (i = 0; i < us; i++) {
-            for (j = 0; j < loops_per_us; j++);
-        }
-    #endif
+void initPhantomTimers(void){
+    rti_overflowCount = 0;
+    startCounterIfStopped();
+    rtiEnableNotification(rtiNOTIFICATION_COUNTER0);
 }
-///* Static storage for the start ticks of each software timer */
-//static uint32  rti_timer_last[RTI_MAX_TIMERS];
-//static boolean rti_timer_valid[RTI_MAX_TIMERS];
-//
-//void rtiTimerStart(const uint8_t id)
-//{
-//    if (id >= RTI_MAX_TIMERS) return;
-//
-//    /* Ensure counter block 0 is running */
-//    if ((rtiREG1->GCTRL & (1U << rtiCOUNTER_BLOCK0)) == 0U) {
-//        rtiStartCounter(rtiCOUNTER_BLOCK0);
-//    }
-//
-//    rti_timer_last[id] = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
-//    rti_timer_valid[id] = true;
-//}
-//
-//bool rtiTimerExpired(const uint32_t id, const uint32_t ms, const uint32_t us)
-//{
-//    if (id >= RTI_MAX_TIMERS) return false;
-//
-//    /* First call: initialise the timer and return false */
-//    if (!rti_timer_valid[id]) {
-//        rtiTimerStart(id);
-//        return true;
-//    }
-//
-//    /* Make sure counter block 0 is running */
-//    if ((rtiREG1->GCTRL & (1U << rtiCOUNTER_BLOCK0)) == 0U) {
-//        rtiStartCounter(rtiCOUNTER_BLOCK0);
-//    }
-//
-//    uint32 now      = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
-//    uint32 last     = rti_timer_last[id];
-//    uint32 elapsed  = now - last;   /* wraps safely with unsigned arithmetic */
-//
-//    /* Convert ms+us to RTI ticks */
-//    uint64 required_ticks = ((uint64)ms * 1000UL + us) * RTI_US_2_TICKS;
-//
-//    if (elapsed >= required_ticks) {
-//        /* Reload the start time to the current moment (periodic behaviour) */
-//        rti_timer_last[id] = now;
-//        return true;
-//    }
-//    return false;
-//}
-#warning race condition? I think the do while fixed it double check
-uint64_t getNow_tick(){
-    union nowTimerTicks_t now_tick;
-    do{
-        now_tick.OFandTickCounter[0] = rti_OverFlowCounter;
-    //    now_tick.OFandTickCounter[1] = rtiREG1->CNT[rtiCOUNTER_BLOCK0].FRCx;
-        now_tick.OFandTickCounter[1] = *nowTickReg;}
-    while(rti_OverFlowCounter != now_tick.OFandTickCounter[0]);
-    return now_tick.FullTicks;
+
+// The HAL calls this from the RTI interrupt.
+void rtiNotification(uint32 notification){
+    if (notification == rtiNOTIFICATION_COUNTER0){
+        rtiREG1->INTFLAG = rtiNOTIFICATION_COUNTER0;    // write 1 to clear (no read-modify-write)
+        rti_overflowCount++;
+    }
 }
-//uint32_t getNow_us(){
-//    return getNow_tick()/RTI_US_2_TICKS;
-//}
-//uint32_t getNow_ms(){
-//    return getNow_tick()/RTI_MS_2_TICKS;
-//}
-uint64_t timer_tic_tick(){
+
+ticks_t getNow_tick(void){
+    uint32_t overflows;
+    uint32_t counter;
+
+    // if the interrupt fired between the two reads, read again
+    do {
+        overflows = rti_overflowCount;
+        counter   = *nowTickReg;
+    } while (overflows != rti_overflowCount);
+
+    return ((ticks_t)overflows << 32) | counter;    // no union, so byte order doesn't matter
+}
+
+ticks_t timer_tic_tick(void){
     return getNow_tick();
 }
-uint64_t timer_toc_us(const uint64_t tic){
-    const uint64_t now = getNow_tick();
-    uint64_t diff = (now-tic)/RTI_US_2_TICKS;
-    return diff;
+
+ticks_t timer_toc_tick(const ticks_t tic){
+    return getNow_tick() - tic;
 }
-//------------------------------------------------------------------------------------
-bool hasTimeElapsed_rti(const uint64_t start_ticks, uint64_t const wait_ticks){
-    const uint64_t now_tick = getNow_tick();
-    const bool hasElapsed  = (now_tick - start_ticks > wait_ticks);
-    return hasElapsed;
+
+ticks_t timer_toc_us(const ticks_t tic){
+    return TICKS_TO_US(timer_toc_tick(tic));
 }
-bool hasPeriodExpired_rti(const uint64_t period_tick, uint64_t * const last_tick){
 
-    const uint64_t now_tick = getNow_tick();
-    const bool hasElapsed  = (now_tick - *last_tick > period_tick);
-
-    if(hasElapsed){
-        *last_tick = now_tick;
-    }
-
-    return hasElapsed;
+ticks_t ticks_make(const uint32_t min, const uint32_t sec, const uint32_t ms,
+                   const uint32_t us, const uint32_t tick){
+    return MAKE_TICK(min, sec, ms, us, tick);
 }
-//------------------------------------------------------------------------------------
-uint64_t timeFunction_VoidVoid_us(void (*FuncPrt)(void)){
-        const uint64_t tic = timer_tic_tick();
 
-        FuncPrt();
+//----------------------------------------------------------------------------------------
+// Blocking waits. They read the raw 32 bit counter, so they also work inside an interrupt.
+//----------------------------------------------------------------------------------------
+void delay_ticks(ticks_t ticks){
+    startCounterIfStopped();
 
-        const uint64_t toc_us = timer_toc_us(tic);
-        return toc_us;
-}
-//------------------------------------------------------------------------------------
-uint8_t debounceBool(const bool input, uint32_t * const perv, const uint8_t changeNum){
-    const uint32_t changeMask = (1U<<changeNum) -1;
+    while (ticks > 0){
+        // 32 bit subtraction wraps correctly, but only for waits under 2^32 ticks
+        const uint32_t chunk = (uint32_t)MIN_VAL(ticks, (ticks_t)INT32_MAX);
+        const uint32_t start = *nowTickReg;
 
-    uint32_t pervVal = *perv;
-
-    pervVal <<=1;
-    pervVal |= (uint32_t) input;
-    pervVal &= changeMask;
-
-    const bool ValChanged = *perv != pervVal;
-
-    *perv = pervVal;
-
-
-    if(pervVal == changeMask && ValChanged){
-        return 0b10;
-    }
-    else if(pervVal == 0U && ValChanged){
-        return 0b01;
-    }
-    else{
-        return 0b00;
+        while ((uint32_t)(*nowTickReg - start) < chunk){
+            /* busy wait */
+        }
+        ticks -= chunk;
     }
 }
 
-inline uint64_t Min_Sec_MS_US_Tick_2_Ticks(const uint16_t min,const uint16_t sec, const uint16_t ms, const uint16_t us, const uint16_t tick){
-    const uint64_t min2us = 60e6 * (uint64_t)min;
-    const uint64_t sec2us = 1e6  * (uint64_t)sec;
-    const uint64_t ms2us  = 1e3  * (uint64_t)ms;
-    const uint64_t total_us = min2us + sec2us + ms2us + (uint64_t)us;
-
-    const uint64_t total_ticks = total_us * RTI_US_2_TICKS + tick;
-
-    return total_ticks;
+void delay_ms_us(const uint32_t ms, const uint32_t us){
+    delay_ticks(US_TO_TICKS((ticks_t)ms * 1000U + us));
 }
 
-//bool debounce_Tflipflop(const bool input, bool currentState, uint32_t * const perv, const uint8_t changeNum){
-//
-//    uint8_t comand = debounceBool(input, currentState, perv, changeNum);
-//}
+//----------------------------------------------------------------------------------------
+// Non-blocking waits
+//----------------------------------------------------------------------------------------
+bool hasTimeElapsed(const ticks_t start, const ticks_t wait){
+    return (getNow_tick() - start) >= wait;
+}
 
+void timeout_start(Timeout_t * const t, const ticks_t wait){
+    t->start  = getNow_tick();
+    t->wait   = wait;
+    t->active = true;
+}
 
+void timeout_cancel(Timeout_t * const t){
+    t->active = false;
+}
 
+bool timeout_expired(const Timeout_t * const t){
+    return t->active && hasTimeElapsed(t->start, t->wait);
+}
+
+ticks_t timeout_remaining(const Timeout_t * const t){
+    if (!t->active){
+        return 0;
+    }
+    const ticks_t elapsed = getNow_tick() - t->start;
+    return (elapsed >= t->wait) ? 0 : (t->wait - elapsed);
+}
+
+void periodic_init(Periodic_t * const p, const ticks_t period){
+    p->period = period;
+    p->last   = getNow_tick();
+}
+
+bool periodic_due(Periodic_t * const p){
+    const ticks_t now = getNow_tick();
+
+    if (now - p->last < p->period){
+        return false;
+    }
+
+    p->last += p->period;                   // keeps the rate exact
+    if (now - p->last >= p->period){        // way behind: skip ahead instead of firing in a burst
+        p->last = now;
+    }
+    return true;
+}
+
+uint32_t doUntilTimeLimit(VoidFunc_t Callable, const ticks_t timeLimit_tick){
+    const ticks_t start_tick = getNow_tick();
+    uint32_t calls = 0;
+
+    while (!hasTimeElapsed(start_tick, timeLimit_tick)){
+        Callable();
+        calls++;
+    }
+    return calls;
+}
+
+//----------------------------------------------------------------------------------------
+// Waiting for a condition
+//----------------------------------------------------------------------------------------
+// Starts the wait on the first call, and runs Condition if a check is due.
+static bool waitConditionMet(WaitUntil_t * const w, BoolFunc_t Condition, const ticks_t checkPeriod){
+    const ticks_t now = getNow_tick();
+
+    if (!w->started){
+        w->started = true;
+        w->start   = now;
+        w->checks  = 0;
+    }
+
+    if (w->checks > 0 && (now - w->lastCheck) < checkPeriod){
+        return false;
+    }
+
+    w->lastCheck = now;
+    w->checks++;
+    return Condition();
+}
+
+static WaitResult_t waitFinish(WaitUntil_t * const w, const WaitResult_t result){
+    if (result != WAIT_CONTINUE){
+        w->started = false;     // next call starts a new wait
+    }
+    return result;
+}
+
+WaitResult_t waitUntil_nonblocking_count(WaitUntil_t * const w, BoolFunc_t Condition,
+                                         const uint32_t maxChecks, const ticks_t checkPeriod){
+    if (waitConditionMet(w, Condition, checkPeriod)){
+        return waitFinish(w, WAIT_DONE);
+    }
+    const bool timedOut = (maxChecks > 0) && (w->checks >= maxChecks);
+    return waitFinish(w, timedOut ? WAIT_TIMEOUT : WAIT_CONTINUE);
+}
+
+WaitResult_t waitUntil_nonblocking_time(WaitUntil_t * const w, BoolFunc_t Condition,
+                                        const ticks_t maxWait, const ticks_t checkPeriod){
+    if (waitConditionMet(w, Condition, checkPeriod)){
+        return waitFinish(w, WAIT_DONE);
+    }
+    const bool timedOut = (maxWait > 0) && hasTimeElapsed(w->start, maxWait);
+    return waitFinish(w, timedOut ? WAIT_TIMEOUT : WAIT_CONTINUE);
+}
+
+bool waitUntil_blocking_count(BoolFunc_t Condition, const uint32_t maxChecks, const ticks_t checkPeriod){
+    WaitUntil_t  w = {0};
+    WaitResult_t result;
+
+    do {
+        result = waitUntil_nonblocking_count(&w, Condition, maxChecks, checkPeriod);
+    } while (result == WAIT_CONTINUE);
+
+    return result == WAIT_DONE;
+}
+
+bool waitUntil_blocking_time(BoolFunc_t Condition, const ticks_t maxWait, const ticks_t checkPeriod){
+    WaitUntil_t  w = {0};
+    WaitResult_t result;
+
+    do {
+        result = waitUntil_nonblocking_time(&w, Condition, maxWait, checkPeriod);
+    } while (result == WAIT_CONTINUE);
+
+    return result == WAIT_DONE;
+}
+
+//----------------------------------------------------------------------------------------
+// Timing functions
+//----------------------------------------------------------------------------------------
+void timingStats_reset(TimingStats_t * const s){
+    ZERO_STRUCT(*s);
+    s->min = UINT64_MAX;    // so the first run always becomes the min
+}
+
+void timingStats_add(TimingStats_t * const s, const ticks_t duration){
+    s->count++;
+    s->last   = duration;
+    s->total += duration;
+    s->min    = MIN_VAL(s->min, duration);
+    s->max    = MAX_VAL(s->max, duration);
+}
+
+ticks_t timingStats_avg(const TimingStats_t * const s){
+    return (s->count == 0) ? 0 : (s->total / s->count);
+}
+
+uint64_t timeFunction_VoidVoid_us(VoidFunc_t FuncPtr){
+    const ticks_t tic = timer_tic_tick();
+    FuncPtr();
+    return timer_toc_us(tic);
+}
+
+ticks_t timeFunction_stats(VoidFunc_t FuncPtr, TimingStats_t * const stats){
+    const ticks_t tic = timer_tic_tick();
+    FuncPtr();
+    const ticks_t duration = timer_toc_tick(tic);
+
+    timingStats_add(stats, duration);
+    return duration;
+}
+
+//----------------------------------------------------------------------------------------
+// Debouncing
+//----------------------------------------------------------------------------------------
+void debounce_init(Debouncer_t * const d, const bool initial){
+    d->state = initial;
+    d->count = 0;
+    d->since = 0;
+}
+
+static Edge_t debounce_commit(Debouncer_t * const d, const bool input){
+    d->state = input;
+    d->count = 0;
+    return input ? EDGE_RISING : EDGE_FALLING;
+}
+
+Edge_t debounce_samples(Debouncer_t * const d, const bool input, const uint32_t samples){
+    if (input == d->state){
+        d->count = 0;
+        return EDGE_NONE;
+    }
+
+    d->count++;
+    return (d->count >= samples) ? debounce_commit(d, input) : EDGE_NONE;
+}
+
+Edge_t debounce_time(Debouncer_t * const d, const bool input, const ticks_t hold){
+    if (input == d->state){
+        d->count = 0;
+        return EDGE_NONE;
+    }
+
+    if (d->count == 0){
+        d->since = getNow_tick();   // first sample that disagrees
+    }
+    if (d->count < UINT32_MAX){
+        d->count++;
+    }
+
+    return hasTimeElapsed(d->since, hold) ? debounce_commit(d, input) : EDGE_NONE;
+}
+
+bool waitForInput(bool (*readInput)(void), const bool level,
+                  const ticks_t stable_tick, const ticks_t timeout_tick){
+    Debouncer_t debouncer;
+    Timeout_t   timeout;
+
+    debounce_init(&debouncer, !level);      // starts at the other level, so we wait for `level`
+    timeout_start(&timeout, timeout_tick);
+
+    while (!timeout_expired(&timeout)){
+        debounce_time(&debouncer, readInput(), stable_tick);
+        if (debouncer.state == level){
+            return true;
+        }
+    }
+    return false;
+}
+
+//----------------------------------------------------------------------------------------
+// Edge detection
+//----------------------------------------------------------------------------------------
+bool detectEdge(const bool input, bool * const last, const EdgeMode_t mode){
+    const bool rising  = input && !*last;
+    const bool falling = !input && *last;
+    *last = input;
+
+    switch (mode){
+        case EDGE_DETECT_RISING:  return rising;
+        case EDGE_DETECT_FALLING: return falling;
+        default:                  return rising || falling;
+    }
+}
+
+//----------------------------------------------------------------------------------------
+// How long has an input been true
+//----------------------------------------------------------------------------------------
+bool trueTimer_update(TrueTimer_t * const t, const bool input, ticks_t * const trueFor){
+    const ticks_t now = getNow_tick();
+
+    if (detectEdge(input, &t->last, EDGE_DETECT_RISING)){
+        t->since = now;
+    }
+
+    *trueFor = input ? (now - t->since) : 0;
+    return input;
+}
+
+bool trueTimer_updateFunc(TrueTimer_t * const t, BoolFunc_t Input, ticks_t * const trueFor){
+    return trueTimer_update(t, Input(), trueFor);
+}
+
+//----------------------------------------------------------------------------------------
+// Software PWM
+//----------------------------------------------------------------------------------------
+bool pwmSignalGen(const ticks_t period, const float duty, ticks_t * const periodStart){
+    if (period == 0){
+        return false;
+    }
+
+    const ticks_t now = getNow_tick();
+    ticks_t elapsed = now - *periodStart;
+
+    if (elapsed >= period){
+        *periodStart += elapsed - (elapsed % period);   // move to the start of the current period
+        elapsed = elapsed % period;
+    }
+
+    const ticks_t onTicks = (ticks_t)(clampValue(duty, 0.0, 1.0) * (double)period);
+    return elapsed < onTicks;
+}
+bool pwmSignalGen_duty100(const ticks_t period, const float duty, ticks_t * const periodStart){
+    return pwmSignalGen(period, duty/100.0, periodStart);
+}

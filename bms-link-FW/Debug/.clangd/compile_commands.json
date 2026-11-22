@@ -1,7 +1,0 @@
-[
-   {
-      "directory" : "C:/Phantom/bms-link/bms-link-fw/bms-link-FW/Debug",
-      "command"   : "clang++ -I\"C:/Phantom/bms-link/bms-link-fw/bms-link-FW\" -I\"C:/ti/ccs2020/ccs/tools/compiler/include\" -xc",
-      "file"      : "C:/Phantom/bms-link/bms-link-fw/bms-link-FW/main.c"
-   }
-]

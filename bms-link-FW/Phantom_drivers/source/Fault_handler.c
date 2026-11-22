@@ -1,213 +1,225 @@
 /*
  * Fault_handler.c
- *
- *  Created on: Jun 23, 2026
- *      Author: tanjo
  */
-
-
-//#include "gio.h"
-//#include "can.h"
-//#include "sci.h"
-#include "het.h"
-#include "string.h"
-#include "spi_helpers.h"
+#include <string.h>
+#include <math.h>
 #include "GIO_helpers.h"
 
-
 #include "Fault_handler.h"
-#include "PhantomHelpers.h"
-
-#include "BatteryData.h"
+#include "PhantomAlgorithms.h"
 #include "Charger.h"
 #include "Fans.h"
-//#include "charger_can.h"
-//#include "vcu_can.h"
+#include "Can_Helpers.h"
+
+#include "IMD_hardware.h"
 #include "SlaveCommunation_Hardware.h"
-#include "SlaveCommunation_Functions.h"
 
-#include "Phantom_Can.h"
-////----------------------------------------------------------------------------------------------------
-void Debug_GIO_Notification(){
-    BMSFaultsData.BMS_Faults |= 1U << DEBUG_FLAG;
-    Fault_Handler();
-}
-void IMD_FAULT_GIO_Notification(){
-    BMSFaultsData.IMD_Faults.IMDState= Undefined_Fault;
-    Fault_Handler();
-}
-////----------------------------------------------------------------------------------------------------
+#define FAULT_CAN_BYTES     8
 
-bool SendFault_Cans(const BMSFaultsData_t* const data){
-    const uint32_t returnval =  can_transmit_data(BMS2ALL_FAULT, data, sizeof(*data));
-    return returnval;
-}
-bool GetFault_Cans(BMSFaultsData_t* const data){
-    const uint32_t returnval =  can_receive_data(BMS2ALL_FAULT, data, sizeof(*data));
-    return returnval;
-}
+// Map these to interrupt disable / enable if faults are raised from interrupts AND the main loop.
+#ifndef FAULT_LOCK
+#define FAULT_LOCK()        ((void)0)
+#define FAULT_UNLOCK()      ((void)0)
+#endif
+
+// compile error if the fault data grows past what one CAN frame holds
+typedef char FaultData_must_fit_8_bytes[(sizeof(BMSFaultsData_t) <= FAULT_CAN_BYTES) ? 1 : -1];
+
+static BMSFaultsData_t Faults = {0u, 0u, 0x40, FIRST_FAULT_NONE, 0u};
+static bool handling = false;
+
 //----------------------------------------------------------------------------------------------------
-bool AnyBMSFaults(){
-    return (BMSFaultsData.BMS_Faults != BMS_NO_FALUT_VAL);
-}
-bool AnySlaveFaults(){
-    return (BMSFaultsData.Slave_Faults != SLAVE_NO_FAULT_VAL);
-}
+// Extra routines, one per fault. A fault without one only gets Fault_Handler().
+typedef void (*FaultRoutine_t)(void);
 
-bool AnyIMDFaults(){
-    if (BMSFaultsData.IMD_Faults.IMDState != IMD_NO_FAULT_VAL){
-        return TRUE;
-    }
-    if (BMSFaultsData.IMD_Faults.IsolationState < ISOLATION_MIN_NO_FAULT_VAL){
-        return TRUE;
-    }
-    if (BMSFaultsData.IMD_Faults.IsolationState > ISOLATION_MAX_NO_FAULT_VAL){
-        return TRUE;
-    }
-
-    return FALSE;
+static void OverVoltageRoutine(void){
+    Fans_SetFault();
+}
+static void UnderVoltageRoutine(void){
+    // nothing extra yet, kept separate from over voltage on purpose
 }
 
+static const FaultRoutine_t BMSFaultRoutines[NUM_BMS_FAULTS] = {
+    [CELL_OVERVOLT_FLAG]  = OverVoltageRoutine,
+    [CELL_UNDERVOLT_FLAG] = UnderVoltageRoutine,
+//    [OVERTEMP_FLAG]       = Fans_SetFault,
+};
 
-bool AnyFaults(){
-    const bool hasBMSFault = AnyBMSFaults();
-    const bool hasSlaveFault = AnySlaveFaults();
-    const bool hasIMDFault = AnyIMDFaults();
-
-    return hasBMSFault || hasSlaveFault || hasIMDFault;
-
-}
 //----------------------------------------------------------------------------------------------------
-BMSFaultsData_t* GetBMSFaultsData(){
-    return &BMSFaultsData;
+// Fault data <-> bytes. Always big endian on the wire, so a different processor changes nothing.
+static void Pack(const BMSFaultsData_t* const f, uint8_t* const out){
+    write_u16_BE(&out[0], f->Slave_Faults);
+    write_u16_BE(&out[2], f->BMS_Faults);
+    out[5] = f->IMDState;
+    out[5] = f->FirstFault;
+    out[6] = f->TripCount;
 }
-//----------------------------------------------------------------------------------------------------
+// static void Unpack(const uint8_t* const in, BMSFaultsData_t* const f){
+//     f->Slave_Faults   = read_u16_BE(&in[0]);
+//     f->BMS_Faults     = read_u16_BE(&in[2]);
+//     f->IMDState       = in[5];
+//     f->FirstFault     = in[5];
+//     f->TripCount      = in[6];
+// }
 
-uint16_t GetAllSlaveFaults(){
-    return BMSFaultsData.Slave_Faults;
+bool Fault_SendCAN(void){
+    const BMSFaultsData_t copy = Fault_Get();
+    uint8_t buf[FAULT_CAN_BYTES];
+    Pack(&copy, buf);
+    return can_send(BMS2ALL_FAULT, buf, sizeof(buf));
 }
-IMDData_t GetIMDFaults(){
-    return BMSFaultsData.IMD_Faults;
-}
-//void GetIMDFaults_slip(IMDStateEnum *const IMDState, uint8_t *const IsolationState){
-//    *IMDState       = BMSFaultsData.IMD_Faults.IMDState;
-//    *IsolationState = BMSFaultsData.IMD_Faults.IsolationState;
-//
-//}
-bool GetBMSFault_bool(const BMS_Faults Fault){
-   uint16_t Val = BMSFaultsData.BMS_Faults & (1U << Fault);
-   return (Val != 0);
-}
-bool GetSlaveFault_bool(const Slave_Faults Fault){
-   uint16_t Val = BMSFaultsData.Slave_Faults & ~(1U << Fault);
-   return (Val != 0);
-}
-//----------------------------------------------------------------------------------------------------
-void ClearAllSlaveFaults(){
-    BMSFaultsData.Slave_Faults = SLAVE_NO_FAULT_VAL;
-}
-void ClearAllBMSFaults(){
-    BMSFaultsData.BMS_Faults = BMS_NO_FALUT_VAL;
-}
-//void ClearIMDFault(){
-//    BMSFaultsData.IMD_Faults.IMDState       = IMD_NO_FAULT_VAL;
-//}
-void ClearAllFaults(){
-//    ClearIMDFault();
-    ClearAllSlaveFaults();
-    ClearAllBMSFaults();
-    gioSetBitHelper(GIO_BMS_FAULT_BIT , GIO_HIGH);
 
-}
 //----------------------------------------------------------------------------------------------------
-void Fault_Handler(){
-    if(!AnyFaults()){
+bool Fault_AnyBMS(void){
+    return Faults.BMS_Faults != 0u;
+}
+bool Fault_AnySlave(void){
+    return Faults.Slave_Faults != 0u;
+}
+bool Fault_Any(void){
+    return Fault_AnyBMS() || Fault_AnySlave();
+}
+bool Fault_IsBMSSet(const BMS_Faults fault){
+    return (fault < NUM_BMS_FAULTS) && BIT_IS_SET(Faults.BMS_Faults, fault);
+}
+bool Fault_IsSlaveSet(const Slave_Faults fault){
+    return (fault < NUM_SLAVE_FAULTS) && BIT_IS_SET(Faults.Slave_Faults, fault);
+}
+uint16_t Fault_GetBMSFlags(void){
+    return Faults.BMS_Faults;
+}
+uint16_t Fault_GetSlaveFlags(void){
+    return Faults.Slave_Faults;
+}
+BMSFaultsData_t Fault_Get(void){
+    FAULT_LOCK();
+    const BMSFaultsData_t copy = Faults;
+    FAULT_UNLOCK();
+    return copy;
+}
+
+//----------------------------------------------------------------------------------------------------
+void Fault_Handler(void){
+    if (handling){      // something in here raised a fault again, the line is already low
         return;
     }
-    gioSetBitHelper(GIO_BMS_FAULT_BIT , GIO_LOW);
+    handling = true;
 
-    SetAllFansDuty(99);
+    gio_write(GIO_IMD_FAULT_PIN, GIO_LOW);    // first, nothing before it can stop it
     Charger_FaultShutdown();
-    SendFault_Cans(&BMSFaultsData);
+    Fault_SendCAN();
 
+    handling = false;
 }
-//void IMD_Fault_Handler(){
-//    const bool hasFault = AnyIMDFaults();
-//    Fault_Handler();
-//}
-//void Slave_Fault_Handler(){
-//    const bool hasFault = AnySlaveFaults();
-//    Fault_Handler();
-//}
-//void BMS_Fault_Handler(){
-//    const bool hasFault = AnyBMSFaults();
-//    Fault_Handler();
-//}
+
 //----------------------------------------------------------------------------------------------------
- void SetAllSlaveFaults(const uint16_t NewSlaveFaults){
-     BMSFaultsData.Slave_Faults = NewSlaveFaults;
+// Sets the bits and remembers which fault came first
+static void Record(uint16_t* const flags, const uint16_t mask, const uint8_t source){
+    FAULT_LOCK();
+    if (!Fault_Any()){
+        Faults.FirstFault = source;
+    }
+    if (((*flags & mask) != mask) && (Faults.TripCount < UINT8_MAX)){
+        Faults.TripCount++;
+    }
+    *flags |= mask;
+    FAULT_UNLOCK();
+}
 
-     Fault_Handler();
- }
- void AddSlaveFaults(const uint16_t NewSlaveFaults){
-     BMSFaultsData.Slave_Faults |= NewSlaveFaults;
+static uint8_t LowestBit(const uint16_t mask){
+    uint8_t bit = 0u;
+    while (((mask >> bit) & 1u) == 0u){
+        bit++;
+    }
+    return bit;     // mask must not be 0
+}
 
-     Fault_Handler();
- }
- void SetSlaveFault_bool(const bool Val, const Slave_Faults Fault){
-     BMSFaultsData.Slave_Faults &= ~(1U << Fault);
-     BMSFaultsData.Slave_Faults |= (uint32_t)Val << Fault;
+void Fault_RaiseBMS(const BMS_Faults fault){
+    if (fault >= NUM_BMS_FAULTS){
+        return;
+    }
+    Record(&Faults.BMS_Faults, (uint16_t)BIT(fault), (uint8_t)fault);
+    Fault_Handler();
 
-     Fault_Handler();
- }
- void SetSlaveFault_bool_HIGH(const Slave_Faults Fault){
-     BMSFaultsData.Slave_Faults |= 1U << Fault;
-
-     Fault_Handler();
- }
-  //----------------------------------------------------------------------------------------------------
-  void SetBMSFault(const uint8_t Val, const uint8_t bitSize, const BMS_Faults Fault){
- //     const uint8_t mask = (1U<<bitSize)-1;
-      const uint8_t mask = MINUS1(bitSize);
-      uint8_t Val_mask   = Val & mask;
-
-      BMSFaultsData.BMS_Faults &= ~((uint32_t)mask    << Fault);
-      BMSFaultsData.BMS_Faults |=  (uint32_t)Val_mask << Fault;
-
-      Fault_Handler();
-  }
-  void AddBMSFaults(const uint16_t NewBMSFaults){
-      BMSFaultsData.BMS_Faults |= NewBMSFaults;
-
-      Fault_Handler();
-  }
-   void SetBMSFault_bool(const bool Val, const BMS_Faults Fault){
-      BMSFaultsData.BMS_Faults &= ~(1U << Fault);
-      BMSFaultsData.BMS_Faults |= (uint32_t)Val << Fault;
-
-      Fault_Handler();
-  }
-   void SetBMSFault_bool_HIGH(const BMS_Faults Fault){
-      BMSFaultsData.BMS_Faults |= 1U << Fault;
-
-      Fault_Handler();
-  }
- //----------------------------------------------------------------------------------------------------
-  void SetIMDFaults(const IMDData_t * const IMDdata){
-      BMSFaultsData.IMD_Faults = *IMDdata ;
-
-      Fault_Handler();
-  }
-  //----------------------------------------------------------------------------------------------------
-
-void init_BMS_Faults(){
-    bool IMD_F = gioGetBitHelper(GIO_IMD_FAULT_BIT);
-    BMSFaultsData.IMD_Faults.IMDState = IMD_NO_FAULT_VAL;
-    BMSFaultsData.IMD_Faults.IsolationState = ISOLATION_MAX_NO_FAULT_VAL;
-    ClearAllFaults();
-    if ((IMD_F & 1) == 0){
-//        IMD_FAULT_GIO_Notification();
+    if (BMSFaultRoutines[fault] != NULL){
+        BMSFaultRoutines[fault]();
     }
 }
 
-#warning need more faults, report better, make logic better
+void Fault_RaiseSlaveMask(const uint16_t mask){
+    const uint16_t valid = mask & (uint16_t)MASK_LOW_BITS(NUM_SLAVE_FAULTS);
+    if (valid == 0u){
+        return;
+    }
+    Record(&Faults.Slave_Faults, valid, FIRST_FAULT_SLAVE_BIT | LowestBit(valid));
+    Fault_Handler();
+
+    if (BIT_IS_SET(valid, BAD_TEMP_flags)){
+        Fans_SetFault();
+    }
+}
+void Fault_RaiseSlave(const Slave_Faults fault){
+    if (fault < NUM_SLAVE_FAULTS){
+        Fault_RaiseSlaveMask((uint16_t)BIT(fault));
+    }
+}
+
+void set_IMD_fault_state(const float isolation, const IMDStateEnum state){
+    FAULT_LOCK();
+    const uint8_t compress_iso   = (((uint8_t) roundf(isolation/100*8)) & 0xF) | (isolation>100 ? 0x8 : 0x0);
+    const uint8_t compress_state = ((uint8_t) state) & 0xF;
+    Faults.IMDState       = compress_iso<<4 | compress_state;
+    FAULT_UNLOCK();
+}
+void Fault_RaiseIMD(){
+    Fault_RaiseBMS(IMD_FAULT_FLAG);
+}
+
+//----------------------------------------------------------------------------------------------------
+static void ReleaseLineIfClear(void){
+    if (!Fault_Any()){
+        gio_write(GIO_IMD_FAULT_PIN, GIO_HIGH);
+    }
+}
+
+void Fault_ClearBMS(const BMS_Faults fault){
+    if (fault >= NUM_BMS_FAULTS){
+        return;
+    }
+    FAULT_LOCK();
+    Faults.BMS_Faults &= (uint16_t)~BIT(fault);
+    FAULT_UNLOCK();
+    ReleaseLineIfClear();
+}
+void Fault_ClearSlave(const uint16_t mask){
+    FAULT_LOCK();
+    Faults.Slave_Faults &= (uint16_t)~mask;
+    FAULT_UNLOCK();
+    ReleaseLineIfClear();
+}
+void Fault_ClearAll(void){
+    FAULT_LOCK();
+    Faults.Slave_Faults   = 0u;
+    Faults.BMS_Faults     = 0u;
+    Faults.FirstFault     = FIRST_FAULT_NONE;
+    Faults.TripCount      = 0u;
+    FAULT_UNLOCK();
+    ReleaseLineIfClear();
+}
+
+//----------------------------------------------------------------------------------------------------
+void Debug_GIO_Notification(void){
+    Fault_RaiseBMS(DEBUG_FLAG);
+}
+void IMD_FAULT_GIO_Notification(void){
+    set_IMD_fault_state(ISOLATION_UNKNOWN, Undefined_Fault);
+}
+
+void Fault_Init(void){
+    Fault_ClearAll();
+
+    const bool imdPinHigh = gio_read(GIO_IMD_FAULT_PIN) & 1;     // IMD pulls it low on a fault
+    if (!imdPinHigh){
+        IMD_FAULT_GIO_Notification();
+    }
+}
