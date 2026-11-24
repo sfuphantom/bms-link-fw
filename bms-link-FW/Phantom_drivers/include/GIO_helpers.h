@@ -18,6 +18,7 @@
 #include "PhantomTimers.h"
 
 #include "Cpu_stubs.h"
+#include "PhantomPinAlloc.h"
 
 //--------------------------------------------------------------------------
 // Types
