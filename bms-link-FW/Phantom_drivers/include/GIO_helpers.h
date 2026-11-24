@@ -17,17 +17,7 @@
 #include "reg_het.h"        // hetPORTn
 #include "PhantomTimers.h"
 
-// Short critical section. Override both (before this header) for an RTOS,
-// e.g. with taskENTER_CRITICAL / taskEXIT_CRITICAL. "state" is a uint32_t the caller declares.
-#ifndef CRITICAL_ENTER
-  #if defined(__TI_COMPILER_VERSION__)
-    #define CRITICAL_ENTER(state)   do { (state) = _get_CPSR(); _disable_IRQ(); } while (0)
-    #define CRITICAL_EXIT(state)    do { if (((state) & 0x80U) == 0U) { _enable_IRQ(); } } while (0)
-  #else
-    #define CRITICAL_ENTER(state)   ((void)((state) = 0U))
-    #define CRITICAL_EXIT(state)    ((void)(state))
-  #endif
-#endif
+#include "Cpu_stubs.h"
 
 //--------------------------------------------------------------------------
 // Types

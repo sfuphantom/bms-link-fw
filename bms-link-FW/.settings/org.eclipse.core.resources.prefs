@@ -4,6 +4,8 @@
 eclipse.preferences.version=1
 encoding//Debug/BMS_Master/source/subdir_rules.mk=UTF-8
 encoding//Debug/BMS_Master/source/subdir_vars.mk=UTF-8
+encoding//Debug/Peripherals/subdir_rules.mk=UTF-8
+encoding//Debug/Peripherals/subdir_vars.mk=UTF-8
 encoding//Debug/Phantom_drivers/include/subdir_rules.mk=UTF-8
 encoding//Debug/Phantom_drivers/include/subdir_vars.mk=UTF-8
 encoding//Debug/Phantom_drivers/source/subdir_rules.mk=UTF-8
