@@ -1,78 +1,22 @@
 /*
- * spi_drivers.c
+ * spi_helpers.c
  *
- *  Created on: Jul 2, 2026
- *      Author: tanjo
+ * High-level SPI transaction and bus management helpers.
  */
 
-#include "spi.h"
-#include "SPI_helpers.h"
+#include "spi_helpers.h"
 #include "PhantomAlgorithms.h"
-
-#define SPI_BYTE_TIMEOUT_TICKS      US_TO_TICKS(SPI_BYTE_TIMEOUT_US)
+#include "Cpu_stubs.h"
 
 typedef struct {
-    volatile SpiOwner_t    owner;
-    volatile bool          abort;
+    volatile SpiOwner_t     owner;
+    volatile bool           abort;
     volatile GioWriteName_t activeCS;
 } SpiBus_t;
 
 static SpiBus_t bus = { SPI_NO_OWNER, false, GIO_WRITE_NONE };
 
-//---------------------------------------------------------------------------------------------------------
-// Hardware wrapper: the only code that calls spi.h or touches the SPI registers
-//---------------------------------------------------------------------------------------------------------
-uint32_t spiHw_errors(void)
-{
-    return REG_FOR_SPI->FLG & SPI_ERR_FLAGS;
-}
-
-void spiHw_clearErrors(void)
-{
-    REG_FOR_SPI->FLG = SPI_ERR_FLAGS;       // write 1 to clear
-}
-
-// SPIEN low clears the shift registers, flags and buffers
-void spiHw_reset(void)
-{
-    REG_FOR_SPI->GCR1 &= ~SPI_GCR1_SPIEN;
-    REG_FOR_SPI->GCR1 |=  SPI_GCR1_SPIEN;
-}
-
-SpiStatus_t spiHw_exchange(const SPIDATAFMT_t fmt, const uint16_t tx, uint16_t * const rx)
-{
-    if (bus.abort) { return SPI_ERR_ABORTED; }
-
-#if SPI_USE_HAL_EXCHANGE
-    spiDAT1_t config;
-    uint16    txWord = tx;
-    uint16    rxWord = 0U;
-
-    config.CS_HOLD = 0U;
-    config.WDEL    = 0U;
-    config.DFSEL   = fmt;
-    config.CSNR    = SPI_HW_CSNR;
-
-    (void)spiTransmitAndReceiveData(REG_FOR_SPI, &config, 1U, &txWord, &rxWord);
-    *rx = rxWord;
-#else
-    REG_FOR_SPI->DAT1 = ((uint32_t)fmt << 24U) | ((uint32_t)SPI_HW_CSNR << 16U) | (uint32_t)tx;
-
-    const ticks_t start = timer_tic_tick();
-    while ((REG_FOR_SPI->FLG & SPI_FLG_RXINT) == 0U) {
-        if (bus.abort)                                     { return SPI_ERR_ABORTED; }
-        if (hasTimeElapsed(start, SPI_BYTE_TIMEOUT_TICKS)) { return SPI_ERR_TIMEOUT; }
-    }
-
-    *rx = (uint16_t)REG_FOR_SPI->BUF;       // reading BUF clears the RX flag
-#endif
-
-    return (spiHw_errors() != 0U) ? SPI_ERR_BUS : SPI_OK;
-}
-
-//---------------------------------------------------------------------------------------------------------
-// Bus ownership
-//---------------------------------------------------------------------------------------------------------
+/* Bus ownership */
 bool spi_isFree(void) { return bus.owner == SPI_NO_OWNER; }
 bool spi_isBusy(void) { return bus.owner != SPI_NO_OWNER; }
 
@@ -119,7 +63,7 @@ void spi_forceEnd(void)
 {
     const GioWriteName_t cs = bus.activeCS;
 
-    bus.abort = true;                       // first, so an exchange in progress stops
+    bus.abort = true;                       /* first, so an exchange in progress stops */
 
     if (cs != GIO_WRITE_NONE) {
         gio_write(cs, GIO_HIGH);
@@ -137,9 +81,7 @@ void spi_resume(void)
 
 bool spi_isAborted(void) { return bus.abort; }
 
-//---------------------------------------------------------------------------------------------------------
-// Chip select
-//---------------------------------------------------------------------------------------------------------
+/* Chip select */
 void spi_csLow(const GioWriteName_t cs)
 {
     bus.activeCS = cs;
@@ -171,7 +113,7 @@ SpiStatus_t spi_begin(const SpiOwner_t owner, const GioWriteName_t cs, const tic
 
 void spi_end(const SpiOwner_t owner, const GioWriteName_t cs)
 {
-    // After spi_forceEnd the bus (and the CS) may belong to someone else, leave them alone
+    /* After spi_forceEnd the bus (and the CS) may belong to someone else, leave them alone */
     if (owner != SPI_NO_OWNER && bus.owner != owner) { return; }
 
     spi_csHigh(cs);
@@ -190,11 +132,10 @@ SpiStatus_t spi_transact(const SpiOwner_t owner, const GioWriteName_t cs, const 
     return status;
 }
 
-//---------------------------------------------------------------------------------------------------------
-// Exchange
-//---------------------------------------------------------------------------------------------------------
+/* Exchange */
 SpiStatus_t spi_exchange_u8(const uint8_t tx, uint8_t * const rx)
 {
+    if (bus.abort) { return SPI_ERR_ABORTED; }
     uint16_t rxWord = 0U;
     const SpiStatus_t status = spiHw_exchange(SPI_BYTE_FMT, tx, &rxWord);
 
@@ -204,6 +145,7 @@ SpiStatus_t spi_exchange_u8(const uint8_t tx, uint8_t * const rx)
 
 SpiStatus_t spi_exchange_u16_hw(const uint16_t tx, uint16_t * const rx)
 {
+    if (bus.abort) { return SPI_ERR_ABORTED; }
     uint16_t rxWord = 0U;
     const SpiStatus_t status = spiHw_exchange(SPI_WORD_FMT, tx, &rxWord);
 
@@ -211,7 +153,7 @@ SpiStatus_t spi_exchange_u16_hw(const uint16_t tx, uint16_t * const rx)
     return status;
 }
 
-// 2 or 4 byte value, one byte at a time. Byte k of a value is (value >> 8k), on any processor.
+/* 2 or 4 byte value, one byte at a time. Byte k of a value is (value >> 8k), on any processor. */
 static SpiStatus_t exchangeValue(const uint32_t tx, uint32_t * const rx, const uint8_t bytes, const SpiEndian_t order)
 {
     uint32_t rxValue = 0U;
@@ -284,9 +226,7 @@ SpiStatus_t spi_exchange_arr32(const uint32_t * const tx, uint32_t * const rx, c
     return SPI_OK;
 }
 
-//---------------------------------------------------------------------------------------------------------
-// Send and receive
-//---------------------------------------------------------------------------------------------------------
+/* Send and receive */
 SpiStatus_t spi_send_u8(const uint8_t tx)                                          { return spi_exchange_u8(tx, NULL); }
 SpiStatus_t spi_send_u16(const uint16_t tx, const SpiEndian_t order)               { return spi_exchange_u16(tx, NULL, order); }
 SpiStatus_t spi_send_u32(const uint32_t tx, const SpiEndian_t order)               { return spi_exchange_u32(tx, NULL, order); }
@@ -301,13 +241,11 @@ SpiStatus_t spi_receive_arr8(uint8_t * const rx, const size_t count)            
 SpiStatus_t spi_receive_arr16(uint16_t * const rx, const size_t count, const SpiEndian_t order)     { return spi_exchange_arr16(NULL, rx, count, order); }
 SpiStatus_t spi_receive_arr32(uint32_t * const rx, const size_t count, const SpiEndian_t order)     { return spi_exchange_arr32(NULL, rx, count, order); }
 
-//---------------------------------------------------------------------------------------------------------
-// Clock until it matches
-//---------------------------------------------------------------------------------------------------------
+/* Clock until it matches */
 typedef enum {
     MATCH_VALUE,
     MATCH_ALL_BITS,
-    MATCH_ANY_BIT,
+    MATCH_ANY_BIT
 } Match_t;
 
 static bool isMatch(const Match_t how, const uint8_t rx, const uint8_t arg)
@@ -324,7 +262,7 @@ static bool pollStep(SpiWait_t * const w, const Match_t how, const uint8_t arg, 
 {
     uint8_t rx = 0U;
 
-    if (w->done) { ZERO_STRUCT(*w); }       // the last call finished, start a new wait
+    if (w->done) { ZERO_STRUCT(*w); }       /* the last call finished, start a new wait */
 
     w->status = spi_receive_u8(&rx);
     if (w->status != SPI_OK) {
