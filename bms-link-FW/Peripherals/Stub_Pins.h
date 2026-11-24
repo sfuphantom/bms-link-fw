@@ -238,8 +238,9 @@ typedef struct {
 } PinInfo_t;
 
 /* Physical lookup functions for stubs */
-GioPin_t alloc_gioReadPin(const GioReadName_t name);
-GioPin_t alloc_gioWritePin(const GioWriteName_t name);
+GioPin_t       alloc_gioReadPin(const GioReadName_t name);
+GioPin_t       alloc_gioWritePin(const GioWriteName_t name);
+GioReadName_t  alloc_gioReadName(const GioPin_t pin);
 const PinInfo_t * pin_getInfo(const GioPin_t pin);
 
 #elif BOARD == BOARD_STM32_HW

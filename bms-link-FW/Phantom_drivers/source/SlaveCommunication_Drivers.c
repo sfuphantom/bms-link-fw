@@ -13,7 +13,7 @@ Author: Tanjosh Sidhu
 #include "PhantomAlgorithms.h"
 #include "PhantomTimers.h"
 
-#define SLAVE_CS_PIN (GIO_SLAVE_CS_PIN)
+#define SLAVE_CS_PIN (GIO_WRITE_SLAVE_CS)
 
 static uint16_t pec15Table[256];
 static bool     pecReady = false;

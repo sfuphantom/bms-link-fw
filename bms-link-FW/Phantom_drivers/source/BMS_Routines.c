@@ -216,8 +216,8 @@ RoutineResult_t KeepSlavesAwake_Routine(uint8_t * const step)
 RoutineResult_t Debug_Routine(uint8_t * const step)
 {
     (void)step;
-#warning GIO_DEBUG_PIN (A2) also has the Debug_GIO_Notification interrupt in Fault_handler.h. If A2 is an input/interrupt there, toggling it will not show on a scope (or may trigger that callback). Use a free output pin if so.
-    gio_toggle(GIO_DEBUG_PIN);      // scope this: one toggle per run, so a period of 0 shows the loop time
+#warning GIO_WRITE_DEBUG (A2) toggles debug probe pin
+    gio_toggle(GIO_WRITE_DEBUG);      // scope this: one toggle per run, so a period of 0 shows the loop time
     return ROUTINE_OK;
 }
 #endif

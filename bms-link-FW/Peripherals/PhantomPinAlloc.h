@@ -12,12 +12,20 @@
 #include <stdbool.h>
 
 /* ------------------------------------------------------------------------- */
+/* Common Logical Pin Types                                                  */
+/* ------------------------------------------------------------------------- */
+typedef enum { GIO_LOW = 0, GIO_HIGH = 1 } GioLevel_t;
+typedef enum { GIO_INPUT = 0, GIO_OUTPUT = 1 } GioDir_t;
+
+/* ------------------------------------------------------------------------- */
 /* 1. GIO Logical Names (Split Read / Write per R5)                         */
 /* ------------------------------------------------------------------------- */
 typedef enum {
     GIO_READ_IMD_FAULT,
     GIO_READ_COUNT
 } GioReadName_t;
+
+#define GIO_READ_NONE   ((GioReadName_t)0xFFFF)
 
 typedef enum {
     GIO_WRITE_DEBUG,
@@ -27,6 +35,8 @@ typedef enum {
     GIO_WRITE_HV_CS,
     GIO_WRITE_COUNT
 } GioWriteName_t;
+
+#define GIO_WRITE_NONE  ((GioWriteName_t)0xFFFF)
 
 /* ------------------------------------------------------------------------- */
 /* 2. PWM Logical Names (Split Read / Write per R5)                         */

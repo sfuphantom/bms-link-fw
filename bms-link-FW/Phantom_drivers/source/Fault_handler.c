@@ -105,7 +105,7 @@ void Fault_Handler(void){
     }
     handling = true;
 
-    gio_write(GIO_IMD_FAULT_PIN, GIO_LOW);    // first, nothing before it can stop it
+    gio_write(GIO_WRITE_IMD_FAULT, GIO_LOW);    // first, nothing before it can stop it
     Charger_FaultShutdown();
     Fault_SendCAN();
 
@@ -178,7 +178,7 @@ void Fault_RaiseIMD(){
 //----------------------------------------------------------------------------------------------------
 static void ReleaseLineIfClear(void){
     if (!Fault_Any()){
-        gio_write(GIO_IMD_FAULT_PIN, GIO_HIGH);
+        gio_write(GIO_WRITE_IMD_FAULT, GIO_HIGH);
     }
 }
 
@@ -218,7 +218,7 @@ void IMD_FAULT_GIO_Notification(void){
 void Fault_Init(void){
     Fault_ClearAll();
 
-    const bool imdPinHigh = gio_read(GIO_IMD_FAULT_PIN) & 1;     // IMD pulls it low on a fault
+    const bool imdPinHigh = gio_read(GIO_READ_IMD_FAULT) & 1;     // IMD pulls it low on a fault
     if (!imdPinHigh){
         IMD_FAULT_GIO_Notification();
     }

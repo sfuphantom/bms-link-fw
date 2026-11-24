@@ -71,7 +71,7 @@ RoutineResult_t SendChargerControls_Routine(uint8_t * const step);
 RoutineResult_t ControlFans_Routine(uint8_t * const step);          // placeholder, no task row yet
 RoutineResult_t KeepSlavesAwake_Routine(uint8_t * const step);
 #if BMS_DEBUG_TASK_ENABLE
-RoutineResult_t Debug_Routine(uint8_t * const step);                // toggles GIO_DEBUG_PIN, put your own probes here
+RoutineResult_t Debug_Routine(uint8_t * const step);                // toggles GIO_WRITE_DEBUG, put your own probes here
 #endif
 
 #endif /* PHANTOM_DRIVERS_INCLUDE_BMS_ROUTINES_H_ */

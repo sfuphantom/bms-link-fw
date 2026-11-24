@@ -74,6 +74,17 @@ GioPin_t alloc_gioWritePin(const GioWriteName_t name)
     return gioWriteRows[name];
 }
 
+GioReadName_t alloc_gioReadName(const GioPin_t pin)
+{
+    size_t i;
+    for (i = 0; i < (size_t)GIO_READ_COUNT; i++) {
+        if (gioReadRows[i] == pin) {
+            return (GioReadName_t)i;
+        }
+    }
+    return GIO_READ_NONE;
+}
+
 #elif PRODUCT == PRODUCT_VCU
   #error "VCU pin allocation not implemented"
 #elif PRODUCT == PRODUCT_OTHER
