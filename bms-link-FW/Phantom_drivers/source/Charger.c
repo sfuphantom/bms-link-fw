@@ -214,7 +214,7 @@ static CanStatus_t Charger_SendAllCommands(void)
     for (i = 0U; i < CHARGER_PAGE_COUNT; i++) {
         Charger_BuildMessage((CHARGER_MSG_PAGE_t)(i + 1U), &data[i * CAN_MAX_DLC]);
     }
-    return can_send_multi(BMS2CHARGER_DATA, data, sizeof(data));
+    return can_send_multi(CAN_TX_BMS2CHARGER_DATA, data, sizeof(data));
 }
 
 /*----------------------------------------------------------------------------------------------------
@@ -223,7 +223,7 @@ static CanStatus_t Charger_SendAllCommands(void)
 CanStatus_t Charger_ReceiveStatus(void)
 {
     uint8_t frame[CAN_MAX_DLC];
-    const CanStatus_t status = can_receive(CHARGER2BMS_DATA, frame, sizeof(frame));
+    const CanStatus_t status = can_receive(CAN_RX_CHARGER2BMS_DATA, frame, sizeof(frame));
 
     /* OVERRUN: the data is valid, an older message was lost */
     if ((status == CAN_OK) || (status == CAN_ERR_OVERRUN)) {

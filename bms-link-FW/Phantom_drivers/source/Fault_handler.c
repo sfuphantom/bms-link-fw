@@ -66,7 +66,7 @@ bool Fault_SendCAN(void){
     const BMSFaultsData_t copy = Fault_Get();
     uint8_t buf[FAULT_CAN_BYTES];
     Pack(&copy, buf);
-    return can_send(BMS2ALL_FAULT, buf, sizeof(buf));
+    return can_send(CAN_TX_BMS2ALL_FAULT, buf, sizeof(buf));
 }
 
 //----------------------------------------------------------------------------------------------------

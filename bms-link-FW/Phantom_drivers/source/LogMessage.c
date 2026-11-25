@@ -158,15 +158,15 @@ void Log_Fault(const FaultId_t id, const char * const fmt, ...){
 // CAN and raw
 //------------------------------------------------------------------------------------
 // Length of the data in a message box. Add a case for a box that is not the default length.
-static uint8_t CanMsgLen(const CanBox_t msgBox){
+static uint8_t CanMsgLen(const uint8_t msgBox){
     switch (msgBox) {
         default: return CAN_MAX_DLC;
     }
 }
 
-void Log_CanLen(const CanBox_t msgBox, const uint8_t * const data, const uint8_t len){
+void Log_CanLen(const uint8_t msgBox, const uint8_t * const data, const uint8_t len){
 #if SERIAL_LOG_CAN
-    const uint8_t box = (uint8_t)msgBox;        // the enum can be bigger than a byte
+    const uint8_t box = msgBox;
     SendFrame(MSG_CAN, &box, 1, NULL, data, len);
 #else
     (void)msgBox;
@@ -175,7 +175,7 @@ void Log_CanLen(const CanBox_t msgBox, const uint8_t * const data, const uint8_t
 #endif
 }
 
-void Log_Can(const CanBox_t msgBox, const uint8_t * const data){
+void Log_Can(const uint8_t msgBox, const uint8_t * const data){
     Log_CanLen(msgBox, data, CanMsgLen(msgBox));
 }
 

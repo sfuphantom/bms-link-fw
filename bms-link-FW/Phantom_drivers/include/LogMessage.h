@@ -66,8 +66,8 @@ void Log_ArrayFloat(const LogLevel_t level, const char * const name, const float
 void Log_Fault  (const FaultId_t id, const char * const fmt, ...);
 
 // CAN. msgBox is the message box number. Log_Can takes the length from CanMsgLen() in the .c (8 by default).
-void Log_Can    (const CanBox_t msgBox, const uint8_t * const data);
-void Log_CanLen (const CanBox_t msgBox, const uint8_t * const data, const uint8_t len);
+void Log_Can    (const uint8_t msgBox, const uint8_t * const data);
+void Log_CanLen (const uint8_t msgBox, const uint8_t * const data, const uint8_t len);
 
 void Send_Raw   (const uint8_t * const data, const uint16_t len);
 

@@ -11,6 +11,8 @@
 
 #if BOARD == BOARD_TMS570_HW
 
+#include "can.h"
+
 /* ------------------------------------------------------------------------- */
 /* Pin Capability and Package Info Table (TMS570)                            */
 /* ------------------------------------------------------------------------- */
@@ -85,6 +87,57 @@ GioReadName_t alloc_gioReadName(const GioPin_t pin)
     return GIO_READ_NONE;
 }
 
+static const uint32_t canRxHwBoxes[CAN_RX_COUNT] = {
+    [CAN_RX_VCU2BMS_DATA]     = canMESSAGE_BOX4,
+    [CAN_RX_CHARGER2BMS_DATA] = canMESSAGE_BOX7,
+};
+_Static_assert((sizeof(canRxHwBoxes) / sizeof(canRxHwBoxes[0])) == CAN_RX_COUNT, "canRxHwBoxes count mismatch");
+
+static const uint32_t canTxHwBoxes[CAN_TX_COUNT] = {
+    [CAN_TX_BMS2ALL_FAULT]    = canMESSAGE_BOX1,
+    [CAN_TX_BMS2VCU_DATA]     = canMESSAGE_BOX3,
+    [CAN_TX_BMS2CHARGER_DATA] = canMESSAGE_BOX6,
+};
+_Static_assert((sizeof(canTxHwBoxes) / sizeof(canTxHwBoxes[0])) == CAN_TX_COUNT, "canTxHwBoxes count mismatch");
+
+uint32_t alloc_canRxHwBox(const CanRxBox_t box)
+{
+    if ((size_t)box >= (size_t)CAN_RX_COUNT) {
+        return 0U;
+    }
+    return canRxHwBoxes[box];
+}
+
+uint32_t alloc_canTxHwBox(const CanTxBox_t box)
+{
+    if ((size_t)box >= (size_t)CAN_TX_COUNT) {
+        return 0U;
+    }
+    return canTxHwBoxes[box];
+}
+
+CanRxBox_t alloc_canRxBox(const uint32_t hwBox)
+{
+    size_t i;
+    for (i = 0; i < (size_t)CAN_RX_COUNT; i++) {
+        if (canRxHwBoxes[i] == hwBox) {
+            return (CanRxBox_t)i;
+        }
+    }
+    return CAN_RX_NONE;
+}
+
+CanTxBox_t alloc_canTxBox(const uint32_t hwBox)
+{
+    size_t i;
+    for (i = 0; i < (size_t)CAN_TX_COUNT; i++) {
+        if (canTxHwBoxes[i] == hwBox) {
+            return (CanTxBox_t)i;
+        }
+    }
+    return CAN_TX_NONE;
+}
+
 #elif PRODUCT == PRODUCT_VCU
   #error "VCU pin allocation not implemented"
 #elif PRODUCT == PRODUCT_OTHER
@@ -122,6 +175,26 @@ bool board_selfCheck(void)
         } else {
             if ((info->flags & F_GIO) == 0U) { ok = false; }
             if ((info->flags & (F_RESERVED | F_GND | F_POWER)) != 0U) { ok = false; }
+        }
+    }
+
+    /* Verify CAN hardware boxes are valid and unique across RX and TX lists */
+    {
+        size_t j;
+        for (i = 0; i < (size_t)CAN_RX_COUNT; i++) {
+            if (canRxHwBoxes[i] == 0U) { ok = false; }
+            for (j = i + 1U; j < (size_t)CAN_RX_COUNT; j++) {
+                if (canRxHwBoxes[i] == canRxHwBoxes[j]) { ok = false; }
+            }
+            for (j = 0; j < (size_t)CAN_TX_COUNT; j++) {
+                if (canRxHwBoxes[i] == canTxHwBoxes[j]) { ok = false; }
+            }
+        }
+        for (i = 0; i < (size_t)CAN_TX_COUNT; i++) {
+            if (canTxHwBoxes[i] == 0U) { ok = false; }
+            for (j = i + 1U; j < (size_t)CAN_TX_COUNT; j++) {
+                if (canTxHwBoxes[i] == canTxHwBoxes[j]) { ok = false; }
+            }
         }
     }
 

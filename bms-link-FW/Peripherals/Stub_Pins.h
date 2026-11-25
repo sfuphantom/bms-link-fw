@@ -241,6 +241,10 @@ typedef struct {
 GioPin_t       alloc_gioReadPin(const GioReadName_t name);
 GioPin_t       alloc_gioWritePin(const GioWriteName_t name);
 GioReadName_t  alloc_gioReadName(const GioPin_t pin);
+uint32_t       alloc_canRxHwBox(const CanRxBox_t box);
+uint32_t       alloc_canTxHwBox(const CanTxBox_t box);
+CanRxBox_t     alloc_canRxBox(const uint32_t hwBox);
+CanTxBox_t     alloc_canTxBox(const uint32_t hwBox);
 const PinInfo_t * pin_getInfo(const GioPin_t pin);
 
 #elif BOARD == BOARD_STM32_HW

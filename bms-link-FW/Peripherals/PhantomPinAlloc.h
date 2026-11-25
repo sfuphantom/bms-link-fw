@@ -60,12 +60,16 @@ typedef enum {
     CAN_RX_COUNT
 } CanRxBox_t;
 
+#define CAN_RX_NONE     ((CanRxBox_t)CAN_RX_COUNT)
+
 typedef enum {
     CAN_TX_BMS2ALL_FAULT,
     CAN_TX_BMS2VCU_DATA,
     CAN_TX_BMS2CHARGER_DATA,
     CAN_TX_COUNT
 } CanTxBox_t;
+
+#define CAN_TX_NONE     ((CanTxBox_t)CAN_TX_COUNT)
 
 /* ------------------------------------------------------------------------- */
 /* 4. Analog Logical Names (ADC Read / DAC Write per R5)                    */
